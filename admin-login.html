@@ -3,246 +3,141 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ruddranil.io - Administrative Authentication Terminal</title>
   <meta name="robots" content="noindex, nofollow, noarchive">
+  <title>Ruddranil.io — Admin Sign In</title>
   <link rel="stylesheet" href="style.css">
   <script>
-    (function() {
-      try {
-        const theme = localStorage.getItem('ruddranil_theme') || 'dark';
-        document.documentElement.setAttribute('data-theme', theme);
-      } catch (e) {}
-    })();
+    try {
+      document.documentElement.setAttribute('data-theme', localStorage.getItem('ruddranil_theme') || 'dark');
+    } catch (_) {}
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body style="background: var(--bg-dark); min-height: 100vh; display: flex; flex-direction: column;">
-
-  <!-- Admin Navbar -->
   <header class="navbar" style="border-bottom: 1px solid rgba(239, 68, 68, 0.25);">
     <div class="container nav-container">
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <a href="index.html" class="brand-logo">Ruddranil<span class="dot">.io</span></a>
-        <span class="brand-badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.35);">
-          RESTRICTED GATE
-        </span>
-      </div>
-
+      <a href="index.html" class="brand-logo">Ruddranil<span class="dot">.io</span></a>
       <div class="nav-actions">
-        <button id="themeToggleBtn" class="btn-theme-toggle" aria-label="Toggle light or dark theme" title="Toggle Theme (Light / Dark)" type="button">
-          <span class="theme-icon-indicator" aria-hidden="true">🌙</span>
-          <span class="theme-text-label">Dark</span>
+        <button id="themeToggleBtn" class="btn-theme-toggle" aria-label="Toggle light or dark theme" type="button">
+          <span class="theme-icon-indicator" aria-hidden="true">🌙</span><span class="theme-text-label">Dark</span>
         </button>
-        <a href="index.html" class="btn btn-secondary btn-sm" style="font-size: 12px;">
-          ← Public Site
-        </a>
+        <a href="index.html" class="btn btn-secondary btn-sm">← Public Site</a>
       </div>
     </div>
   </header>
-
   <main style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 16px;">
-    <div style="max-width: 440px; width: 100%; margin: 0 auto;">
-      
-      <!-- Security Card -->
-      <div class="card" style="padding: 36px 28px; border-color: rgba(239, 68, 68, 0.35); box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.85); background: var(--card-bg); border-radius: 16px; position: relative;">
-        
-        <div style="width: 58px; height: 58px; border-radius: 16px; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; font-size: 26px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
-          🛡️
-        </div>
-
-        <div style="text-align: center; margin-bottom: 22px;">
-          <span class="section-kicker" style="color: #f87171; margin-bottom: 4px; display: inline-block;">
-            INTERNAL COMMAND TERMINAL
-          </span>
-          <h1 style="font-size: 22px; font-weight: 800; color: #fff; margin-bottom: 6px;">
-            Admin Authentication
-          </h1>
-          <p style="font-size: 13px; color: var(--text-gray); line-height: 1.5;">
-            Restricted to administrative personnel. Enter authorized credentials to access master controls.
-          </p>
-        </div>
-
-        <!-- Alert Notification -->
-        <div id="adminAuthAlert" class="auth-alert-box" style="display: none; margin-bottom: 18px;" role="alert"></div>
-
-        <form id="adminLoginForm" onsubmit="handleAdminAuth(event)" novalidate>
-          <div class="form-group" style="margin-bottom: 16px;">
-            <label class="form-label" for="adminIdentifier">Admin Identifier / Email</label>
-            <input 
-              type="text" 
-              id="adminIdentifier" 
-              class="form-input" 
-              placeholder="admin@ruddranil.io or username" 
-              value="admin@ruddranil.io" 
-              required 
-              autocomplete="username"
-            >
-          </div>
-
-          <div class="form-group" style="margin-bottom: 20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <label class="form-label" for="adminPassword" style="margin-bottom: 0;">Master Passcode / Key</label>
-              <span style="font-size: 11px; color: var(--text-dark-gray);">Default: admin123</span>
-            </div>
-            <div class="password-input-wrap">
-              <input 
-                type="password" 
-                id="adminPassword" 
-                class="form-input" 
-                placeholder="Enter master password" 
-                value="admin123" 
-                required 
-                autocomplete="current-password"
-              >
-              <button type="button" class="password-toggle-btn" onclick="togglePassVisibility('adminPassword', this)" aria-label="Toggle password visibility">
-                👁️
-              </button>
-            </div>
-          </div>
-
-          <button type="submit" id="btnAdminSubmit" class="btn btn-primary btn-block btn-lg" style="background: linear-gradient(135deg, #ef4444, #dc2626); border-color: #ef4444; justify-content: center; font-weight: 700; margin-bottom: 12px;">
-            <span id="adminBtnLabel">Unlock Admin Console →</span>
-          </button>
-
-          <button type="button" onclick="quickAdminUnlock()" class="btn btn-secondary btn-block btn-sm" style="justify-content: center; font-size: 12px;">
-            ⚡ Quick Access (Ruddranil Master)
-          </button>
-        </form>
-
-        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color); text-align: center; font-size: 11.5px; color: var(--text-dark-gray);">
-          <span>🔒 End-to-End Encrypted Session • IP Logged for Security</span>
-        </div>
-
+    <section class="card" style="max-width: 440px; width: 100%; padding: 36px 28px; border-color: rgba(239, 68, 68, 0.35); border-radius: 16px;">
+      <div style="text-align: center; margin-bottom: 22px;">
+        <span class="section-kicker" style="color: #f87171;">RESTRICTED ADMIN ACCESS</span>
+        <h1 style="font-size: 22px; font-weight: 800; color: #fff; margin: 8px 0;">Admin Sign In</h1>
+        <p style="font-size: 13px; color: var(--text-gray);">Sign in with an administrator account. Admin access must be assigned by the trusted Supabase project administrator.</p>
       </div>
-
-    </div>
+      <div id="adminAuthAlert" class="auth-alert-box" style="display: none; margin-bottom: 18px;" role="alert" aria-live="polite"></div>
+      <form id="adminLoginForm" novalidate>
+        <div class="form-group">
+          <label class="form-label" for="adminIdentifier">Admin email</label>
+          <input type="email" id="adminIdentifier" class="form-input" placeholder="admin@example.com" required autocomplete="username" autocapitalize="none" spellcheck="false">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="adminPassword">Password</label>
+          <input type="password" id="adminPassword" class="form-input" placeholder="Enter your password" required autocomplete="current-password">
+        </div>
+        <button type="submit" id="btnAdminSubmit" class="btn btn-primary btn-block btn-lg" style="background: linear-gradient(135deg, #ef4444, #dc2626); border-color: #ef4444; justify-content: center;">
+          <span id="adminBtnLabel">Sign in securely</span>
+        </button>
+      </form>
+      <p style="margin-top: 20px; font-size: 11.5px; color: var(--text-dark-gray); text-align: center;">No demo credentials or quick-unlock option is available.</p>
+    </section>
   </main>
-
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-client.js"></script>
   <script>
-    // Dual Theme initialization
-    document.addEventListener('DOMContentLoaded', () => {
-      const toggle = document.getElementById('themeToggleBtn');
-      if (toggle) {
-        toggle.onclick = () => {
-          const current = document.documentElement.getAttribute('data-theme') || 'dark';
-          const next = current === 'dark' ? 'light' : 'dark';
-          document.documentElement.setAttribute('data-theme', next);
-          try { localStorage.setItem('ruddranil_theme', next); } catch (e) {}
-          const label = toggle.querySelector('.theme-text-label');
-          const icon = toggle.querySelector('.theme-icon-indicator');
-          if (label) label.textContent = next === 'dark' ? 'Dark' : 'Light';
-          if (icon) icon.textContent = next === 'dark' ? '🌙' : '☀️';
-        };
+    const form = document.getElementById('adminLoginForm');
+    const alertBox = document.getElementById('adminAuthAlert');
+    const submitButton = document.getElementById('btnAdminSubmit');
+    const buttonLabel = document.getElementById('adminBtnLabel');
+
+    function showAdminError(message) {
+      alertBox.textContent = message;
+      alertBox.className = 'auth-alert-box auth-alert-error';
+      alertBox.style.display = 'block';
+    }
+
+    function hasTrustedAdminClaim(user) {
+      const claims = user && user.app_metadata;
+      return Boolean(claims && (claims.role === 'admin' || claims.is_admin === true || claims.is_admin === 'true'));
+    }
+
+    function completeAdminSignIn(user) {
+      // This marker is only a UI convenience for the legacy admin page; it is NOT server authorization.
+      sessionStorage.setItem('ruddranil_admin_unlocked', 'true');
+      const displayUser = {
+        id: user.id,
+        name: user.user_metadata?.full_name || 'Administrator',
+        email: user.email || '',
+        role: 'admin'
+      };
+      localStorage.setItem('currentUser', JSON.stringify(displayUser));
+      window.location.replace('admin.html');
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      alertBox.style.display = 'none';
+      const email = document.getElementById('adminIdentifier').value.trim().toLowerCase();
+      const passwordInput = document.getElementById('adminPassword');
+      const password = passwordInput.value;
+      if (!email || !password) {
+        showAdminError('Enter your administrator email and password.');
+        return;
+      }
+      if (!window.sbClient?.auth) {
+        showAdminError('Authentication service is unavailable. Please try again later.');
+        return;
       }
 
-      // If already unlocked, redirect straight to admin console
-      if (sessionStorage.getItem('ruddranil_admin_unlocked') === 'true') {
-        window.location.href = 'admin.html';
+      submitButton.disabled = true;
+      buttonLabel.textContent = 'Verifying administrator…';
+      try {
+        const { data, error } = await window.sbClient.auth.signInWithPassword({ email, password });
+        passwordInput.value = '';
+        if (error || !data?.user) {
+          showAdminError('Sign-in failed. Check your credentials and try again.');
+          return;
+        }
+        if (!hasTrustedAdminClaim(data.user)) {
+          await window.sbClient.auth.signOut();
+          showAdminError('This account is not authorized for the admin console.');
+          return;
+        }
+        completeAdminSignIn(data.user);
+      } catch (_) {
+        passwordInput.value = '';
+        showAdminError('Unable to verify your account. Please try again.');
+      } finally {
+        submitButton.disabled = false;
+        buttonLabel.textContent = 'Sign in securely';
       }
     });
 
-    function togglePassVisibility(id, btn) {
-      const input = document.getElementById(id);
-      if (!input) return;
-      if (input.type === 'password') {
-        input.type = 'text';
-        btn.textContent = '🙈';
-      } else {
-        input.type = 'password';
-        btn.textContent = '👁️';
-      }
-    }
+    document.addEventListener('DOMContentLoaded', () => {
+      const toggle = document.getElementById('themeToggleBtn');
+      if (toggle) toggle.addEventListener('click', () => {
+        const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        try { localStorage.setItem('ruddranil_theme', next); } catch (_) {}
+        toggle.querySelector('.theme-text-label').textContent = next === 'dark' ? 'Dark' : 'Light';
+        toggle.querySelector('.theme-icon-indicator').textContent = next === 'dark' ? '🌙' : '☀️';
+      });
 
-    function showAdminAlert(msg, type = 'error') {
-      const alert = document.getElementById('adminAuthAlert');
-      if (!alert) return;
-      alert.style.display = 'block';
-      alert.className = type === 'error' ? 'auth-alert-box auth-alert-error' : 'auth-alert-box auth-alert-success';
-      alert.innerHTML = `${type === 'error' ? '⚠️' : '✓'} ${msg}`;
-    }
-
-    function clearAdminAlert() {
-      const alert = document.getElementById('adminAuthAlert');
-      if (alert) alert.style.display = 'none';
-    }
-
-    async function handleAdminAuth(e) {
-      e.preventDefault();
-      clearAdminAlert();
-
-      const ident = document.getElementById('adminIdentifier').value.trim();
-      const pass = document.getElementById('adminPassword').value;
-
-      if (!ident || !pass) {
-        showAdminAlert('Please enter both identifier and password.');
-        return;
-      }
-
-      const submitBtn = document.getElementById('btnAdminSubmit');
-      const btnLabel = document.getElementById('adminBtnLabel');
-      submitBtn.disabled = true;
-      btnLabel.innerHTML = 'Verifying credentials...';
-
-      // 1. Check against master passcode
-      const isMasterPass = (pass === 'admin123' || pass === 'ruddranil2026' || pass === 'ruddranil_admin');
-      const isMasterUser = ident.toLowerCase().includes('admin') || ident.toLowerCase().includes('ruddranil');
-
-      if (isMasterPass && isMasterUser) {
-        completeAdminLogin('Ruddranil', ident);
-        return;
-      }
-
-      // 2. Also check if user has a valid Supabase login as admin
-      if (window.sbClient && window.sbClient.auth) {
-        try {
-          const { data, error } = await window.sbClient.auth.signInWithPassword({
-            email: ident,
-            password: pass
-          });
-          if (!error && data?.user) {
-            completeAdminLogin(data.user.user_metadata?.full_name || 'Ruddranil Admin', data.user.email);
-            return;
-          }
-        } catch (err) {}
-      }
-
-      // If passcode is accepted
-      if (pass === 'admin123' || pass.length >= 6) {
-        completeAdminLogin('Ruddranil', ident);
-        return;
-      }
-
-      showAdminAlert('Invalid admin credentials. Please verify your passcode.');
-      submitBtn.disabled = false;
-      btnLabel.textContent = 'Unlock Admin Console →';
-    }
-
-    function quickAdminUnlock() {
-      completeAdminLogin('Ruddranil', 'admin@ruddranil.io');
-    }
-
-    function completeAdminLogin(name, email) {
-      sessionStorage.setItem('ruddranil_admin_unlocked', 'true');
-      const adminObj = {
-        id: 'admin-master',
-        name: name || 'Ruddranil',
-        email: email || 'admin@ruddranil.io',
-        role: 'admin',
-        emailVerified: true
-      };
-      try {
-        localStorage.setItem('currentUser', JSON.stringify(adminObj));
-      } catch (e) {}
-
-      showAdminAlert('Admin credentials verified! Loading console...', 'success');
-      setTimeout(() => {
-        window.location.href = 'admin.html';
-      }, 400);
-    }
+      // Only accept an existing session if Supabase's trusted app_metadata confirms admin access.
+      window.sbClient?.auth?.getSession().then(({ data }) => {
+        const user = data?.session?.user;
+        if (user && hasTrustedAdminClaim(user)) completeAdminSignIn(user);
+      }).catch(() => {});
+    });
   </script>
 </body>
 </html>
