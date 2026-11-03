@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ruddranil.io - Work &amp; Project Tracking</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    (function() {
+      try {
+        const theme = localStorage.getItem('ruddranil_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body style="background: var(--bg-dark);">
+
+  <!-- Clean Single Responsive Navigation Bar -->
+  <header class="navbar">
+    <div class="container nav-container">
+      <a href="index.html" class="brand-logo">
+        Ruddranil<span class="dot">.io</span>
+      </a>
+
+      <nav class="nav-menu" id="navMenu" aria-label="Main navigation">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="index.html#about" class="nav-link">About</a>
+        <a href="index.html#services" class="nav-link">Services</a>
+        <a href="portfolio.html" class="nav-link">Portfolio</a>
+        <a href="work-tracking.html" class="nav-link active">Work Tracking</a>
+        <a href="reviews.html" class="nav-link">Reviews</a>
+        <a href="index.html#contact" class="nav-link">Contact</a>
+        <div class="nav-mobile-auth-wrapper" id="navMobileAuthContainer"></div>
+      </nav>
+
+      <div class="nav-actions">
+        <button id="themeToggleBtn" class="btn-theme-toggle" aria-label="Toggle light or dark theme" title="Toggle Theme (Light / Dark)" type="button">
+          <span class="theme-icon-indicator" aria-hidden="true">🌙</span>
+          <span class="theme-text-label">Dark</span>
+        </button>
+        <button id="navLoginBtn" class="btn-nav-auth btn-nav-auth-desktop">Login Now</button>
+        <button id="menuToggle" class="menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false" type="button">
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="nav-backdrop" id="navBackdrop"></div>
+
+  <main style="padding: 50px 0 80px;">
+    <div class="container" style="max-width: 920px;">
+      
+      <!-- Section Header -->
+      <div style="text-align: center; margin-bottom: 34px;">
+        <span class="section-kicker">PROJECT PROGRESS</span>
+        <h1 class="section-title">
+          Live Project <span class="highlight">Tracking.</span>
+        </h1>
+        <p class="section-desc" style="margin: 0 auto;">
+          Follow your active project milestones, completion percentage, and real-time administrator updates.
+        </p>
+      </div>
+
+      <!-- Search / Lookup Box -->
+      <div class="card" style="padding: 26px; margin-bottom: 30px;">
+        <label class="form-label" for="trackOrderIdInput">Enter Your Order ID to Track</label>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+          <input 
+            type="text" 
+            id="trackOrderIdInput" 
+            class="form-input" 
+            placeholder="e.g. RUD-20261030-5D110193 or RUD-2026-001"
+            value="RUD-20261030-5D110193"
+            style="flex: 1; min-width: 220px; font-weight: 600; font-family: monospace;"
+          >
+          <button id="trackOrderBtn" class="btn btn-primary btn-lg" style="padding: 11px 28px;">
+            Track Order
+          </button>
+        </div>
+
+        <!-- Quick Test Order ID Chips -->
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 16px; flex-wrap: wrap; font-size: 12px; color: var(--text-dark-gray);">
+          <span style="font-weight: 600;">Sample Orders:</span>
+          <button type="button" onclick="setTrackId('RUD-20261030-5D110193')" class="btn btn-outline btn-sm" style="font-size: 11px; padding: 4px 10px; border-color: rgba(56, 189, 248, 0.4); color: #38bdf8; font-weight: 700;">RUD-20261030-5D110193 (Review · 85%)</button>
+          <button type="button" onclick="setTrackId('RUD-2026-001')" class="btn btn-outline btn-sm" style="font-size: 11px; padding: 4px 10px;">#RUD-2026-001 (In Progress · 60%)</button>
+          <button type="button" onclick="setTrackId('RUD-20261014-54A82697')" class="btn btn-outline btn-sm" style="font-size: 11px; padding: 4px 10px;">RUD-20261014-54A82697 (Pending)</button>
+        </div>
+      </div>
+
+      <!-- Tracking Display Container (Rendered dynamically via script.js) -->
+      <div id="trackingDisplayContainer">
+        <!-- Rendered by renderOrderTracking -->
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-content">
+      <h3 class="footer-brand">Ruddranil.io</h3>
+      <p class="footer-sub">Web Developer &amp; Digital Creative</p>
+      <div class="footer-copy">
+        &copy; 2026 Ruddranil.io. All rights reserved.
+      </div>
+    </div>
+  </footer>
+
+  <!-- CLIENT MODAL: ACCEPT DELIVERY & LEAVE 5-STAR REVIEW -->
+  <div id="clientAcceptDeliveryModal" class="modal-overlay" role="dialog" aria-modal="true" style="display: none;" onclick="if(event.target === this) closeAcceptDeliveryModal()">
+    <div class="modal-card fiverr-modal-card" style="max-width: 580px; border-radius: var(--radius-lg); text-align: left;">
+      <button type="button" onclick="closeAcceptDeliveryModal()" class="modal-close-btn" aria-label="Close modal">✕</button>
+
+      <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+        <span class="badge-status badge-status-completed" style="font-size: 11px; padding: 3px 10px; background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);">
+          ✓ FINALIZE ORDER
+        </span>
+        <span style="font-size: 12px; color: var(--accent-cyan); font-weight: 700;">Completed Work Approval</span>
+      </div>
+
+      <h3 class="modal-header-title" style="font-size: 22px; font-weight: 800; margin-bottom: 6px; color: #fff;">
+        Accept Delivery &amp; Complete Order
+      </h3>
+      <p class="modal-subtext" style="font-size: 13.5px; margin-bottom: 20px; color: var(--text-gray);">
+        Accepting this delivery will mark your order as 100% completed. Please share your experience working with Ruddranil!
+      </p>
+
+      <form id="clientAcceptDeliveryForm" onsubmit="handleAcceptDeliveryFormSubmit(event)">
+        <input type="hidden" id="acceptDeliveryOrderId">
+
+        <!-- Rating Stars Selection -->
+        <div class="form-group" style="text-align: center; margin-bottom: 20px; background: rgba(15, 23, 42, 0.6); padding: 16px; border-radius: 12px; border: 1px solid var(--border-color);">
+          <label style="display: block; font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 8px;">
+            How was your experience?
+          </label>
+          <div id="deliveryRatingStarsWrap" style="font-size: 32px; display: inline-flex; gap: 8px; cursor: pointer; color: #fbbf24;">
+            <span class="delivery-star" data-rating="1" onclick="setDeliveryRating(1)">★</span>
+            <span class="delivery-star" data-rating="2" onclick="setDeliveryRating(2)">★</span>
+            <span class="delivery-star" data-rating="3" onclick="setDeliveryRating(3)">★</span>
+            <span class="delivery-star" data-rating="4" onclick="setDeliveryRating(4)">★</span>
+            <span class="delivery-star" data-rating="5" onclick="setDeliveryRating(5)">★</span>
+          </div>
+          <input type="hidden" id="deliveryRatingValue" value="5">
+          <div id="deliveryRatingDesc" style="font-size: 12px; color: #10b981; font-weight: 700; margin-top: 6px;">
+            5.0 — Outstanding &amp; Highly Recommended!
+          </div>
+        </div>
+
+        <!-- Feedback Review Note -->
+        <div class="form-group">
+          <label class="form-label" for="deliveryReviewComment">
+            Your Review &amp; Feedback <span style="color: #ef4444;">*</span>
+          </label>
+          <textarea id="deliveryReviewComment" class="form-textarea" rows="4" required placeholder="Write your genuine feedback about Ruddranil's work quality, communication, and delivery speed..."></textarea>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 16px;">
+          <button type="button" onclick="closeAcceptDeliveryModal()" class="btn btn-secondary">
+            Cancel
+          </button>
+          <button type="submit" id="btnConfirmAcceptDelivery" class="btn btn-primary btn-lg" style="background: linear-gradient(135deg, #10b981, #059669); font-weight: 800; min-width: 190px; justify-content: center; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);">
+            ✓ Approve &amp; Complete
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- CLIENT MODAL: REQUEST REVISION -->
+  <div id="clientRevisionModal" class="modal-overlay" role="dialog" aria-modal="true" style="display: none;" onclick="if(event.target === this) closeClientRevisionModal()">
+    <div class="modal-card fiverr-modal-card" style="max-width: 580px; border-radius: var(--radius-lg); text-align: left;">
+      <button type="button" onclick="closeClientRevisionModal()" class="modal-close-btn" aria-label="Close modal">✕</button>
+
+      <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+        <span class="badge-status" style="font-size: 11px; padding: 3px 10px; background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4);">
+          🔄 PROJECT REVISION
+        </span>
+        <span style="font-size: 12px; color: var(--accent-cyan); font-weight: 700;">Modification Request</span>
+      </div>
+
+      <h3 class="modal-header-title" style="font-size: 22px; font-weight: 800; margin-bottom: 6px; color: #fff;">
+        Request Changes or Revisions
+      </h3>
+      <p class="modal-subtext" style="font-size: 13.5px; margin-bottom: 18px; color: var(--text-gray);">
+        Need something adjusted? Detail the changes you need, and Ruddranil will revise and re-deliver your work promptly.
+      </p>
+
+      <form id="clientRevisionForm" onsubmit="handleClientRevisionSubmit(event)">
+        <input type="hidden" id="clientRevisionOrderId">
+
+        <div class="form-group">
+          <label class="form-label" for="clientRevisionNote">
+            Describe the Needed Modifications <span style="color: #ef4444;">*</span>
+          </label>
+          <textarea id="clientRevisionNote" class="form-textarea" rows="5" required placeholder="Please specify the exact adjustments you want (e.g. change color scheme, tweak headline, adjust video pacing, re-generate specific leads)..."></textarea>
+          <div style="font-size: 11px; color: var(--text-dark-gray); margin-top: 4px;">
+            Be as clear and specific as possible so Ruddranil can deliver exactly what you envision.
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 16px;">
+          <button type="button" onclick="closeClientRevisionModal()" class="btn btn-secondary">
+            Cancel
+          </button>
+          <button type="submit" id="btnSubmitClientRevision" class="btn btn-primary btn-lg" style="background: linear-gradient(135deg, #f59e0b, #d97706); font-weight: 800; min-width: 180px; justify-content: center; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);">
+            🔄 Submit Revision
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Supabase & Core Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js?v=20261102_v4"></script>
+  <script src="services-data.js"></script>
+  <script src="reviews.js"></script>
+  <script src="script.js?v=20261102_v4"></script>
+</body>
+</html>

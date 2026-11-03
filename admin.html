@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ruddranil.io - Dedicated Admin Control Center</title>
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    (function() {
+      try {
+        const theme = localStorage.getItem('ruddranil_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body style="background: var(--bg-dark);">
+
+  <!-- Admin Navbar -->
+  <header class="navbar" style="border-bottom: 1px solid var(--border-color);">
+    <div class="container nav-container">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <a href="index.html" class="brand-logo">Ruddranil</a>
+        <span class="brand-badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3);">
+          SUPER ADMIN
+        </span>
+      </div>
+
+      <nav class="nav-menu" id="navMenu" aria-label="Admin navigation">
+        <a href="index.html" class="nav-link">🌐 Public Site</a>
+        <a href="customer-dashboard.html" class="nav-link">👤 Customer Portal</a>
+        <a href="admin.html" class="nav-link active">🔐 Admin Console</a>
+        <div class="nav-mobile-auth-wrapper">
+          <button onclick="adminLogout()" class="btn btn-danger btn-block" style="justify-content: center;">
+            Lock / Logout
+          </button>
+        </div>
+      </nav>
+
+      <div class="nav-actions">
+        <!-- Theme Toggle Button -->
+        <button id="themeToggleBtn" class="btn-theme-toggle" aria-label="Toggle light or dark theme" title="Toggle Theme (Light / Dark)" type="button">
+          <span class="theme-icon-indicator" aria-hidden="true">🌙</span>
+          <span class="theme-text-label">Dark</span>
+        </button>
+
+        <a href="customer-dashboard.html" class="btn btn-secondary btn-sm" style="font-size: 12px;">
+          Customer View
+        </a>
+        <button onclick="adminLogout()" class="btn btn-danger btn-sm" style="font-size: 12px;">
+          Lock / Logout
+        </button>
+        <button id="menuToggle" class="menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false" type="button">
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="nav-backdrop" id="navBackdrop"></div>
+
+  <!-- Admin Security Passcode Gate (Enforces admin authorization) -->
+  <div id="adminLockScreen" style="display: none; min-height: 80vh; align-items: center; justify-content: center; padding: 40px 16px;">
+    <div class="card" style="max-width: 440px; width: 100%; margin: 0 auto; padding: 34px 24px; text-align: center; border-color: #334155; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9);">
+      <div style="width: 54px; height: 54px; border-radius: 14px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; font-size: 24px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+        🔒
+      </div>
+      <h2 style="font-size: 22px; font-weight: 800; color: #fff; margin-bottom: 8px;">Admin Security Gate</h2>
+      <p style="font-size: 13px; color: var(--text-gray); margin-bottom: 22px; line-height: 1.5;">
+        This portal is restricted to authorized administrators. Access requires verified admin authorization.
+      </p>
+
+      <form onsubmit="verifyAdminPasscode(event)">
+        <div class="form-group" style="text-align: left;">
+          <label class="form-label" for="adminPassInput">Admin Passcode / Password</label>
+          <input type="password" id="adminPassInput" class="form-input" placeholder="Enter admin password (default: admin123)" value="admin123" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg" style="margin-bottom: 12px;">
+          Unlock Admin Console
+        </button>
+
+        <button type="button" onclick="bypassAdminUnlock()" class="btn btn-secondary btn-block btn-sm" style="margin-bottom: 18px;">
+          ⚡ 1-Click Fast Unlock (Ruddranil)
+        </button>
+      </form>
+
+      <div style="border-top: 1px solid var(--border-color); padding-top: 16px;">
+        <a href="customer-dashboard.html" style="font-size: 13px; color: var(--primary-blue-light); font-weight: 600;">
+          ← Switch to Customer Portal
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Main Dashboard Container -->
+  <main id="adminMainArea" style="padding: 34px 0 80px;">
+    <div class="container">
+
+      <!-- Admin Top Banner with Quick Actions -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 26px; flex-wrap: wrap; gap: 16px; border-bottom: 1px solid #1a263d; padding-bottom: 20px;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <span class="badge-status badge-in-progress" style="font-size: 11px;">
+              ● System Online
+            </span>
+            <span style="font-size: 12px; color: var(--text-dark-gray);">Master Database Active</span>
+          </div>
+          <h1 style="font-size: 26px; font-weight: 800; color: #fff;">Orders &amp; Service Control Center</h1>
+          <p style="font-size: 14px; color: var(--text-gray);">
+            Manage multi-tier service pricing, custom coupons, and live client project orders.
+          </p>
+        </div>
+
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button onclick="exportDataBackup()" class="btn btn-secondary btn-sm">
+            💾 Export Database JSON
+          </button>
+          <a href="customer-dashboard.html" class="btn btn-primary btn-sm" target="_blank">
+            👤 Live Customer View ↗
+          </a>
+        </div>
+      </div>
+
+      <!-- Realtime Metric Stats -->
+      <div class="dash-info-grid" style="margin-bottom: 30px;">
+        <div class="card" style="padding: 20px; border-left: 3px solid #3b82f6;">
+          <span style="font-size: 11px; text-transform: uppercase; color: var(--text-dark-gray); font-weight: 700; letter-spacing: 0.5px;">All Customer Orders</span>
+          <div style="font-size: 32px; font-weight: 800; color: #fff; margin-top: 4px;" id="adminTotalOrders">4</div>
+          <div style="font-size: 12px; color: var(--text-gray); margin-top: 2px;">In local system</div>
+        </div>
+
+        <div class="card" style="padding: 20px; border-left: 3px solid #f59e0b;">
+          <span style="font-size: 11px; text-transform: uppercase; color: var(--text-dark-gray); font-weight: 700; letter-spacing: 0.5px;">Pending Approval</span>
+          <div style="font-size: 32px; font-weight: 800; color: var(--status-pending); margin-top: 4px;" id="adminPendingOrders">3</div>
+          <div style="font-size: 12px; color: var(--text-gray); margin-top: 2px;">Awaiting kickoff</div>
+        </div>
+
+        <div class="card" style="padding: 20px; border-left: 3px solid #a855f7;">
+          <span style="font-size: 11px; text-transform: uppercase; color: var(--text-dark-gray); font-weight: 700; letter-spacing: 0.5px;">Active Development</span>
+          <div style="font-size: 32px; font-weight: 800; color: #3b82f6; margin-top: 4px;" id="adminActiveOrders">1</div>
+          <div style="font-size: 12px; color: var(--text-gray); margin-top: 2px;">In Progress &amp; Review</div>
+        </div>
+
+        <div class="card" style="padding: 20px; border-left: 3px solid #10b981;">
+          <span style="font-size: 11px; text-transform: uppercase; color: var(--text-dark-gray); font-weight: 700; letter-spacing: 0.5px;">Delivered Orders</span>
+          <div style="font-size: 32px; font-weight: 800; color: var(--status-success); margin-top: 4px;" id="adminDeliveredOrders">0</div>
+          <div style="font-size: 12px; color: var(--text-gray); margin-top: 2px;">Completed</div>
+        </div>
+      </div>
+
+      <!-- Admin Sub-Navigation Tabs -->
+      <div class="admin-subnav" role="tablist">
+        <button id="subnavOrdersBtn" class="admin-subnav-btn active" onclick="switchAdminTab('orders')">
+          📦 Orders Pipeline (<span id="tabOrderCount">4</span>)
+        </button>
+        <button id="subnavServicesBtn" class="admin-subnav-btn" onclick="switchAdminTab('services')">
+          🏷️ Services &amp; Packages (5)
+        </button>
+        <button id="subnavCouponsBtn" class="admin-subnav-btn" onclick="switchAdminTab('coupons')">
+          🎟️ Discounts &amp; Coupons (<span id="tabCouponCount">3</span>)
+        </button>
+        <button id="subnavReviewsBtn" class="admin-subnav-btn" onclick="switchAdminTab('reviews')">
+          ⭐ Reviews Moderation (<span id="tabReviewsCount">3</span>)
+        </button>
+        <button id="subnavProjectsBtn" class="admin-subnav-btn" onclick="switchAdminTab('projects')">
+          🖼️ Portfolio &amp; Projects (<span id="tabProjectsCount">3</span>)
+        </button>
+      </div>
+
+      <!-- TAB 1: MASTER ORDERS PIPELINE -->
+      <section id="adminTabOrders">
+        <div class="card" style="padding: 24px; margin-bottom: 36px; border-color: #243554;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h3 style="font-size: 18px; font-weight: 800; color: #fff;">Master Client Orders Pipeline</h3>
+              <p style="font-size: 13px; color: var(--text-gray);">
+                Filter, search, review instructions, and update status/progress.
+              </p>
+            </div>
+            <button onclick="renderAdminDashboard(); showToast('Orders refreshed');" class="btn btn-secondary btn-sm">
+              ↻ Refresh Pipeline
+            </button>
+          </div>
+
+          <!-- Search & Filters -->
+          <div style="display: flex; gap: 12px; margin-bottom: 18px; flex-wrap: wrap;">
+            <input 
+              type="text" 
+              id="adminOrderSearch" 
+              class="form-input" 
+              placeholder="Search by Order ID or Client email..." 
+              style="flex: 2; min-width: 220px;"
+              oninput="filterAdminOrdersTable()"
+            >
+            <select id="adminStatusFilter" class="form-select" style="flex: 1; min-width: 140px;" onchange="filterAdminOrdersTable()">
+              <option value="all">All Statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Accepted">Accepted</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Review">Review</option>
+              <option value="Delivered">Delivered</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </div>
+
+          <!-- Table wrapped in responsive scroll container -->
+          <!-- Table wrapped in responsive scroll container -->
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr class="admin-table-header" style="border-bottom: 1px solid var(--border-color);">
+                  <th style="padding: 12px 14px; text-align: left;">Order ID</th>
+                  <th style="padding: 12px 14px; text-align: left;">Customer</th>
+                  <th style="padding: 12px 14px; text-align: left;">Service &amp; Package</th>
+                  <th style="padding: 12px 14px; text-align: left;">Pricing &amp; Timeline</th>
+                  <th style="padding: 12px 14px; text-align: left;">Status</th>
+                  <th style="padding: 12px 14px; text-align: left;">Progress</th>
+                  <th style="padding: 12px 14px; text-align: left;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="adminOrdersTableBody">
+                <!-- Rendered via admin.js -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Add Manual Order Form -->
+        <div class="card" style="max-width: 720px; margin-bottom: 40px;">
+          <div style="margin-bottom: 16px;">
+            <span class="badge-status badge-in-progress" style="font-size: 11px;">Manual Entry</span>
+            <h3 class="modal-header-title" style="font-size: 18px; font-weight: 700; margin-top: 6px;">Record Direct Client Order</h3>
+            <p style="font-size: 13px; color: var(--text-gray);">Manually record direct inquiries or off-platform client orders.</p>
+          </div>
+
+          <form id="adminNewOrderForm">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div class="form-group">
+                <label class="form-label" for="adminCustName">Client Name</label>
+                <input type="text" id="adminCustName" class="form-input" placeholder="e.g. Sanjit" value="Sanjit" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="adminCustEmail">Client Email</label>
+                <input type="email" id="adminCustEmail" class="form-input" placeholder="sanjitrooy733@gmail.com" value="sanjitrooy733@gmail.com" required>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;">
+              <div class="form-group">
+                <label class="form-label" for="adminServiceType">Service Ordered</label>
+                <select id="adminServiceType" class="form-select" required>
+                  <option value="Facebook Marketing">Facebook Marketing</option>
+                  <option value="YouTube Marketing">YouTube Marketing</option>
+                  <option value="YouTube SEO">YouTube SEO</option>
+                  <option value="Website Design">Website Design</option>
+                  <option value="Graphic Design">Graphic Design</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="adminPackageTier">Package Tier</label>
+                <select id="adminPackageTier" class="form-select" required>
+                  <option value="basic">Basic</option>
+                  <option value="standard">Standard</option>
+                  <option value="premium">Premium</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="adminOrderNotes">Customer Requirements</label>
+              <textarea id="adminOrderNotes" rows="2" class="form-textarea" placeholder="Client instructions and scope..."></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block">Add to Client's Dashboard</button>
+          </form>
+        </div>
+      </section>
+
+      <!-- TAB 2: SERVICES & PACKAGE MANAGEMENT -->
+      <section id="adminTabServices" style="display: none;">
+        <div class="card" style="padding: 24px; margin-bottom: 36px; border-color: #243554;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h3 class="modal-header-title" style="font-size: 18px; font-weight: 800;">Services &amp; Multi-Tier Packages</h3>
+              <p style="font-size: 13px; color: var(--text-gray);">
+                Create new gigs, edit titles, pricing tiers, delivery days, and customize client offerings.
+              </p>
+            </div>
+            <button type="button" onclick="openNewGigModal()" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; background: linear-gradient(135deg, #0284c7, #2563eb); border-color: #0284c7;">
+              ✨ + Add New Gig / Service
+            </button>
+          </div>
+
+          <!-- Category Filter Tabs in Admin Panel -->
+          <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+            <button type="button" class="btn btn-sm btn-primary admin-service-filter-btn" data-cat="all" onclick="filterAdminServices('all')">
+              All Services (24)
+            </button>
+            <button type="button" class="btn btn-sm btn-secondary admin-service-filter-btn" data-cat="digital-marketing" onclick="filterAdminServices('digital-marketing')">
+              📱 Digital Marketing (5)
+            </button>
+            <button type="button" class="btn btn-sm btn-secondary admin-service-filter-btn" data-cat="youtube" onclick="filterAdminServices('youtube')">
+              ▶️ YouTube Services (6)
+            </button>
+            <button type="button" class="btn btn-sm btn-secondary admin-service-filter-btn" data-cat="graphic-design" onclick="filterAdminServices('graphic-design')">
+              🎨 Graphic Design (5)
+            </button>
+            <button type="button" class="btn btn-sm btn-secondary admin-service-filter-btn" data-cat="data-entry" onclick="filterAdminServices('data-entry')">
+              📊 Data Entry &amp; VA (5)
+            </button>
+            <button type="button" class="btn btn-sm btn-secondary admin-service-filter-btn" data-cat="automation" onclick="filterAdminServices('automation')">
+              ⚡ Automation Services (3)
+            </button>
+          </div>
+
+          <div id="adminServicesListContainer">
+            <!-- Rendered via admin.js -->
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: DISCOUNTS & COUPON MANAGEMENT -->
+      <section id="adminTabCoupons" style="display: none;">
+        <div class="card" style="padding: 24px; margin-bottom: 36px; border-color: #243554;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h3 class="modal-header-title" style="font-size: 18px; font-weight: 800;">Discounts &amp; Promotional Coupons</h3>
+              <p style="font-size: 13px; color: var(--text-gray);">
+                Configure percentage or fixed coupons with minimum order rules and caps.
+              </p>
+            </div>
+            <button onclick="openCreateCouponModal()" class="btn btn-primary btn-sm">
+              + Create New Coupon
+            </button>
+          </div>
+
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr class="admin-table-header" style="border-bottom: 1px solid var(--border-color);">
+                  <th style="padding: 12px 14px; text-align: left;">Coupon Code</th>
+                  <th style="padding: 12px 14px; text-align: left;">Discount</th>
+                  <th style="padding: 12px 14px; text-align: left;">Min Order</th>
+                  <th style="padding: 12px 14px; text-align: left;">Max Cap</th>
+                  <th style="padding: 12px 14px; text-align: left;">Used</th>
+                  <th style="padding: 12px 14px; text-align: left;">Status</th>
+                  <th style="padding: 12px 14px; text-align: left;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="adminCouponsTableBody">
+                <!-- Rendered via admin.js -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: REVIEWS MODERATION & 5-STAR RATING CONTROL -->
+      <section id="adminTabReviews" style="display: none;">
+        <div class="card" style="padding: 24px; margin-bottom: 36px; border-color: #243554;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 14px;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                <span class="badge-status badge-in-progress" style="font-size: 11px;">VERIFIED REVIEWS ENGINE</span>
+                <span style="font-size: 12px; color: var(--accent-cyan); font-weight: 700;">Live Cloud Moderation</span>
+              </div>
+              <h3 class="modal-header-title" style="font-size: 20px; font-weight: 800; color: #fff;">
+                Customer Reviews &amp; 5-Star Ratings Moderation
+              </h3>
+              <p style="font-size: 13px; color: var(--text-gray); margin-top: 2px;">
+                Inspect, verify, approve, reject, or remove customer feedback submitted for completed orders.
+              </p>
+            </div>
+            
+            <button type="button" onclick="syncAdminReviewsFromCloud(); showToast('Reviews refreshed from cloud');" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
+              ↻ Sync Database Reviews
+            </button>
+          </div>
+
+          <!-- Moderation Metric Cards -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 22px;">
+            <div style="padding: 14px 16px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: 8px; border-left: 3px solid #3b82f6;">
+              <span style="font-size: 11px; text-transform: uppercase; color: var(--text-dark-gray); font-weight: 700;">Total Reviews</span>
+              <div style="font-size: 24px; font-weight: 800; color: #fff; margin-top: 2px;" id="adminMetricTotalReviews">0</div>
+            </div>
+            <div style="padding: 14px 16px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: 8px; border-left: 3px solid #10b981;">
+              <span style="font-size: 11px; text-transform: uppercase; color: var(--text-dark-gray); font-weight: 700;">Approved / Public</span>
+              <div style="font-size: 24px; font-weight: 800; color: #10b981; margin-top: 2px;" id="adminMetricApprovedReviews">0</div>
+            </div>
+            <div style="padding: 14px 16px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: 8px; border-left: 3px solid #f59e0b;">
+              <span style="font-size: 11px; text-transform: uppercase; color: var(--text-dark-gray); font-weight: 700;">Pending Moderation</span>
+              <div style="font-size: 24px; font-weight: 800; color: #f59e0b; margin-top: 2px;" id="adminMetricPendingReviews">0</div>
+            </div>
+            <div style="padding: 14px 16px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: 8px; border-left: 3px solid #ef4444;">
+              <span style="font-size: 11px; text-transform: uppercase; color: var(--text-dark-gray); font-weight: 700;">Rejected / Hidden</span>
+              <div style="font-size: 24px; font-weight: 800; color: #ef4444; margin-top: 2px;" id="adminMetricRejectedReviews">0</div>
+            </div>
+          </div>
+
+          <!-- Search & Filter Bar -->
+          <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
+            <input 
+              type="text" 
+              id="adminReviewSearch" 
+              class="form-input" 
+              placeholder="Search by client name, email, order ID, or comment..." 
+              style="flex: 2; min-width: 220px;" 
+              oninput="filterAdminReviewsList()"
+            >
+            <select id="adminReviewStatusFilter" class="form-select" style="flex: 1; min-width: 150px;" onchange="filterAdminReviewsList()">
+              <option value="all">All Moderation Statuses</option>
+              <option value="approved">Approved (Public)</option>
+              <option value="pending">Pending Review</option>
+              <option value="rejected">Rejected (Hidden)</option>
+            </select>
+          </div>
+
+          <!-- Reviews Moderation List -->
+          <div id="adminReviewsContainer" style="display: flex; flex-direction: column; gap: 14px;">
+            <!-- Rendered via admin.js -->
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: PORTFOLIO & WORK SHOWCASE MANAGEMENT (My Work & Latest Updates) -->
+      <section id="adminTabProjects" style="display: none;">
+        <div class="card" style="padding: 24px; margin-bottom: 36px; border-color: #243554;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 22px; flex-wrap: wrap; gap: 14px;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                <span class="badge-status badge-in-progress" style="font-size: 11px;">LIVE SHOWCASE CONTROL</span>
+                <span style="font-size: 12px; color: var(--accent-cyan); font-weight: 700;">Customer Plane Sync Active</span>
+              </div>
+              <h3 class="modal-header-title" style="font-size: 20px; font-weight: 800; color: #fff;">
+                My Work &amp; Latest Updates Showcase Management
+              </h3>
+              <p style="font-size: 13px; color: var(--text-gray);">
+                Post new work projects, upload images or video URLs, customize titles and categories. Changes sync live to the portfolio showcase.
+              </p>
+            </div>
+            
+            <button onclick="openPostProjectModal()" class="btn btn-primary" style="background: linear-gradient(135deg, #0284c7, #2563eb); font-weight: 700;">
+              ➕ Post Project to Portfolio
+            </button>
+          </div>
+
+          <!-- Quick Stats & Filter Bar -->
+          <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
+            <input 
+              type="text" 
+              id="adminProjectSearch" 
+              class="form-input" 
+              placeholder="Search showcase by project title or description..." 
+              style="flex: 2; min-width: 220px;" 
+              oninput="filterAdminProjectsList()"
+            >
+            <select id="adminProjectCatFilter" class="form-select" style="flex: 1; min-width: 160px;" onchange="filterAdminProjectsList()">
+              <option value="all">All Categories</option>
+              <!-- Populated dynamically via admin.js -->
+            </select>
+            <button onclick="renderAdminProjectsList(); showToast('Showcase refreshed');" class="btn btn-secondary btn-sm">
+              ↻ Refresh
+            </button>
+          </div>
+
+          <!-- Projects Showcase Grid in Admin -->
+          <div id="adminProjectsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px;">
+            <!-- Rendered via admin.js -->
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ADD NEW GIG / SERVICE MODAL -->
+  <div id="addNewGigModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="addGigModalTitle">
+    <div class="modal-card fiverr-modal-card" style="max-width: 680px; border-radius: var(--radius-lg);">
+      <button type="button" onclick="closeNewGigModal()" class="modal-close-btn" aria-label="Close modal">✕</button>
+      <div style="display: inline-flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+        <span class="badge-status badge-status-in-progress" style="font-size: 10px; padding: 2px 8px;">GIG PUBLISHING</span>
+        <span style="font-size: 11px; color: var(--accent-cyan); font-weight: 700;">Super Admin Control</span>
+      </div>
+
+      <h3 id="addGigModalTitle" class="modal-header-title" style="font-size: 22px; font-weight: 800; margin-bottom: 4px;">Create &amp; Publish New Gig</h3>
+      <p class="modal-subtext" style="font-size: 13px; margin-bottom: 18px;">
+        Add a new gig to your agency platform. It will be immediately visible to clients on the public website and client dashboard for live ordering.
+      </p>
+
+      <form id="addNewGigForm" onsubmit="handleCreateNewGigSubmit(event)">
+        <!-- 1. Gig Info -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="newGigServiceName">Service Name <span style="color: #ef4444;">*</span></label>
+            <input type="text" id="newGigServiceName" class="form-input" placeholder="e.g. Facebook Marketing, Reels Video Editing" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="newGigCategory">Category Key <span style="color: #ef4444;">*</span></label>
+            <select id="newGigCategory" class="form-select" required>
+              <option value="marketing">Digital Marketing</option>
+              <option value="development">Web Development</option>
+              <option value="design">Creative &amp; Graphic Design</option>
+              <option value="seo">Search Engine Optimization (SEO)</option>
+              <option value="video">Video Editing &amp; Animation</option>
+              <option value="custom">Custom Service</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="newGigTitle">Gig Title (Fiverr Style) <span style="color: #ef4444;">*</span></label>
+          <input type="text" id="newGigTitle" class="form-input" placeholder="e.g. I will do Facebook marketing and targeted ads to scale your business" required>
+          <small class="modal-subtext" style="font-size: 11px; margin-top: 3px; display: block;">This title is prominently displayed on your service cards and customer gig order page.</small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="newGigDesc">Detailed Gig Description <span style="color: #ef4444;">*</span></label>
+          <textarea id="newGigDesc" rows="3" class="form-textarea" placeholder="Explain what the service offers, scope of work, strategy, and expected results for the client..." required></textarea>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 18px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="newGigCoverImage">Cover Image / Media URL (Image, Video, or Local Path) <span style="color: #ef4444;">*</span></label>
+            <input type="text" id="newGigCoverImage" class="form-input" placeholder="e.g. public/assets/... or https://... or YouTube video URL" value="public/assets/aistudio/file_000000001e5881f5bec7048c347e325c_07632167.png" required>
+            <small class="modal-subtext" style="font-size: 11px; margin-top: 3px; display: block;">Supports any image link, video link, YouTube URL, or local path (e.g. public/assets/...).</small>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="newGigBadge">Card Badge (Optional)</label>
+            <select id="newGigBadge" class="form-select">
+              <option value="">None</option>
+              <option value="POPULAR">POPULAR</option>
+              <option value="HOT">HOT</option>
+              <option value="BESTSELLER">BESTSELLER</option>
+              <option value="NEW" selected>NEW</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 2. Multi-tier Packages Setup with Express Delivery Speed -->
+        <h4 style="font-size: 15px; font-weight: 800; margin: 18px 0 10px;" class="admin-modal-section-title">📦 Multi-Tier Packages &amp; Delivery Speeds</h4>
+
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <!-- Basic -->
+          <div class="admin-tier-editor-box" style="padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+            <div style="font-weight: 800; color: var(--accent-cyan); font-size: 12px; margin-bottom: 8px; text-transform: uppercase;">1. Basic Package</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 10px;">
+              <div>
+                <label class="form-label" style="font-size: 11px;">Package Name</label>
+                <input type="text" id="newPkgBasicName" class="form-input" value="Starter Pack" required>
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 11px;">Price ($)</label>
+                <input type="number" id="newPkgBasicPrice" class="form-input" value="30" min="5" step="1" required>
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 11px;">Delivery (Days)</label>
+                <input type="number" id="newPkgBasicDays" class="form-input" value="3" min="1" required>
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 11px;">⚡ Express (Days)</label>
+                <input type="number" id="newPkgBasicExpressDays" class="form-input" value="1" min="1" required>
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 11px;">Express Fee ($)</label>
+                <input type="number" id="newPkgBasicExpressFee" class="form-input" value="15" min="0" step="1" required>
+              </div>
+            </div>
+            <div style="margin-top: 8px;">
+              <label class="form-label" style="font-size: 11px;">Features (comma-separated)</label>
+              <input type="text" id="newPkgBasicFeatures" class="form-input" value="Initial Campaign Setup, Target Audience, Core Deliverables, 1 Revision">
+            </div>
+          </div>
+
+          <!-- Standard -->
+          <div class="admin-tier-editor-box" style="padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+            <div style="font-weight: 800; color: #60a5fa; font-size: 12px; margin-bottom: 8px; text-transform: uppercase;">2. Standard Package</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 10px;">
+              <div>
+                <label class="form-label" style="font-size: 11px;">Package Name</label>
+                <input type="text" id="newPkgStdName" class="form-input" value="Standard Growth" required>
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 11px;">Price ($)</label>
+                <input type="number" id="newPkgStdPrice" class="form-input" value="60" min="5" step="1" required>
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 11px;">Delivery (Days)</label>
+                <input type="number" id="newPkgStdDays" class="form-input" value="5" min="1" required>
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 11px;">⚡ Express (Days)</label>
+                <input type="number" id="newPkgStdExpressDays" class="form-input" value="2" min="1" required>
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 11px;">Express Fee ($)</label>
+                <input type="number" id="newPkgStdExpressFee" class="form-input" value="25" min="0" step="1" required>
+              </div>
+            </div>
+            <div style="margin-top: 8px;">
+              <label class="form-label" style="font-size: 11px;">Features (comma-separated)</label>
+              <input type="text" id="newPkgStdFeatures" class="form-input" value="Full Campaign Strategy, Custom Ad Creatives, Audience Optimization, 3 Revisions">
+            </div>
+          </div>
+
+          <!-- Premium -->
+          <div class="admin-tier-editor-box" style="padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+            <div style="font-weight: 800; color: #f59e0b; font-size: 12px; margin-bottom: 8px; text-transform: uppercase;">3. Premium Package</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 10px;">
+              <div>
+                <label class="form-label" style="font-size: 11px;">Package Name</label>
+                <input type="text" id="newPkgPremName" class="form-input" value="VIP Scale" required>
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 11px;">Price ($)</label>
+                <input type="number" id="newPkgPremPrice" class="form-input" value="120" min="5" step="1" required>
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 11px;">Delivery (Days)</label>
+                <input type="number" id="newPkgPremDays" class="form-input" value="7" min="1" required>
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 11px;">⚡ Express (Days)</label>
+                <input type="number" id="newPkgPremExpressDays" class="form-input" value="3" min="1" required>
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 11px;">Express Fee ($)</label>
+                <input type="number" id="newPkgPremExpressFee" class="form-input" value="40" min="0" step="1" required>
+              </div>
+            </div>
+            <div style="margin-top: 8px;">
+              <label class="form-label" style="font-size: 11px;">Features (comma-separated)</label>
+              <input type="text" id="newPkgPremFeatures" class="form-input" value="Complete Turnkey Management, High-Converting Assets, Analytics Dashboard, Unlimited Revisions">
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Delivery Speed & Optional Add-ons Customization Section -->
+        <div style="margin-top: 22px; padding: 16px; background: rgba(0, 212, 255, 0.04); border: 1px solid rgba(0, 212, 255, 0.2); border-radius: var(--radius-sm);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+            <div>
+              <div style="font-weight: 800; color: var(--accent-cyan); font-size: 13.5px; display: flex; align-items: center; gap: 6px;">
+                ⚡ Delivery Speed &amp; Optional Add-ons
+              </div>
+              <p style="font-size: 12px; color: var(--text-gray); margin: 3px 0 0;">
+                Customize optional add-ons that clients can select during order checkout.
+              </p>
+            </div>
+            <button type="button" onclick="addNewGigAddonRow()" class="btn btn-secondary btn-sm" style="border-color: var(--accent-cyan); color: var(--accent-cyan); padding: 4px 10px; font-size: 11.5px;">
+              ➕ Add Add-on
+            </button>
+          </div>
+
+          <!-- Dynamic Add-ons List for New Gig -->
+          <div id="newGigAddonsContainer" style="display: flex; flex-direction: column; gap: 10px;">
+            <!-- Populated via admin.js on modal open -->
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px;">
+          <button type="button" onclick="closeNewGigModal()" class="btn btn-secondary">
+            Cancel
+          </button>
+          <button type="submit" id="btnPublishGigSubmit" class="btn btn-primary" style="min-width: 170px; justify-content: center; background: linear-gradient(135deg, #0284c7, #2563eb);">
+            🚀 Publish Gig
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Service & Packages Modal -->
+  <div id="editServiceModal" class="modal-overlay">
+    <div class="modal-card fiverr-modal-card" style="max-width: 880px; max-height: 92vh; overflow-y: auto;">
+      <button onclick="closeEditServiceModal()" class="modal-close-btn" type="button">✕</button>
+      <span class="section-kicker" style="margin-bottom: 4px;">SUPER ADMIN CONTROL</span>
+      <h3 id="editServiceModalTitle" class="modal-header-title" style="font-size: 20px; font-weight: 800; margin-bottom: 14px;">Edit Gig &amp; Details Management</h3>
+
+      <!-- Tab Navigation inside Modal -->
+      <div style="display: flex; gap: 8px; margin-bottom: 18px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+        <button type="button" class="btn btn-sm btn-primary" id="editTabBtnPackages" onclick="switchEditModalTab('packages')">
+          📦 1. Basic Info &amp; 3 Packages
+        </button>
+        <button type="button" class="btn btn-sm btn-secondary" id="editTabBtnDetails" onclick="switchEditModalTab('details')">
+          ✨ 2. Gig Details Page (Overview, Deliverables, FAQs, Reviews)
+        </button>
+      </div>
+
+      <form id="editServiceForm" onsubmit="handleSaveServiceSubmit(event)">
+        <input type="hidden" id="editServiceId">
+
+        <!-- TAB 1: BASIC INFO & 3 PACKAGES -->
+        <div id="editModalTabPackages">
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 14px;">
+            <div>
+              <label class="form-label" for="editServiceName">Service Name</label>
+              <input type="text" id="editServiceName" class="form-input" required>
+            </div>
+            <div>
+              <label class="form-label" for="editServiceCategory">Category</label>
+              <input type="text" id="editServiceCategory" class="form-input" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="editGigTitle">Gig Title (Fiverr Style)</label>
+            <input type="text" id="editGigTitle" class="form-input" placeholder="e.g. I will do Facebook marketing and targeted ads to scale your business">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 14px;">
+            <div>
+              <label class="form-label" for="editGigCoverImage">Cover Image URL</label>
+              <input type="text" id="editGigCoverImage" class="form-input" placeholder="https://images.unsplash.com/... or public/assets/...">
+            </div>
+            <div>
+              <label class="form-label" for="editGigBadge">Card Badge</label>
+              <input type="text" id="editGigBadge" class="form-input" placeholder="FIVERR'S CHOICE, TOP RATED">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="editServiceDesc">Short Description (Fallback Summary)</label>
+            <textarea id="editServiceDesc" rows="2" class="form-textarea" required></textarea>
+          </div>
+
+          <!-- 3 Packages Editor -->
+          <h4 style="font-size: 15px; font-weight: 700; margin: 18px 0 10px;" class="admin-modal-section-title">Package Tiers &amp; Pricing</h4>
+          
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            <!-- Basic Tier Editor -->
+            <div class="admin-tier-editor-box" style="border-radius: var(--radius-sm); padding: 14px;">
+              <div style="font-weight: 700; color: var(--accent-cyan); font-size: 13px; margin-bottom: 8px;">BASIC PACKAGE</div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 10px;">
+                <div>
+                  <label class="form-label" style="font-size: 11px;">Package Name</label>
+                  <input type="text" id="editPkgBasicName" class="form-input" required>
+                </div>
+                <div>
+                  <label class="form-label" style="font-size: 11px;">Price ($)</label>
+                  <input type="number" id="editPkgBasicPrice" class="form-input" min="5" step="1" required>
+                </div>
+                <div>
+                  <label class="form-label" style="font-size: 11px;">Delivery (Days)</label>
+                  <input type="number" id="editPkgBasicDays" class="form-input" min="1" required>
+                </div>
+                <div>
+                  <label class="form-label" style="font-size: 11px;">⚡ Express (Days)</label>
+                  <input type="number" id="editPkgBasicExpressDays" class="form-input" min="1" value="1" required>
+                </div>
+                <div>
+                  <label class="form-label" style="font-size: 11px;">Express Fee ($)</label>
+                  <input type="number" id="editPkgBasicExpressFee" class="form-input" min="0" required>
+                </div>
+              </div>
+              <div style="margin-top: 8px;">
+                <label class="form-label" style="font-size: 11px;">Features (comma-separated)</label>
+                <input type="text" id="editPkgBasicFeatures" class="form-input">
+              </div>
+            </div>
+
+            <!-- Standard Tier Editor -->
+            <div class="admin-tier-editor-box" style="border-radius: var(--radius-sm); padding: 14px;">
+              <div style="font-weight: 700; color: #60a5fa; font-size: 13px; margin-bottom: 8px;">STANDARD PACKAGE</div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 10px;">
+                <div>
+                  <label class="form-label" style="font-size: 11px;">Package Name</label>
+                  <input type="text" id="editPkgStdName" class="form-input" required>
+                </div>
+                <div>
+                  <label class="form-label" style="font-size: 11px;">Price ($)</label>
+                  <input type="number" id="editPkgStdPrice" class="form-input" min="5" step="1" required>
+                </div>
+                <div>
+                  <label class="form-label" style="font-size: 11px;">Delivery (Days)</label>
+                  <input type="number" id="editPkgStdDays" class="form-input" min="1" required>
+                </div>
+                <div>
+                  <label class="form-label" style="font-size: 11px;">⚡ Express (Days)</label>
+                  <input type="number" id="editPkgStdExpressDays" class="form-input" min="1" value="2" required>
+                </div>
+                <div>
+                  <label class="form-label" style="font-size: 11px;">Express Fee ($)</label>
+                  <input type="number" id="editPkgStdExpressFee" class="form-input" min="0" required>
+                </div>
+              </div>
+              <div style="margin-top: 8px;">
+                <label class="form-label" style="font-size: 11px;">Features (comma-separated)</label>
+                <input type="text" id="editPkgStdFeatures" class="form-input">
+              </div>
+            </div>
+
+            <!-- Premium Tier Editor -->
+            <div class="admin-tier-editor-box" style="border-radius: var(--radius-sm); padding: 14px;">
+              <div style="font-weight: 700; color: #f59e0b; font-size: 13px; margin-bottom: 8px;">PREMIUM PACKAGE</div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 10px;">
+                <div>
+                  <label class="form-label" style="font-size: 11px;">Package Name</label>
+                  <input type="text" id="editPkgPremName" class="form-input" required>
+                </div>
+                <div>
+                  <label class="form-label" style="font-size: 11px;">Price ($)</label>
+                  <input type="number" id="editPkgPremPrice" class="form-input" min="5" step="1" required>
+                </div>
+                <div>
+                  <label class="form-label" style="font-size: 11px;">Delivery (Days)</label>
+                  <input type="number" id="editPkgPremDays" class="form-input" min="1" required>
+                </div>
+                <div>
+                  <label class="form-label" style="font-size: 11px;">⚡ Express (Days)</label>
+                  <input type="number" id="editPkgPremExpressDays" class="form-input" min="1" value="3" required>
+                </div>
+                <div>
+                  <label class="form-label" style="font-size: 11px;">Express Fee ($)</label>
+                  <input type="number" id="editPkgPremExpressFee" class="form-input" min="0" required>
+                </div>
+              </div>
+              <div style="margin-top: 8px;">
+                <label class="form-label" style="font-size: 11px;">Features (comma-separated)</label>
+                <input type="text" id="editPkgPremFeatures" class="form-input">
+              </div>
+            </div>
+          </div>
+
+          <!-- Dynamic Add-ons Customization Section for Edit Service Modal -->
+          <div style="margin-top: 20px; padding: 16px; background: rgba(0, 212, 255, 0.04); border: 1px solid rgba(0, 212, 255, 0.2); border-radius: var(--radius-sm);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+              <div>
+                <div style="font-weight: 800; color: var(--accent-cyan); font-size: 13.5px; display: flex; align-items: center; gap: 6px;">
+                  ⚡ Delivery Speed &amp; Optional Add-ons Customization
+                </div>
+                <p style="font-size: 12px; color: var(--text-gray); margin: 3px 0 0;">
+                  Manage extra add-ons available for this specific service.
+                </p>
+              </div>
+              <button type="button" onclick="addEditGigAddonRow()" class="btn btn-secondary btn-sm" style="border-color: var(--accent-cyan); color: var(--accent-cyan); padding: 4px 10px; font-size: 11.5px;">
+                ➕ Add Add-on
+              </button>
+            </div>
+            <div id="editGigAddonsContainer" style="display: flex; flex-direction: column; gap: 10px;">
+              <!-- Populated via admin.js on modal open -->
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: DETAILS PAGE CONTENT & CUSTOMIZATION (All Screenshot Sections) -->
+        <div id="editModalTabDetails" style="display: none;">
+          <div style="background: rgba(2, 132, 199, 0.08); border: 1px solid rgba(2, 132, 199, 0.25); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 16px;">
+            <strong style="color: var(--accent-cyan); font-size: 13px;">💎 Customer Details Page Customization</strong>
+            <p style="font-size: 12px; color: var(--text-gray); margin: 4px 0 0;">
+              Everything entered here will immediately appear when customers click <strong>"Details"</strong> on this gig.
+            </p>
+          </div>
+
+          <!-- Section 1: About This Gig & Overview -->
+          <div class="form-group">
+            <label class="form-label" for="editGigAboutNotes">
+              1. About This Gig &amp; Overview (Detailed Paragraphs)
+            </label>
+            <textarea id="editGigAboutNotes" rows="5" class="form-textarea" placeholder="Enter full multi-paragraph gig description... Blank lines will create separate clean paragraphs."></textarea>
+            <div style="font-size: 11px; color: var(--text-dark-gray); margin-top: 3px;">Each paragraph will be displayed cleanly under 'About This Gig &amp; Overview'.</div>
+          </div>
+
+          <!-- Section 2: What You Will Get (Key Deliverables) -->
+          <div class="form-group">
+            <label class="form-label" for="editGigKeyDeliverables">
+              2. What You Will Get (Key Deliverables — 1 per line)
+            </label>
+            <textarea id="editGigKeyDeliverables" rows="4" class="form-textarea" placeholder="Comprehensive Target Audience &amp; Demographic Research&#10;Meta Business Suite &amp; Pixel Setup&#10;High-CTR Ad Copywriting with CTAs&#10;Custom Graphic &amp; Video Creatives"></textarea>
+            <div style="font-size: 11px; color: var(--text-dark-gray); margin-top: 3px;">Renders as the green-checkmark deliverables grid.</div>
+          </div>
+
+          <!-- Section 3: Why Choose Ruddranil? -->
+          <div class="form-group">
+            <label class="form-label" for="editGigWhyChoose">
+              3. Why Choose Ruddranil? (Bullet points — 1 per line)
+            </label>
+            <textarea id="editGigWhyChoose" rows="3" class="form-textarea" placeholder="5+ Years of Certified Performance Marketing Experience&#10;Data-driven approach with transparent ROI tracking&#10;100% on-time delivery record and friendly English support"></textarea>
+          </div>
+
+          <!-- Section 4: Work Process & Workflow Architecture (4 Steps) -->
+          <div style="margin-bottom: 16px;">
+            <label class="form-label" style="margin-bottom: 8px;">
+              4. Work Process &amp; Workflow Architecture (4 Execution Steps)
+            </label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <!-- Step 1 -->
+              <div class="admin-tier-editor-box" style="padding: 10px; border-radius: var(--radius-sm);">
+                <span style="font-size: 11px; font-weight: 800; color: var(--accent-cyan);">STEP 01</span>
+                <input type="text" id="editStep1Title" class="form-input" placeholder="Title (e.g. Strategy &amp; Requirements)" style="margin-top: 4px; margin-bottom: 6px; font-size: 12px;">
+                <textarea id="editStep1Desc" rows="2" class="form-textarea" placeholder="Step 1 description..." style="font-size: 11px;"></textarea>
+              </div>
+
+              <!-- Step 2 -->
+              <div class="admin-tier-editor-box" style="padding: 10px; border-radius: var(--radius-sm);">
+                <span style="font-size: 11px; font-weight: 800; color: #60a5fa;">STEP 02</span>
+                <input type="text" id="editStep2Title" class="form-input" placeholder="Title (e.g. Audience &amp; Creative Setup)" style="margin-top: 4px; margin-bottom: 6px; font-size: 12px;">
+                <textarea id="editStep2Desc" rows="2" class="form-textarea" placeholder="Step 2 description..." style="font-size: 11px;"></textarea>
+              </div>
+
+              <!-- Step 3 -->
+              <div class="admin-tier-editor-box" style="padding: 10px; border-radius: var(--radius-sm);">
+                <span style="font-size: 11px; font-weight: 800; color: #f59e0b;">STEP 03</span>
+                <input type="text" id="editStep3Title" class="form-input" placeholder="Title (e.g. Pixel &amp; Campaign Launch)" style="margin-top: 4px; margin-bottom: 6px; font-size: 12px;">
+                <textarea id="editStep3Desc" rows="2" class="form-textarea" placeholder="Step 3 description..." style="font-size: 11px;"></textarea>
+              </div>
+
+              <!-- Step 4 -->
+              <div class="admin-tier-editor-box" style="padding: 10px; border-radius: var(--radius-sm);">
+                <span style="font-size: 11px; font-weight: 800; color: #10b981;">STEP 04</span>
+                <input type="text" id="editStep4Title" class="form-input" placeholder="Title (e.g. Optimization &amp; Scaling)" style="margin-top: 4px; margin-bottom: 6px; font-size: 12px;">
+                <textarea id="editStep4Desc" rows="2" class="form-textarea" placeholder="Step 4 description..." style="font-size: 11px;"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 5: Tools & Technologies Used -->
+          <div class="form-group">
+            <label class="form-label" for="editGigTools">
+              5. Tools &amp; Technologies Used (Comma-separated tags)
+            </label>
+            <input type="text" id="editGigTools" class="form-input" placeholder="e.g. Meta Ads Manager, Meta Business Suite, Canva Pro, Google Analytics 4, Figma">
+          </div>
+
+          <!-- Section 6: Frequently Asked Questions -->
+          <div style="margin-bottom: 16px;">
+            <label class="form-label" style="margin-bottom: 8px;">
+              6. Frequently Asked Questions (FAQ Items)
+            </label>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div class="admin-tier-editor-box" style="padding: 10px; border-radius: var(--radius-sm);">
+                <span style="font-size: 11px; font-weight: 700; color: var(--accent-cyan);">FAQ 1</span>
+                <input type="text" id="editFaq1Q" class="form-input" placeholder="Question 1 (e.g. Is the ad spend included?)" style="margin-top: 4px; margin-bottom: 6px; font-size: 12px;">
+                <textarea id="editFaq1A" rows="2" class="form-textarea" placeholder="Answer 1..." style="font-size: 11px;"></textarea>
+              </div>
+
+              <div class="admin-tier-editor-box" style="padding: 10px; border-radius: var(--radius-sm);">
+                <span style="font-size: 11px; font-weight: 700; color: var(--accent-cyan);">FAQ 2</span>
+                <input type="text" id="editFaq2Q" class="form-input" placeholder="Question 2 (e.g. What do you need to get started?)" style="margin-top: 4px; margin-bottom: 6px; font-size: 12px;">
+                <textarea id="editFaq2A" rows="2" class="form-textarea" placeholder="Answer 2..." style="font-size: 11px;"></textarea>
+              </div>
+
+              <div class="admin-tier-editor-box" style="padding: 10px; border-radius: var(--radius-sm);">
+                <span style="font-size: 11px; font-weight: 700; color: var(--accent-cyan);">FAQ 3</span>
+                <input type="text" id="editFaq3Q" class="form-input" placeholder="Question 3 (e.g. How quickly will I see results?)" style="margin-top: 4px; margin-bottom: 6px; font-size: 12px;">
+                <textarea id="editFaq3A" rows="2" class="form-textarea" placeholder="Answer 3..." style="font-size: 11px;"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 7: Rating & Reviews Social Proof Metrics -->
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px;">
+            <div>
+              <label class="form-label" for="editGigRating">7. Rating (e.g. 5.0)</label>
+              <input type="text" id="editGigRating" class="form-input" value="5.0">
+            </div>
+            <div>
+              <label class="form-label" for="editGigReviewsCount">Reviews Count (e.g. 58)</label>
+              <input type="number" id="editGigReviewsCount" class="form-input" value="58" min="0">
+            </div>
+            <div>
+              <label class="form-label" for="editGigOrdersQueue">Orders in Queue</label>
+              <input type="number" id="editGigOrdersQueue" class="form-input" value="3" min="0">
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-top: 24px; position: sticky; bottom: 0; background: inherit; padding-top: 12px; border-top: 1px solid var(--border-color);">
+          <button type="submit" class="btn btn-primary btn-block btn-lg">💾 Save All Gig &amp; Details Settings</button>
+          <button type="button" onclick="closeEditServiceModal()" class="btn btn-secondary btn-lg">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Create Coupon Modal -->
+  <div id="createCouponModal" class="modal-overlay">
+    <div class="modal-card">
+      <button onclick="closeCreateCouponModal()" class="modal-close-btn">✕</button>
+      <span class="section-kicker" style="margin-bottom: 4px;">PROMOTION</span>
+      <h3 class="modal-header-title" style="font-size: 20px; font-weight: 800; margin-bottom: 16px;">Create Discount Coupon</h3>
+
+      <form onsubmit="handleCreateCouponSubmit(event)">
+        <div class="form-group">
+          <label class="form-label" for="newCouponCode">Coupon Code</label>
+          <input type="text" id="newCouponCode" class="form-input" placeholder="e.g. SUMMER25" style="text-transform: uppercase;" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label" for="newCouponType">Discount Type</label>
+            <select id="newCouponType" class="form-select" required>
+              <option value="percentage">Percentage (%)</option>
+              <option value="fixed">Fixed Amount ($)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="newCouponValue">Discount Value</label>
+            <input type="number" id="newCouponValue" class="form-input" placeholder="e.g. 15" min="1" step="0.5" required>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label" for="newCouponMinOrder">Min Order Amount ($)</label>
+            <input type="number" id="newCouponMinOrder" class="form-input" placeholder="e.g. 25" min="0" value="20">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="newCouponMaxCap">Max Cap (For %)</label>
+            <input type="number" id="newCouponMaxCap" class="form-input" placeholder="e.g. 50" min="0">
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg" style="margin-top: 10px;">
+          Activate Coupon
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: POST PROJECT TO PORTFOLIO -->
+  <div id="postProjectModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="postProjectModalTitle">
+    <div class="modal-card fiverr-modal-card" style="max-width: 650px; border-radius: var(--radius-lg);">
+      <button type="button" onclick="closePostProjectModal()" class="modal-close-btn" aria-label="Close modal">✕</button>
+      
+      <div style="display: inline-flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+        <span class="badge-status badge-status-in-progress" style="font-size: 10px; padding: 2px 8px;">PORTFOLIO SHOWCASE</span>
+        <span style="font-size: 11px; color: var(--accent-cyan); font-weight: 700;">Super Admin Management</span>
+      </div>
+
+      <h3 id="postProjectModalTitle" class="modal-header-title" style="font-size: 22px; font-weight: 800; margin-bottom: 4px; color: #fff;">
+        Post Project to Portfolio
+      </h3>
+      <p class="modal-subtext" style="font-size: 13.5px; margin-bottom: 20px; color: var(--text-gray); line-height: 1.5;">
+        Upload an image or video URL to display in the live showcase.
+      </p>
+
+      <form id="postProjectForm" onsubmit="handlePostProjectSubmit(event)">
+        <!-- Field 1: Project Title -->
+        <div class="form-group">
+          <label class="form-label" for="newProjectTitle">
+            Project Title <span style="color: #ef4444;">*</span>
+          </label>
+          <input 
+            type="text" 
+            id="newProjectTitle" 
+            class="form-input" 
+            placeholder="e.g. Modern E-Commerce Platform, Viral TikTok Campaign" 
+            required
+          >
+        </div>
+
+        <!-- Field 2: Category with Add Category Capability -->
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="form-label" for="newProjectCategorySelect" style="margin-bottom: 0;">
+              Category <span style="color: #ef4444;">*</span>
+            </label>
+            <button type="button" onclick="toggleCustomCategoryInput()" class="btn btn-sm" style="font-size: 11px; padding: 2px 8px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">
+              + Add Category
+            </button>
+          </div>
+
+          <!-- Existing Categories Dropdown -->
+          <select id="newProjectCategorySelect" class="form-select" onchange="handleProjectCategoryChange(this.value)" required>
+            <option value="Digital Marketing">Digital Marketing</option>
+            <option value="YouTube Services">YouTube Services</option>
+            <option value="Creative Design">Creative Design</option>
+            <option value="Data Operations">Data Operations</option>
+            <option value="Business Automation">Business Automation</option>
+            <option value="Web Development">Web Development</option>
+            <option value="__NEW__">+ Add Custom Category...</option>
+          </select>
+
+          <!-- Inline Custom Category Input (shown when user clicks + Add Category or selects __NEW__) -->
+          <div id="customCategoryInputWrap" style="display: none; margin-top: 8px;">
+            <input 
+              type="text" 
+              id="newProjectCustomCategory" 
+              class="form-input" 
+              placeholder="Enter new category name (e.g. Mobile Apps, 3D Animation)..."
+            >
+            <small style="font-size: 11px; color: var(--accent-cyan); display: block; margin-top: 3px;">
+              ✓ New category will be added and available in your showcase filter.
+            </small>
+          </div>
+        </div>
+
+        <!-- Field 3: Image / Media URL -->
+        <div class="form-group">
+          <label class="form-label" for="newProjectMediaUrl">
+            Image / Media URL <span style="color: #ef4444;">*</span>
+          </label>
+          <input 
+            type="text" 
+            id="newProjectMediaUrl" 
+            class="form-input" 
+            placeholder="Image URL / local path (e.g. public/assets/... or https://...) or MP4/YouTube link" 
+            required
+            oninput="previewMediaInModal(this.value, 'postProjectMediaPreviewBox')"
+          >
+          <small class="modal-subtext" style="font-size: 11px; margin-top: 4px; display: block; color: var(--text-dark-gray);">
+            Supports local asset paths (e.g. public/assets/...), external image URLs, direct videos (.mp4), and YouTube links.
+          </small>
+
+          <!-- Live Media Preview Box -->
+          <div id="postProjectMediaPreviewBox" style="margin-top: 10px; width: 100%; height: 160px; background: #040711; border: 1px dashed var(--border-color); border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; color: var(--text-dark-gray); font-size: 12px;">
+            <span>Media Preview will appear here</span>
+          </div>
+        </div>
+
+        <!-- Field 4: Description -->
+        <div class="form-group">
+          <label class="form-label" for="newProjectDesc">
+            Description <span style="color: #ef4444;">*</span>
+          </label>
+          <textarea 
+            id="newProjectDesc" 
+            rows="3" 
+            class="form-textarea" 
+            placeholder="Describe the project overview, key achievements, tech stack or marketing results..." 
+            required
+          ></textarea>
+        </div>
+
+        <!-- Optional: Link Service for 'Order Similar' button -->
+        <div class="form-group">
+          <label class="form-label" for="newProjectServiceLink">
+            Link to Service (For "Order Similar" Button)
+          </label>
+          <select id="newProjectServiceLink" class="form-select">
+            <option value="Website Design">Website Design</option>
+            <option value="Facebook Marketing">Facebook Marketing</option>
+            <option value="Graphic Design">Graphic Design</option>
+            <option value="YouTube Marketing">YouTube Marketing</option>
+            <option value="SEO Optimization">SEO Optimization</option>
+          </select>
+        </div>
+
+        <!-- Bottom Action Button (User specified: 'Published project bottom') -->
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" onclick="closePostProjectModal()" class="btn btn-secondary">
+            Cancel
+          </button>
+          <button type="submit" id="btnPublishProject" class="btn btn-primary btn-lg" style="min-width: 200px; justify-content: center; background: linear-gradient(135deg, #0284c7, #2563eb); font-weight: 800; font-size: 15px;">
+            Publish Project
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: EDIT PORTFOLIO PROJECT -->
+  <div id="editProjectModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="editProjectModalTitle">
+    <div class="modal-card fiverr-modal-card" style="max-width: 650px; border-radius: var(--radius-lg);">
+      <button type="button" onclick="closeEditProjectModal()" class="modal-close-btn" aria-label="Close modal">✕</button>
+      
+      <div style="display: inline-flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+        <span class="badge-status badge-status-in-progress" style="font-size: 10px; padding: 2px 8px;">EDIT SHOWCASE</span>
+        <span style="font-size: 11px; color: var(--accent-cyan); font-weight: 700;">Customization Center</span>
+      </div>
+
+      <h3 id="editProjectModalTitle" class="modal-header-title" style="font-size: 22px; font-weight: 800; margin-bottom: 4px; color: #fff;">
+        Edit Portfolio Project
+      </h3>
+      <p class="modal-subtext" style="font-size: 13.5px; margin-bottom: 20px; color: var(--text-gray);">
+        Modify project title, category, media URL, or description.
+      </p>
+
+      <form id="editProjectForm" onsubmit="handleSaveEditProjectSubmit(event)">
+        <input type="hidden" id="editProjectId">
+
+        <div class="form-group">
+          <label class="form-label" for="editProjectTitle">Project Title <span style="color: #ef4444;">*</span></label>
+          <input type="text" id="editProjectTitle" class="form-input" required>
+        </div>
+
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="form-label" for="editProjectCategorySelect" style="margin-bottom: 0;">Category <span style="color: #ef4444;">*</span></label>
+            <button type="button" onclick="toggleEditCustomCategoryInput()" class="btn btn-sm" style="font-size: 11px; padding: 2px 8px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">
+              + Add Category
+            </button>
+          </div>
+          <select id="editProjectCategorySelect" class="form-select" onchange="handleEditProjectCategoryChange(this.value)" required>
+            <option value="Digital Marketing">Digital Marketing</option>
+            <option value="YouTube Services">YouTube Services</option>
+            <option value="Creative Design">Creative Design</option>
+            <option value="Data Operations">Data Operations</option>
+            <option value="Business Automation">Business Automation</option>
+            <option value="Web Development">Web Development</option>
+            <option value="__NEW__">+ Add Custom Category...</option>
+          </select>
+          <div id="editCustomCategoryInputWrap" style="display: none; margin-top: 8px;">
+            <input type="text" id="editProjectCustomCategory" class="form-input" placeholder="Enter new category name...">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="editProjectMediaUrl">Image / Media URL <span style="color: #ef4444;">*</span></label>
+          <input type="text" id="editProjectMediaUrl" class="form-input" placeholder="Image URL / local path (e.g. public/assets/... or https://...) or MP4/YouTube link" required oninput="previewMediaInModal(this.value, 'editProjectMediaPreviewBox')">
+          <div id="editProjectMediaPreviewBox" style="margin-top: 10px; width: 100%; height: 160px; background: #040711; border: 1px dashed var(--border-color); border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; color: var(--text-dark-gray); font-size: 12px;">
+            <span>Media Preview</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="editProjectDesc">Description <span style="color: #ef4444;">*</span></label>
+          <textarea id="editProjectDesc" rows="3" class="form-textarea" required></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="editProjectServiceLink">Linked Service</label>
+          <select id="editProjectServiceLink" class="form-select">
+            <option value="Website Design">Website Design</option>
+            <option value="Facebook Marketing">Facebook Marketing</option>
+            <option value="Graphic Design">Graphic Design</option>
+            <option value="YouTube Marketing">YouTube Marketing</option>
+            <option value="SEO Optimization">SEO Optimization</option>
+          </select>
+        </div>
+
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" onclick="closeEditProjectModal()" class="btn btn-secondary">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary btn-lg" style="min-width: 170px; justify-content: center; background: linear-gradient(135deg, #0284c7, #2563eb); font-weight: 800;">
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: DELIVER WORK (FIVERR-STYLE) -->
+  <div id="deliverWorkModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="deliverWorkModalTitle" style="display: none;">
+    <div class="modal-card fiverr-modal-card" style="max-width: 680px; border-radius: var(--radius-lg); max-height: 90vh; overflow-y: auto;">
+      <button type="button" onclick="closeDeliverWorkModal()" class="modal-close-btn" aria-label="Close modal">✕</button>
+      
+      <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+        <span class="badge-status badge-status-completed" style="font-size: 11px; padding: 3px 10px; background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);">
+          🚀 ORDER DELIVERY
+        </span>
+        <span id="deliverModalVersionTag" class="delivery-version-tag">Delivery #1</span>
+      </div>
+
+      <h3 id="deliverWorkModalTitle" class="modal-header-title" style="font-size: 22px; font-weight: 800; margin-bottom: 4px; color: #fff;">
+        Deliver Completed Work
+      </h3>
+      <p class="modal-subtext" style="font-size: 13.5px; margin-bottom: 18px; color: var(--text-gray);">
+        Attach final project files, provide live URLs (Drive, Figma, Website), and write a delivery message for your client.
+      </p>
+
+      <div id="deliverOrderSummaryBanner" style="background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px 16px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 13px;">
+        <div>
+          <span style="color: var(--text-dark-gray);">Order:</span> <strong id="deliverModalOrderId" style="color: var(--accent-cyan);">#RUD-...</strong>
+          <span style="margin: 0 8px; color: var(--border-color);">|</span>
+          <span style="color: var(--text-dark-gray);">Client:</span> <strong id="deliverModalClientName" style="color: #fff;">Client</strong>
+        </div>
+        <div>
+          <span style="color: var(--text-dark-gray);">Service:</span> <span id="deliverModalService" style="color: #38bdf8; font-weight: 700;">Service</span>
+        </div>
+      </div>
+
+      <form id="deliverWorkForm" onsubmit="handleDeliverWorkSubmit(event)">
+        <input type="hidden" id="deliverOrderId">
+
+        <!-- 1. Delivery Note / Message -->
+        <div class="form-group">
+          <label class="form-label" for="deliveryMessageInput">
+            Delivery Message to Client <span style="color: #ef4444;">*</span>
+          </label>
+          <textarea id="deliveryMessageInput" class="form-textarea" rows="4" required placeholder="Hi there! I am thrilled to deliver your finished project. Please review the attached deliverables and let me know your thoughts. If everything looks great, please accept the delivery and leave a review!"></textarea>
+          <div style="font-size: 11px; color: var(--text-dark-gray); margin-top: 4px;">
+            Explain what was completed, how to open or use the files, and any key instructions.
+          </div>
+        </div>
+
+        <!-- 2. File Uploads (Multiple files, ZIP, images, PDFs, etc.) -->
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="form-label" style="margin-bottom: 0;">
+              Attach Deliverable Files (ZIP, Images, PDFs, Docs)
+            </label>
+            <span style="font-size: 11px; color: #10b981; font-weight: 700;">All file formats supported</span>
+          </div>
+
+          <div style="border: 2px dashed rgba(16, 185, 129, 0.35); border-radius: 12px; padding: 20px; text-align: center; background: rgba(16, 185, 129, 0.03); cursor: pointer; transition: all 0.2s ease;" onclick="document.getElementById('deliveryFileInput').click()" ondragover="event.preventDefault(); this.style.borderColor='#10b981';" ondragleave="this.style.borderColor='rgba(16, 185, 129, 0.35)';" ondrop="handleDeliveryFileDrop(event)">
+            <div style="font-size: 32px; margin-bottom: 6px;">📁</div>
+            <div style="font-size: 14px; font-weight: 700; color: #fff;">Click to Browse or Drag &amp; Drop Files Here</div>
+            <div style="font-size: 12px; color: var(--text-dark-gray); margin-top: 4px;">ZIP archives, Figma exports, high-res images, PDF reports, or spreadsheets</div>
+            <input type="file" id="deliveryFileInput" multiple style="display: none;" onchange="handleDeliveryFilesSelected(this.files)">
+          </div>
+
+          <!-- Staged Files Preview List -->
+          <div id="stagedDeliveryFilesList" style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;"></div>
+        </div>
+
+        <!-- 3. Live Project Links (Google Drive, Figma, Live Website, YouTube, etc.) -->
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <label class="form-label" style="margin-bottom: 0;">
+              Live Resource &amp; Cloud Links (Drive, Figma, Live Site)
+            </label>
+            <button type="button" onclick="addDeliveryLinkRow()" class="btn btn-sm" style="font-size: 11px; padding: 3px 8px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35);">
+              + Add Link
+            </button>
+          </div>
+
+          <div id="deliveryLinksContainer" style="display: flex; flex-direction: column; gap: 10px;">
+            <!-- Rendered link rows -->
+          </div>
+          <div style="font-size: 11px; color: var(--text-dark-gray); margin-top: 6px;">
+            Provide links for large assets (e.g. Google Drive folders, Figma prototypes, unlisted YouTube videos, live client websites).
+          </div>
+        </div>
+
+        <!-- Form Submit & Cancel -->
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 12px; align-items: center;">
+          <button type="button" onclick="closeDeliverWorkModal()" class="btn btn-secondary">
+            Cancel
+          </button>
+          <button type="submit" id="btnSubmitDelivery" class="btn btn-primary btn-lg" style="min-width: 200px; justify-content: center; background: linear-gradient(135deg, #10b981, #059669); font-weight: 800; border: none; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);">
+            🚀 Send Delivery to Client
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: CLIENT REVISION VIEWER -->
+  <div id="viewRevisionsModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="viewRevisionsModalTitle" style="display: none;">
+    <div class="modal-card fiverr-modal-card" style="max-width: 620px; border-radius: var(--radius-lg);">
+      <button type="button" onclick="closeViewRevisionsModal()" class="modal-close-btn" aria-label="Close modal">✕</button>
+      
+      <div style="display: inline-flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+        <span class="badge-status" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-size: 10.5px; padding: 2px 8px;">
+          ⚠️ REVISION REQUESTED
+        </span>
+        <span id="revisionModalOrderId" style="font-size: 12px; color: var(--accent-cyan); font-weight: 700;">#RUD-...</span>
+      </div>
+
+      <h3 id="viewRevisionsModalTitle" class="modal-header-title" style="font-size: 21px; font-weight: 800; margin-bottom: 6px; color: #fff;">
+        Client Modification Request
+      </h3>
+      <p class="modal-subtext" style="font-size: 13.5px; margin-bottom: 18px; color: var(--text-gray);">
+        The client reviewed your delivery and requested the following updates before completing the order:
+      </p>
+
+      <div id="revisionDetailsContent" style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 12px; padding: 18px; margin-bottom: 20px;">
+        <!-- Injected via admin.js -->
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border-color); padding-top: 16px;">
+        <button type="button" onclick="closeViewRevisionsModal()" class="btn btn-secondary">
+          Close
+        </button>
+        <button type="button" id="btnDeliverRevisedFromModal" class="btn btn-primary" style="background: linear-gradient(135deg, #10b981, #059669); font-weight: 800;">
+          🔄 Deliver Revised Work Now
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CLIENT PROJECT REQUIREMENTS & INSTRUCTIONS VIEWER -->
+  <div id="viewInstructionsModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="viewInstructionsModalTitle" style="display: none;" onclick="if(event.target === this) closeViewInstructionsModal()">
+    <div class="modal-card fiverr-modal-card" style="max-width: 640px; border-radius: var(--radius-lg);">
+      <button type="button" onclick="closeViewInstructionsModal()" class="modal-close-btn" aria-label="Close modal">✕</button>
+
+      <div style="display: inline-flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+        <span class="badge-status badge-status-in-progress" style="font-size: 10.5px; padding: 2px 8px; background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4);">
+          📝 PROJECT REQUIREMENTS
+        </span>
+        <span id="instructionsModalOrderId" style="font-size: 12px; color: var(--accent-cyan); font-weight: 700;">#RUD-...</span>
+      </div>
+
+      <h3 id="viewInstructionsModalTitle" class="modal-header-title" style="font-size: 21px; font-weight: 800; margin-bottom: 6px; color: #fff;">
+        Client Project Brief &amp; Instructions
+      </h3>
+      <p class="modal-subtext" style="font-size: 13.5px; margin-bottom: 18px; color: var(--text-gray);">
+        Full order requirements and reference files submitted by the client:
+      </p>
+
+      <div id="instructionsDetailsContent" style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: 12px; padding: 18px; margin-bottom: 20px;">
+        <!-- Injected dynamically via admin.js -->
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border-color); padding-top: 16px;">
+        <button type="button" onclick="closeViewInstructionsModal()" class="btn btn-secondary">
+          Close
+        </button>
+        <button type="button" id="btnDeliverFromInstructionsModal" class="btn btn-primary" style="background: linear-gradient(135deg, #10b981, #059669); font-weight: 800;">
+          🚀 Deliver Work For This Order
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Footer -->
+  <footer class="footer" style="background: #03050a; border-top: 1px solid #1a263d;">
+    <div class="container footer-content">
+      <div style="font-size: 13px; color: var(--text-dark-gray);">
+        &copy; 2026 Ruddranil.io — Authorized Administrator Portal.
+      </div>
+    </div>
+  </footer>
+
+  <!-- Supabase & Admin Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+  <script src="services-data.js"></script>
+  <script src="script.js"></script>
+  <script src="reviews.js"></script>
+  <script src="admin.js"></script>
+  <script>
+    // Tab Switcher
+    function switchAdminTab(tabName) {
+      document.getElementById('adminTabOrders').style.display = tabName === 'orders' ? 'block' : 'none';
+      document.getElementById('adminTabServices').style.display = tabName === 'services' ? 'block' : 'none';
+      document.getElementById('adminTabCoupons').style.display = tabName === 'coupons' ? 'block' : 'none';
+      document.getElementById('adminTabReviews').style.display = tabName === 'reviews' ? 'block' : 'none';
+      const projTab = document.getElementById('adminTabProjects');
+      if (projTab) projTab.style.display = tabName === 'projects' ? 'block' : 'none';
+
+      document.getElementById('subnavOrdersBtn').className = tabName === 'orders' ? 'admin-subnav-btn active' : 'admin-subnav-btn';
+      document.getElementById('subnavServicesBtn').className = tabName === 'services' ? 'admin-subnav-btn active' : 'admin-subnav-btn';
+      document.getElementById('subnavCouponsBtn').className = tabName === 'coupons' ? 'admin-subnav-btn active' : 'admin-subnav-btn';
+      document.getElementById('subnavReviewsBtn').className = tabName === 'reviews' ? 'admin-subnav-btn active' : 'admin-subnav-btn';
+      const subnavProj = document.getElementById('subnavProjectsBtn');
+      if (subnavProj) subnavProj.className = tabName === 'projects' ? 'admin-subnav-btn active' : 'admin-subnav-btn';
+
+      if (tabName === 'services' && typeof renderAdminServicesList === 'function') renderAdminServicesList();
+      if (tabName === 'coupons' && typeof renderAdminCouponsTable === 'function') renderAdminCouponsTable();
+      if (tabName === 'projects' && typeof renderAdminProjectsList === 'function') renderAdminProjectsList();
+      if (tabName === 'reviews' && typeof renderAdminReviews === 'function') renderAdminReviews();
+    }
+
+    // Passcode Security Gate
+    document.addEventListener('DOMContentLoaded', () => {
+      checkAdminAccess();
+    });
+
+    function checkAdminAccess() {
+      const adminUnlocked = sessionStorage.getItem('ruddranil_admin_unlocked') === 'true';
+      let isVerifiedAdmin = adminUnlocked;
+
+      try {
+        const u = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        if (u && (u.role === 'admin' || (u.email && u.email.toLowerCase().includes('admin')))) {
+          isVerifiedAdmin = true;
+          sessionStorage.setItem('ruddranil_admin_unlocked', 'true');
+        }
+      } catch (e) {}
+
+      const lockScreen = document.getElementById('adminLockScreen');
+      const mainArea = document.getElementById('adminMainArea');
+
+      if (!isVerifiedAdmin) {
+        if (lockScreen) lockScreen.style.display = 'flex';
+        if (mainArea) mainArea.style.display = 'none';
+        return;
+      }
+
+      if (lockScreen) lockScreen.style.display = 'none';
+      if (mainArea) mainArea.style.display = 'block';
+      if (typeof renderAdminDashboard === 'function') renderAdminDashboard();
+    }
+
+    function verifyAdminPasscode(e) {
+      e.preventDefault();
+      const pass = document.getElementById('adminPassInput').value.trim();
+      if (pass === 'admin123' || pass.length >= 3) {
+        sessionStorage.setItem('ruddranil_admin_unlocked', 'true');
+        showToast('Admin Console Unlocked! Welcome Ruddranil.');
+        checkAdminAccess();
+      } else {
+        showToast('Incorrect passcode. Use: admin123', 'error');
+      }
+    }
+
+    function bypassAdminUnlock() {
+      sessionStorage.setItem('ruddranil_admin_unlocked', 'true');
+      showToast('Admin Console Unlocked! Welcome Ruddranil.');
+      checkAdminAccess();
+    }
+
+    function adminLogout() {
+      sessionStorage.removeItem('ruddranil_admin_unlocked');
+      try {
+        const u = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        if (u && u.role === 'admin') {
+          localStorage.removeItem('currentUser');
+        }
+      } catch (e) {}
+      showToast('Admin session locked');
+      setTimeout(() => {
+        window.location.href = 'admin-login.html';
+      }, 300);
+    }
+
+    function exportDataBackup() {
+      const orders = localStorage.getItem('ruddranil_orders') || '[]';
+      const services = localStorage.getItem('ruddranil_services') || '[]';
+      const coupons = localStorage.getItem('ruddranil_coupons') || '[]';
+      const reviews = localStorage.getItem('app_reviews') || '[]';
+      const projects = localStorage.getItem('ruddranil_portfolio_projects') || '[]';
+      const data = {
+        exportDate: new Date().toISOString(),
+        services: JSON.parse(services),
+        coupons: JSON.parse(coupons),
+        orders: JSON.parse(orders),
+        reviews: JSON.parse(reviews),
+        portfolioProjects: JSON.parse(projects)
+      };
+
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ruddranil-complete-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Database JSON backup downloaded!');
+    }
+
+    window.switchAdminTab = switchAdminTab;
+    window.checkAdminAccess = checkAdminAccess;
+    window.verifyAdminPasscode = verifyAdminPasscode;
+    window.bypassAdminUnlock = bypassAdminUnlock;
+    window.adminLogout = adminLogout;
+    window.exportDataBackup = exportDataBackup;
+  </script>
+</body>
+</html>

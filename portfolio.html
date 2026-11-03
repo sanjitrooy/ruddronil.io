@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portfolio &amp; Project Showcase | Ruddranil.io</title>
+  <meta name="description" content="Explore Ruddranil's 24+ digital projects across Facebook marketing, YouTube SEO, viral video editing, chatbot automation, and graphic design.">
+  <meta name="keywords" content="Ruddranil portfolio, web development projects, Facebook ads case study, YouTube SEO portfolio, chatbot automation showcase, Figma UI/UX designs, B2B lead generation samples">
+  <meta name="author" content="Ruddranil">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+
+  <!-- OpenGraph Social Cards -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Ruddranil.io">
+  <meta property="og:title" content="Portfolio &amp; Project Showcase | Ruddranil.io">
+  <meta property="og:description" content="Explore Ruddranil's 24+ digital projects across Facebook marketing, YouTube SEO, viral video editing, chatbot automation, and graphic design.">
+  <meta property="og:image" content="/public/assets/aistudio/file_000000001e5881f5bec7048c347e325c_07632167.png">
+
+  <!-- Twitter / X Cards -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Portfolio &amp; Project Showcase | Ruddranil.io">
+  <meta name="twitter:description" content="Explore Ruddranil's 24+ digital projects across Facebook marketing, YouTube SEO, viral video editing, chatbot automation, and graphic design.">
+  <meta name="twitter:image" content="/public/assets/aistudio/file_000000001e5881f5bec7048c347e325c_07632167.png">
+
+  <!-- Structured Data: CollectionPage & CreativeWork -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": "Ruddranil Portfolio & Project Showcase",
+    "url": "YOUR_PRODUCTION_DOMAIN/portfolio.html",
+    "description": "Showcase of 24 digital projects in Web Development, Digital Marketing, YouTube Video SEO, Graphic Design, and Business Automation.",
+    "creator": {
+      "@type": "Person",
+      "name": "Ruddranil"
+    }
+  }
+  </script>
+
+  <!-- Technical SEO Canonical Resolver -->
+  <script src="seo-config.js"></script>
+
+  <link rel="stylesheet" href="style.css">
+  <script>
+    (function() {
+      try {
+        const theme = localStorage.getItem('ruddranil_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body style="background: var(--bg-dark);">
+
+  <!-- Clean Single Responsive Navigation Bar -->
+  <header class="navbar">
+    <div class="container nav-container">
+      <a href="index.html" class="brand-logo">
+        Ruddranil<span class="dot">.io</span>
+      </a>
+
+      <nav class="nav-menu" id="navMenu" aria-label="Main navigation">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="index.html#about" class="nav-link">About</a>
+        <a href="index.html#services" class="nav-link">Services</a>
+        <a href="portfolio.html" class="nav-link active">Portfolio</a>
+        <a href="work-tracking.html" class="nav-link">Work Tracking</a>
+        <a href="reviews.html" class="nav-link">Reviews</a>
+        <a href="index.html#contact" class="nav-link">Contact</a>
+        <div class="nav-mobile-auth-wrapper" id="navMobileAuthContainer"></div>
+      </nav>
+
+      <div class="nav-actions">
+        <button id="themeToggleBtn" class="btn-theme-toggle" aria-label="Toggle light or dark theme" title="Toggle Theme (Light / Dark)" type="button">
+          <span class="theme-icon-indicator" aria-hidden="true">🌙</span>
+          <span class="theme-text-label">Dark</span>
+        </button>
+        <button id="navLoginBtn" class="btn-nav-auth btn-nav-auth-desktop">Login Now</button>
+        <button id="menuToggle" class="menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false" type="button">
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="nav-backdrop" id="navBackdrop"></div>
+
+  <main style="padding: 50px 0 80px;">
+    <div class="container">
+      
+      <!-- Section Header -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 20px; margin-bottom: 28px;">
+        <div>
+          <span class="section-kicker">PORTFOLIO &amp; WORK FEED</span>
+          <h1 class="section-title">
+            My Work &amp; <span class="highlight">Latest Updates.</span>
+          </h1>
+          <p class="section-desc">
+            Explore recent projects, creative design showcases, and live client milestones.
+          </p>
+        </div>
+
+        <button onclick="openUploadModal()" class="btn btn-cyan btn-sm">
+          + Add New Project Post
+        </button>
+      </div>
+
+      <!-- Category Filter Tabs -->
+      <div style="display: flex; gap: 10px; margin-bottom: 34px; flex-wrap: wrap;">
+        <button type="button" onclick="filterWorks('all')" class="btn btn-primary btn-sm filter-pill active" data-cat="all">All Projects (24)</button>
+        <button type="button" onclick="filterWorks('marketing')" class="btn btn-secondary btn-sm filter-pill" data-cat="marketing">📱 Digital Marketing (5)</button>
+        <button type="button" onclick="filterWorks('youtube')" class="btn btn-secondary btn-sm filter-pill" data-cat="youtube">▶️ YouTube (6)</button>
+        <button type="button" onclick="filterWorks('design')" class="btn btn-secondary btn-sm filter-pill" data-cat="design">🎨 Creative Design (5)</button>
+        <button type="button" onclick="filterWorks('data')" class="btn btn-secondary btn-sm filter-pill" data-cat="data">📊 Data Operations (5)</button>
+        <button type="button" onclick="filterWorks('automation')" class="btn btn-secondary btn-sm filter-pill" data-cat="automation">⚡ Business Automation (3)</button>
+      </div>
+
+      <!-- Portfolio Feed Cards Grid -->
+      <div class="portfolio-grid" id="portfolioContainer">
+        
+        <!-- Work 1 -->
+        <div class="work-card" id="proj-1" data-cat="web">
+          <div>
+            <div class="work-header">
+              <div class="work-avatar">R</div>
+              <div class="work-author">
+                <h4>Ruddranil</h4>
+                <p>Web Development • Project 01</p>
+              </div>
+            </div>
+            <div class="work-preview-box">
+              <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80" alt="Modern Business Website">
+            </div>
+            <h3 class="work-title">Modern Business Website</h3>
+            <p class="work-desc">A modern responsive website designed for a professional business presence with clean UI and high conversion speed.</p>
+          </div>
+          <div>
+            <div class="work-social-bar">
+              <span id="likeBtn-proj-1" data-like-project="proj-1" onclick="likePost(this, 'proj-1', 14)" class="work-social-btn like-btn" role="button" tabindex="0" title="Like Modern Business Website">🤍 Like (<span>14</span>)</span>
+              <span data-comment-id="proj-1" onclick="commentPost('Modern Business Website', 'proj-1')" role="button" tabindex="0">💬 Comment (3)</span>
+              <span onclick="sharePost('Modern Business Website', 'proj-1')" role="button" tabindex="0">↗ Share</span>
+            </div>
+            <div class="work-actions">
+              <button onclick="openModal('Modern Business Website', 'Web Development', 'Built with clean HTML5, modern CSS Grid, and lightweight JavaScript. Optimized for 99+ Google Lighthouse score and mobile devices.', 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80')" class="btn btn-secondary btn-sm">View Project</button>
+              <button onclick="orderServiceDirect('Website Design')" class="btn btn-primary btn-sm">Order Similar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Work 2 -->
+        <div class="work-card" id="proj-2" data-cat="marketing">
+          <div>
+            <div class="work-header">
+              <div class="work-avatar">R</div>
+              <div class="work-author">
+                <h4>Ruddranil</h4>
+                <p>Digital Marketing • Project 02</p>
+              </div>
+            </div>
+            <div class="work-preview-box">
+              <img src="https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=800&q=80" alt="Social Media Marketing">
+            </div>
+            <h3 class="work-title">Social Media Growth Campaign</h3>
+            <p class="work-desc">Targeted Facebook and YouTube advertising campaigns delivering measurable organic audience reach and high CTR.</p>
+          </div>
+          <div>
+            <div class="work-social-bar">
+              <span id="likeBtn-proj-2" data-like-project="proj-2" onclick="likePost(this, 'proj-2', 28)" class="work-social-btn like-btn" role="button" tabindex="0" title="Like Social Media Growth Campaign">🤍 Like (<span>28</span>)</span>
+              <span data-comment-id="proj-2" onclick="commentPost('Social Media Growth Campaign', 'proj-2')" role="button" tabindex="0">💬 Comment (5)</span>
+              <span onclick="sharePost('Social Media Growth Campaign', 'proj-2')" role="button" tabindex="0">↗ Share</span>
+            </div>
+            <div class="work-actions">
+              <button onclick="openModal('Social Media Growth Campaign', 'Digital Marketing', 'Engineered custom audience funnels, compelling ad copywriting, and high-impact visual banners with full A/B split testing.', 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=800&q=80')" class="btn btn-secondary btn-sm">View Project</button>
+              <button onclick="orderServiceDirect('Facebook Marketing')" class="btn btn-primary btn-sm">Order Similar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Work 3 -->
+        <div class="work-card" id="proj-3" data-cat="design">
+          <div>
+            <div class="work-header">
+              <div class="work-avatar">R</div>
+              <div class="work-author">
+                <h4>Ruddranil</h4>
+                <p>Creative Design • Project 03</p>
+              </div>
+            </div>
+            <div class="work-preview-box">
+              <img src="https://images.unsplash.com/photo-1572044162444-ad60f128bdea?auto=format&fit=crop&w=800&q=80" alt="Creative Graphic Design">
+            </div>
+            <h3 class="work-title">Brand Identity &amp; Digital Graphics</h3>
+            <p class="work-desc">Creative visual assets designed for social channels, digital advertising, and high-resolution brand packages.</p>
+          </div>
+          <div>
+            <div class="work-social-bar">
+              <span id="likeBtn-proj-3" data-like-project="proj-3" onclick="likePost(this, 'proj-3', 19)" class="work-social-btn like-btn" role="button" tabindex="0" title="Like Brand Identity & Digital Graphics">🤍 Like (<span>19</span>)</span>
+              <span data-comment-id="proj-3" onclick="commentPost('Brand Identity & Digital Graphics', 'proj-3')" role="button" tabindex="0">💬 Comment (2)</span>
+              <span onclick="sharePost('Brand Identity & Digital Graphics', 'proj-3')" role="button" tabindex="0">↗ Share</span>
+            </div>
+            <div class="work-actions">
+              <button onclick="openModal('Brand Identity & Digital Graphics', 'Creative Design', 'Complete brand identity kit including logo mark, typography guidelines, vector social banners, and digital marketing banners.', 'https://images.unsplash.com/photo-1572044162444-ad60f128bdea?auto=format&fit=crop&w=800&q=80')" class="btn btn-secondary btn-sm">View Project</button>
+              <button onclick="orderServiceDirect('Graphic Design')" class="btn btn-primary btn-sm">Order Similar</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Upload New Project Modal -->
+  <div id="uploadProjectModal" class="modal-overlay">
+    <div class="modal-card">
+      <button onclick="closeUploadModal()" class="modal-close-btn" aria-label="Close modal">✕</button>
+      <span class="section-kicker" style="margin-bottom: 4px;">FEED UPDATE</span>
+      <h3 class="modal-header-title" style="font-size: 20px; font-weight: 700; margin-bottom: 8px;">Post Project to Portfolio</h3>
+      <p style="font-size: 13px; color: var(--text-gray); margin-bottom: 20px;">Upload an image or video URL to display in the live showcase.</p>
+
+      <form onsubmit="handleUploadProjectSubmit(event)">
+        <div class="form-group">
+          <label class="form-label" for="projTitle">Project Title</label>
+          <input type="text" id="projTitle" class="form-input" placeholder="e.g. E-Commerce Platform" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="projCat">Category</label>
+          <select id="projCat" class="form-select" required>
+            <option value="marketing">Digital Marketing</option>
+            <option value="youtube">YouTube Services</option>
+            <option value="design">Creative Design</option>
+            <option value="data">Data Operations</option>
+            <option value="automation">Business Automation</option>
+            <option value="web">Web Development</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="projMediaUrl">Image / Media URL</label>
+          <input type="text" id="projMediaUrl" class="form-input" placeholder="Image URL or local path (e.g. public/assets/...)" value="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="projDesc">Description</label>
+          <textarea id="projDesc" rows="3" class="form-textarea" placeholder="Project overview and highlights..." required></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg">Publish to Portfolio</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-content">
+      <h3 class="footer-brand">Ruddranil.io</h3>
+      <p class="footer-sub">Web Developer &amp; Digital Creative</p>
+      <div class="footer-copy">
+        &copy; 2026 Ruddranil.io. All rights reserved.
+      </div>
+    </div>
+  </footer>
+
+  <!-- Supabase & Core Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+  <script src="services-data.js"></script>
+  <script src="script.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Synchronize portfolio projects from server API
+      if (typeof syncPublicPortfolioGrid === 'function') {
+        syncPublicPortfolioGrid();
+      }
+
+      // Initialize dynamic like states and comment counts
+      ['proj-1', 'proj-2', 'proj-3'].forEach((pid, idx) => {
+        const defaults = [14, 28, 19];
+        const count = window.getProjectLikeCount ? window.getProjectLikeCount(pid, defaults[idx]) : defaults[idx];
+        const isLiked = window.isProjectLiked ? window.isProjectLiked(pid) : false;
+        const btn = document.getElementById(`likeBtn-${pid}`);
+        if (btn) {
+          btn.innerHTML = `${isLiked ? '❤️' : '🤍'} Like (<span>${count}</span>)`;
+          btn.style.color = isLiked ? '#ef4444' : 'var(--text-gray)';
+          btn.style.fontWeight = isLiked ? '700' : '500';
+        }
+
+        const comments = window.getProjectComments ? window.getProjectComments(pid) : [];
+        const commentBtn = document.querySelector(`[data-comment-id="${pid}"]`);
+        if (commentBtn && comments.length > 0) {
+          commentBtn.innerHTML = `💬 Comment (${comments.length})`;
+        }
+      });
+
+      // Handle Shared Deep-Link Scroll & Highlight
+      const urlParams = new URLSearchParams(window.location.search);
+      const sharedProjectId = urlParams.get('project') || window.location.hash.replace('#', '');
+      if (sharedProjectId) {
+        const targetCard = document.getElementById(sharedProjectId);
+        if (targetCard) {
+          setTimeout(() => {
+            targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            targetCard.style.outline = '2px solid var(--accent-cyan)';
+            targetCard.style.boxShadow = '0 0 25px rgba(0, 212, 255, 0.4)';
+            setTimeout(() => {
+              targetCard.style.outline = 'none';
+              targetCard.style.boxShadow = 'none';
+            }, 3500);
+          }, 300);
+        }
+      }
+    });
+
+    function filterWorks(category) {
+      const cards = document.querySelectorAll('#portfolioContainer .work-card');
+      const pills = document.querySelectorAll('.filter-pill');
+
+      pills.forEach(p => {
+        if (p.getAttribute('data-cat') === category) {
+          p.className = 'btn btn-primary btn-sm filter-pill active';
+        } else {
+          p.className = 'btn btn-secondary btn-sm filter-pill';
+        }
+      });
+
+      cards.forEach(card => {
+        const cat = (card.getAttribute('data-cat') || '').toLowerCase();
+        const target = (category || '').toLowerCase();
+        const isMatch = target === 'all' || cat === target || cat.includes(target) || target.includes(cat);
+        if (isMatch) {
+          card.style.display = 'flex';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    }
+
+    function openUploadModal() {
+      document.getElementById('uploadProjectModal').style.display = 'flex';
+    }
+
+    function closeUploadModal() {
+      document.getElementById('uploadProjectModal').style.display = 'none';
+    }
+
+    function handleUploadProjectSubmit(e) {
+      e.preventDefault();
+      const title = document.getElementById('projTitle').value.trim();
+      const cat = document.getElementById('projCat').value;
+      const media = document.getElementById('projMediaUrl').value.trim();
+      const desc = document.getElementById('projDesc').value.trim();
+      const newPid = 'proj-' + Date.now();
+
+      const catNames = {
+        marketing: 'Digital Marketing',
+        youtube: 'YouTube Services',
+        design: 'Creative Design',
+        data: 'Data Operations',
+        automation: 'Business Automation',
+        web: 'Web Development'
+      };
+
+      const categoryName = catNames[cat] || 'Creative Work';
+      const isVideo = typeof window.isVideoMediaUrl === 'function' ? window.isVideoMediaUrl(media) : false;
+
+      const newProject = {
+        id: newPid,
+        title,
+        category: categoryName,
+        categorySlug: cat,
+        mediaUrl: media,
+        mediaType: isVideo ? 'video' : 'image',
+        description: desc,
+        details: desc,
+        author: 'Ruddranil',
+        badge: 'New Release',
+        likesCount: 1,
+        commentsCount: 0,
+        serviceSlug: 'Website Design',
+        createdAt: new Date().toISOString()
+      };
+
+      const projects = JSON.parse(localStorage.getItem('ruddranil_portfolio_projects') || '[]');
+      projects.unshift(newProject);
+      localStorage.setItem('ruddranil_portfolio_projects', JSON.stringify(projects));
+      
+      // Sync to server API for cross-device visibility
+      fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(projects)
+      }).catch(err => console.warn('Portfolio sync warning:', err));
+
+      window.dispatchEvent(new CustomEvent('ruddranil_projects_updated'));
+
+      if (typeof syncPublicPortfolioGrid === 'function') {
+        syncPublicPortfolioGrid();
+      }
+
+      closeUploadModal();
+      showToast(`Project "${title}" added to portfolio!`);
+    }
+  </script>
+</body>
+</html>

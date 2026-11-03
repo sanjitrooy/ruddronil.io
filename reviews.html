@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Client Reviews &amp; 5-Star Ratings | Ruddranil.io</title>
+  <meta name="description" content="Read 148+ verified client reviews and 4.98-star ratings for web development, chatbot automation, YouTube SEO, and digital marketing services by Ruddranil.">
+  <meta name="keywords" content="Ruddranil reviews, client testimonials, web developer ratings, chatbot automation reviews, YouTube SEO results, Fiverr verified orders">
+  <meta name="author" content="Ruddranil">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+
+  <!-- OpenGraph Social Cards -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Ruddranil.io">
+  <meta property="og:title" content="Client Reviews &amp; 5-Star Ratings | Ruddranil.io">
+  <meta property="og:description" content="Read 148+ verified client reviews and 4.98-star ratings for web development, chatbot automation, YouTube SEO, and digital marketing services by Ruddranil.">
+  <meta property="og:image" content="/public/assets/aistudio/file_000000001e5881f5bec7048c347e325c_07632167.png">
+
+  <!-- Twitter / X Cards -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Client Reviews &amp; 5-Star Ratings | Ruddranil.io">
+  <meta name="twitter:description" content="Read 148+ verified client reviews and 4.98-star ratings for web development, chatbot automation, YouTube SEO, and digital marketing services by Ruddranil.">
+  <meta name="twitter:image" content="/public/assets/aistudio/file_000000001e5881f5bec7048c347e325c_07632167.png">
+
+  <!-- Structured Data: AggregateRating & Reviews -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": "Ruddranil Professional Digital Services",
+    "description": "Custom Web Development, Facebook & WhatsApp Chatbot Automation, and YouTube Video SEO.",
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.98",
+      "reviewCount": "148",
+      "bestRating": "5",
+      "worstRating": "1"
+    }
+  }
+  </script>
+
+  <!-- Technical SEO Canonical Resolver -->
+  <script src="seo-config.js"></script>
+
+  <link rel="stylesheet" href="style.css">
+  <script>
+    (function() {
+      try {
+        const theme = localStorage.getItem('ruddranil_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body style="background: var(--bg-dark);">
+
+  <!-- Clean Single Responsive Navigation Bar -->
+  <header class="navbar">
+    <div class="container nav-container">
+      <a href="index.html" class="brand-logo">
+        Ruddranil<span class="dot">.io</span>
+      </a>
+
+      <nav class="nav-menu" id="navMenu" aria-label="Main navigation">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="index.html#about" class="nav-link">About</a>
+        <a href="index.html#services" class="nav-link">Services</a>
+        <a href="portfolio.html" class="nav-link">Portfolio</a>
+        <a href="work-tracking.html" class="nav-link">Work Tracking</a>
+        <a href="reviews.html" class="nav-link active">Reviews</a>
+        <a href="index.html#contact" class="nav-link">Contact</a>
+        <div class="nav-mobile-auth-wrapper" id="navMobileAuthContainer"></div>
+      </nav>
+
+      <div class="nav-actions">
+        <button id="themeToggleBtn" class="btn-theme-toggle" aria-label="Toggle light or dark theme" title="Toggle Theme (Light / Dark)" type="button">
+          <span class="theme-icon-indicator" aria-hidden="true">🌙</span>
+          <span class="theme-text-label">Dark</span>
+        </button>
+        <button id="navLoginBtn" class="btn-nav-auth btn-nav-auth-desktop">Login Now</button>
+        <button id="menuToggle" class="menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false" type="button">
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="nav-backdrop" id="navBackdrop"></div>
+
+  <main style="padding: 50px 0 80px;">
+    <div class="container">
+      
+      <!-- Reviews Summary Card -->
+      <div class="card reviews-hero-card" style="margin-bottom: 36px; padding: 30px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+        <div>
+          <span class="section-kicker">VERIFIED TESTIMONIALS</span>
+          <h1 class="reviews-hero-title" style="font-size: clamp(22px, 4vw, 30px); font-weight: 800; margin-bottom: 8px;">Client Feedback &amp; Reviews</h1>
+          <p class="reviews-hero-desc" style="font-size: 14px; max-width: 520px;">
+            Genuine experiences from business owners and creators collaborating with Ruddranil.
+          </p>
+        </div>
+
+        <div class="reviews-rating-box" style="text-align: center; padding: 18px 28px; border-radius: var(--radius-md); border: 1px solid var(--border-color); min-width: 160px;">
+          <div style="font-size: 38px; font-weight: 800; color: var(--accent-cyan); line-height: 1;" id="reviewsAvgRating">5.0</div>
+          <div style="color: #fbbf24; font-size: 18px; margin: 4px 0;">★★★★★</div>
+          <div style="font-size: 12px; color: var(--text-dark-gray);" id="reviewsTotalCount">3 Verified Reviews</div>
+        </div>
+      </div>
+
+      <!-- Filters & Action Bar -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-primary btn-sm review-filter-btn active" data-filter="all">All Reviews</button>
+          <button type="button" class="btn btn-secondary btn-sm review-filter-btn" data-filter="5star">5-Star Only</button>
+          <button type="button" class="btn btn-secondary btn-sm review-filter-btn" data-filter="with-images">📷 With Project Photos</button>
+          <button type="button" class="btn btn-secondary btn-sm review-filter-btn" data-filter="verified">✓ Verified Orders</button>
+        </div>
+
+        <button type="button" onclick="window.triggerWriteReviewFlow()" class="btn btn-primary btn-sm" style="background: linear-gradient(135deg, #0284c7, #2563eb); font-weight: 700;">
+          ✍️ Write a Review
+        </button>
+      </div>
+
+      <!-- Reviews Feed Grid -->
+      <div class="reviews-feed-grid" id="reviewsFeedContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 22px; margin-bottom: 24px;">
+        <!-- Injected via reviews.js -->
+      </div>
+
+      <!-- See More Reviews Action Container -->
+      <div id="reviewsLoadMoreWrap" style="text-align: center; margin: 0 auto 50px;"></div>
+
+      <!-- Open Reviews & Feedback Callout Card -->
+      <section id="writeReviewSection" style="margin-bottom: 40px;">
+        <div class="card" style="max-width: 680px; margin: 0 auto; padding: 34px 28px; text-align: center; border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: linear-gradient(135deg, rgba(8, 14, 28, 0.95), rgba(15, 28, 55, 0.85));">
+          <div style="width: 52px; height: 52px; border-radius: 50%; background: rgba(56, 189, 248, 0.12); border: 1.5px solid rgba(56, 189, 248, 0.3); display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 14px;">
+            ⭐
+          </div>
+          <span class="section-kicker" style="margin-bottom: 4px;">CLIENT &amp; VISITOR FEEDBACK</span>
+          <h2 style="font-size: 22px; font-weight: 800; margin-bottom: 8px; color: #fff;">Have You Worked with Ruddranil?</h2>
+          <p style="font-size: 13.5px; color: var(--text-gray); line-height: 1.6; max-width: 520px; margin: 0 auto 22px;">
+            Share your authentic feedback, project deliverables, photos, or video links. Community reviews, likes, and comments are open for everyone.
+          </p>
+
+          <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+            <button type="button" onclick="window.triggerWriteReviewFlow()" class="btn btn-primary" style="padding: 10px 24px; font-weight: 800; background: linear-gradient(135deg, #0284c7, #2563eb);">
+              ✍️ Share Your Experience
+            </button>
+            <a href="customer-dashboard.html" class="btn btn-secondary">
+              Open Customer Dashboard →
+            </a>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-content">
+      <h3 class="footer-brand">Ruddranil.io</h3>
+      <p class="footer-sub">Web Developer &amp; Digital Creative</p>
+      <div class="footer-copy">
+        &copy; 2026 Ruddranil.io. All rights reserved.
+      </div>
+    </div>
+  </footer>
+
+  <!-- Supabase & Core Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+  <script src="script.js"></script>
+  <script src="reviews.js"></script>
+</body>
+</html>

@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ruddranil.io - Customer Sign In &amp; Register</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    (function() {
+      try {
+        const theme = localStorage.getItem('ruddranil_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body style="background: var(--bg-dark);">
+
+  <!-- Single Responsive Navigation Bar -->
+  <header class="navbar">
+    <div class="container nav-container">
+      <a href="index.html" class="brand-logo">
+        Ruddranil<span class="dot">.io</span>
+      </a>
+
+      <nav class="nav-menu" id="navMenu" aria-label="Main navigation">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="index.html#about" class="nav-link">About</a>
+        <a href="index.html#services" class="nav-link">Services</a>
+        <a href="portfolio.html" class="nav-link">Portfolio</a>
+        <a href="work-tracking.html" class="nav-link">Work Tracking</a>
+        <a href="reviews.html" class="nav-link">Reviews</a>
+        <a href="index.html#contact" class="nav-link">Contact</a>
+        <div class="nav-mobile-auth-wrapper" id="navMobileAuthContainer"></div>
+      </nav>
+
+      <div class="nav-actions">
+        <button id="themeToggleBtn" class="btn-theme-toggle" aria-label="Toggle light or dark theme" title="Toggle Theme (Light / Dark)" type="button">
+          <span class="theme-icon-indicator" aria-hidden="true">🌙</span>
+          <span class="theme-text-label">Dark</span>
+        </button>
+        <button id="navLoginBtn" class="btn-nav-auth btn-nav-auth-desktop">Login Now</button>
+        <button id="menuToggle" class="menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false" type="button">
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="nav-backdrop" id="navBackdrop"></div>
+
+  <main>
+    <div class="auth-wrapper">
+      <div class="auth-container-grid">
+        
+        <!-- Left Column: Trust & Platform Highlights -->
+        <div class="auth-benefits-sidebar">
+          <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 14px;">
+            <span class="brand-badge" style="margin-left: 0; font-size: 10px; padding: 3px 8px;">VERIFIED PORTAL</span>
+            <span style="font-size: 11px; color: var(--accent-cyan); font-weight: 600;">Customer Hub</span>
+          </div>
+          
+          <h2 class="auth-benefits-title">Your Dedicated Ruddranil.io Workspace</h2>
+          <p class="auth-benefits-sub">
+            Secure client portal to place orders, upload project briefs, follow live milestones, and manage your profile.
+          </p>
+
+          <div class="auth-benefits-list">
+            <div class="auth-benefit-item">
+              <div class="auth-benefit-icon">⚡</div>
+              <div class="auth-benefit-text">
+                <h5>Real-Time Work Tracking</h5>
+                <p>Track your project progress, milestone completion percentages, and live updates in one place.</p>
+              </div>
+            </div>
+
+            <div class="auth-benefit-item">
+              <div class="auth-benefit-icon">🔒</div>
+              <div class="auth-benefit-text">
+                <h5>Secure Supabase Auth &amp; RLS</h5>
+                <p>Enterprise Row Level Security ensures only you have access to your private orders and profile data.</p>
+              </div>
+            </div>
+
+            <div class="auth-benefit-item">
+              <div class="auth-benefit-icon">⭐</div>
+              <div class="auth-benefit-text">
+                <h5>Verified Client Reviews</h5>
+                <p>Leave authenticated reviews and ratings once your project delivery is completed.</p>
+              </div>
+            </div>
+
+            <div class="auth-benefit-item">
+              <div class="auth-benefit-icon">📁</div>
+              <div class="auth-benefit-text">
+                <h5>Order &amp; Deliverable History</h5>
+                <p>Direct access to invoices, package tiers, add-ons, attachments, and delivery timelines.</p>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 28px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 12px; color: var(--text-dark-gray); display: flex; align-items: center; justify-content: space-between;">
+            <span>Have questions about a custom project?</span>
+            <a href="index.html#contact" style="color: var(--accent-cyan); font-weight: 600;">Contact Direct →</a>
+          </div>
+        </div>
+
+        <!-- Right Column: Single Polished Login / Register Card -->
+        <div class="auth-card">
+          <!-- Brand Logo Badge -->
+          <div class="auth-brand-badge">R</div>
+          <h1 class="auth-brand-name">Ruddranil<span style="color: var(--accent-cyan);">.io</span></h1>
+          <p class="auth-brand-desc">Customer portal for projects, orders and digital services</p>
+
+          <!-- Order Context Notice Banner (Shown when visitor clicked Order, rendered without layout jump) -->
+          <script>
+            (function() {
+              try {
+                var p = new URLSearchParams(window.location.search);
+                var ord = p.get('order');
+                if (ord) {
+                  var safeOrd = ord.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                  document.write('<div id="orderContextNotice" style="background: rgba(2, 132, 199, 0.12); border: 1px solid rgba(2, 132, 199, 0.35); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px; text-align: left;"><div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(2, 132, 199, 0.2); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">📦</div><div><div style="font-size: 13px; font-weight: 700; color: #fff;">Ordering: <span style="color: var(--accent-cyan);">' + safeOrd + '</span></div><div style="font-size: 11.5px; color: var(--text-gray); margin-top: 2px;">Please sign in or create an account to customize and place this order.</div></div></div>');
+                }
+              } catch (e) {}
+            })();
+          </script>
+
+          <!-- Alert Box -->
+          <div id="authAlertBox" class="auth-alert-box" role="alert"></div>
+
+          <!-- Segmented Tab Switcher (Login / Create Account) -->
+          <div class="auth-tabs" role="tablist">
+            <button id="tabLoginBtn" class="auth-tab-btn active" onclick="switchTab('login')" role="tab" aria-selected="true">
+              🔑 Sign In
+            </button>
+            <button id="tabRegisterBtn" class="auth-tab-btn" onclick="switchTab('register')" role="tab" aria-selected="false">
+              ✨ Create Account
+            </button>
+          </div>
+
+          <!-- 1. CUSTOMER LOGIN FORM -->
+          <div id="loginFormSection">
+            <h2 class="auth-form-title">Welcome Back</h2>
+            <p class="auth-form-sub">Sign in with your verified email to access your dashboard.</p>
+
+            <form id="customerLoginForm" onsubmit="handleCustomerLoginSubmit(event)" novalidate>
+              <div class="form-group">
+                <label class="form-label" for="loginEmail">Email Address</label>
+                <input type="email" id="loginEmail" class="form-input" placeholder="you@example.com" required autocomplete="username">
+              </div>
+
+              <div class="form-group">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <label class="form-label" for="loginPassword" style="margin-bottom: 0;">Password</label>
+                  <button type="button" onclick="openForgotPasswordModal()" style="font-size: 12px; color: var(--accent-cyan); background: transparent; border: none; cursor: pointer; padding: 0; font-weight: 600;">
+                    Forgot Password?
+                  </button>
+                </div>
+                
+                <div class="password-input-wrap">
+                  <input type="password" id="loginPassword" class="form-input" placeholder="Enter your account password" required autocomplete="current-password">
+                  <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('loginPassword', this)" aria-label="Toggle password visibility">
+                    👁️
+                  </button>
+                </div>
+              </div>
+
+              <button type="submit" id="btnSignInSubmit" class="btn btn-primary btn-block btn-lg" style="margin-top: 14px; justify-content: center;">
+                <span id="signInBtnText">Sign In to Customer Dashboard</span>
+              </button>
+            </form>
+          </div>
+
+          <!-- 2. CREATE ACCOUNT FORM -->
+          <div id="registerFormSection" style="display: none;">
+            <h2 class="auth-form-title">Create Your Account</h2>
+            <p class="auth-form-sub">Register to place orders, upload project briefs, and track delivery.</p>
+
+            <form id="customerRegisterForm" onsubmit="handleRegisterSubmit(event)" novalidate>
+              <div class="form-group">
+                <label class="form-label" for="regFullName">Full Name <span style="color: #ef4444;">*</span></label>
+                <input type="text" id="regFullName" class="form-input" placeholder="e.g. John Doe" required autocomplete="name">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="regEmail">Email Address <span style="color: #ef4444;">*</span></label>
+                <input type="email" id="regEmail" class="form-input" placeholder="you@example.com" required autocomplete="email">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="regPass">Create Password <span style="color: #ef4444;">*</span></label>
+                <div class="password-input-wrap">
+                  <input type="password" id="regPass" class="form-input" placeholder="At least 6 characters" required autocomplete="new-password">
+                  <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('regPass', this)" aria-label="Toggle password visibility">
+                    👁️
+                  </button>
+                </div>
+                <small style="font-size: 11px; color: var(--text-dark-gray); margin-top: 4px; display: block;">Must be minimum 6 characters.</small>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="regConfirmPass">Confirm Password <span style="color: #ef4444;">*</span></label>
+                <div class="password-input-wrap">
+                  <input type="password" id="regConfirmPass" class="form-input" placeholder="Repeat your password" required autocomplete="new-password">
+                  <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('regConfirmPass', this)" aria-label="Toggle password visibility">
+                    👁️
+                  </button>
+                </div>
+              </div>
+
+              <button type="submit" id="btnRegisterSubmit" class="btn btn-primary btn-block btn-lg" style="margin-top: 14px; justify-content: center;">
+                <span id="registerBtnText">Create Customer Account</span>
+              </button>
+            </form>
+          </div>
+
+          <!-- Footer Info and Back Link -->
+          <div style="text-align: center; margin-top: 26px; border-top: 1px solid var(--border-color); padding-top: 18px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px; flex-wrap: wrap; gap: 8px;">
+              <a href="index.html" style="color: var(--text-gray); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                ← Back to Website
+              </a>
+              <span style="font-size: 12px; color: var(--text-dark-gray); display: inline-flex; align-items: center; gap: 4px;">
+                🛡️ Verified Customer Portal
+              </span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Forgot Password Modal -->
+  <div id="forgotPasswordModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="forgotPasswordTitle">
+    <div class="modal-card" style="max-width: 440px;">
+      <button type="button" onclick="closeForgotPasswordModal()" class="modal-close-btn" aria-label="Close modal">✕</button>
+      
+      <div style="display: inline-flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+        <span class="brand-badge" style="margin-left: 0;">ACCOUNT RECOVERY</span>
+        <span style="font-size: 11px; color: var(--accent-cyan); font-weight: 600;">Supabase Auth</span>
+      </div>
+      
+      <h3 id="forgotPasswordTitle" class="modal-header-title" style="font-size: 20px; font-weight: 800; margin-bottom: 6px;">Reset Your Password</h3>
+      <p style="font-size: 13px; color: var(--text-gray); margin-bottom: 20px;">
+        Enter your registered email address and we'll send you an official Supabase password recovery link.
+      </p>
+
+      <div id="forgotAlertBox" class="auth-alert-box"></div>
+
+      <form onsubmit="handleForgotPasswordSubmit(event)">
+        <div class="form-group">
+          <label class="form-label" for="forgotEmailInput">Account Email</label>
+          <input type="email" id="forgotEmailInput" class="form-input" placeholder="you@example.com" required>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+          <button type="button" onclick="closeForgotPasswordModal()" class="btn btn-secondary">
+            Cancel
+          </button>
+          <button type="submit" id="btnForgotSubmit" class="btn btn-primary" style="min-width: 130px; justify-content: center;">
+            <span id="forgotBtnText">Send Reset Link</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Supabase & Core Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+  <script src="script.js"></script>
+  <script>
+    let pendingVerificationEmail = '';
+
+    function showAuthAlert(msg, type = 'error', allowResend = false) {
+      const box = document.getElementById('authAlertBox');
+      if (!box) return;
+      box.style.display = 'block';
+      box.className = type === 'error' ? 'auth-alert-box auth-alert-error' : 'auth-alert-box auth-alert-success';
+      
+      let html = `${type === 'error' ? '⚠️' : '✓'} ${msg}`;
+      if (allowResend && pendingVerificationEmail) {
+        html += `
+          <div style="margin-top: 8px; pt-1; border-top: 1px dashed rgba(255,255,255,0.2); padding-top: 6px;">
+            <button type="button" onclick="handleResendVerification('${pendingVerificationEmail}')" style="background: transparent; border: none; color: #fff; text-decoration: underline; cursor: pointer; font-size: 12px; font-weight: 700; padding: 0;">
+              ✉️ Resend Verification Email to ${pendingVerificationEmail}
+            </button>
+          </div>
+        `;
+      }
+      box.innerHTML = html;
+    }
+
+    function clearAuthAlert() {
+      const box = document.getElementById('authAlertBox');
+      if (box) box.style.display = 'none';
+    }
+
+    function switchTab(tab) {
+      clearAuthAlert();
+      document.getElementById('loginFormSection').style.display = tab === 'login' ? 'block' : 'none';
+      document.getElementById('registerFormSection').style.display = tab === 'register' ? 'block' : 'none';
+
+      document.getElementById('tabLoginBtn').className = tab === 'login' ? 'auth-tab-btn active' : 'auth-tab-btn';
+      document.getElementById('tabRegisterBtn').className = tab === 'register' ? 'auth-tab-btn active' : 'auth-tab-btn';
+      
+      document.getElementById('tabLoginBtn').setAttribute('aria-selected', tab === 'login');
+      document.getElementById('tabRegisterBtn').setAttribute('aria-selected', tab === 'register');
+    }
+
+    function togglePasswordVisibility(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+        btn.setAttribute('aria-label', 'Hide password');
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁️';
+        btn.setAttribute('aria-label', 'Show password');
+      }
+    }
+
+    // Helper to determine destination after auth (e.g. back to ordering on index.html)
+    function getRedirectDestination() {
+      const params = new URLSearchParams(window.location.search);
+      const redirect = params.get('redirect');
+      const order = params.get('order');
+      const tier = params.get('tier');
+
+      if (redirect) {
+        let dest = redirect;
+        const q = new URLSearchParams();
+        if (order) q.set('order', order);
+        if (tier) q.set('tier', tier);
+        const qs = q.toString();
+        if (qs) {
+          dest += (dest.includes('?') ? '&' : '?') + qs;
+        }
+        return dest;
+      }
+      return 'customer-dashboard.html';
+    }
+
+    // Auto-detect email verification callback from Supabase email link or active session
+    document.addEventListener('DOMContentLoaded', async () => {
+      const hash = window.location.hash || '';
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      const orderParam = params.get('order');
+      const destUrl = getRedirectDestination();
+
+      if (tabParam === 'register') {
+        switchTab('register');
+      }
+
+      let hasRedirected = false;
+      const safeRedirect = async (url, delay = 0) => {
+        if (hasRedirected) return;
+        hasRedirected = true;
+        try {
+          if (typeof window.getCurrentCustomerSession === 'function') {
+            await window.getCurrentCustomerSession();
+          }
+        } catch (e) {}
+        if (delay > 0) {
+          setTimeout(() => {
+            window.location.href = url;
+          }, delay);
+        } else {
+          window.location.href = url;
+        }
+      };
+
+      if (window.sbClient && window.sbClient.auth) {
+        // Listen to state changes (e.g. token confirmed via email link)
+        window.sbClient.auth.onAuthStateChange(async (event, session) => {
+          if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session?.user) {
+            if (hash.includes('access_token') || hash.includes('type=signup') || hash.includes('type=recovery')) {
+              showAuthAlert('Email verified successfully! Continuing...', 'success');
+              await safeRedirect(destUrl, 600);
+            }
+          }
+        });
+
+        // Check if an existing valid session already exists
+        // If user explicitly clicked "Create New Account", do not force redirect away from register tab
+        if (tabParam !== 'register') {
+          try {
+            const { data: { session } } = await window.sbClient.auth.getSession();
+            if (session?.user) {
+              await safeRedirect(destUrl, 100);
+              return;
+            }
+          } catch (e) {}
+        }
+      }
+    });
+
+    async function handleCustomerLoginSubmit(e) {
+      e.preventDefault();
+      clearAuthAlert();
+
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+
+      if (!email || !password) {
+        showAuthAlert('Please provide both your email and password.', 'error');
+        return;
+      }
+
+      const submitBtn = document.getElementById('btnSignInSubmit');
+      const btnText = document.getElementById('signInBtnText');
+      submitBtn.disabled = true;
+      btnText.innerHTML = `<span style="display: inline-block; animation: spin 1s linear infinite; margin-right: 6px;">⟳</span> Authenticating...`;
+
+      try {
+        let result;
+        if (typeof window.signInCustomer === 'function') {
+          result = await window.signInCustomer(email, password);
+        } else {
+          result = { success: false, error: 'Authentication client unavailable.' };
+        }
+
+        if (result && result.success) {
+          if (result.user) {
+            try { localStorage.setItem('currentUser', JSON.stringify(result.user)); } catch (e) {}
+          }
+          const destUrl = getRedirectDestination();
+          showAuthAlert('Authentication successful! Continuing...', 'success');
+          showToast('Welcome to your customer portal!');
+          setTimeout(() => {
+            window.location.href = destUrl;
+          }, 350);
+        } else {
+          if (result?.emailNotConfirmed) {
+            pendingVerificationEmail = email;
+            showAuthAlert(result.error, 'error', true);
+          } else {
+            showAuthAlert(result?.error || 'Invalid email or password. Please verify and try again.', 'error');
+          }
+        }
+      } catch (err) {
+        showAuthAlert(err.message || 'Unable to sign in. Please try again.', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        btnText.textContent = 'Sign In to Customer Dashboard';
+      }
+    }
+
+    async function handleRegisterSubmit(e) {
+      e.preventDefault();
+      clearAuthAlert();
+
+      const name = document.getElementById('regFullName').value.trim();
+      const email = document.getElementById('regEmail').value.trim();
+      const pass = document.getElementById('regPass').value;
+      const confirmPass = document.getElementById('regConfirmPass').value;
+
+      if (!name || !email || !pass) {
+        showAuthAlert('Please fill in all required fields.', 'error');
+        return;
+      }
+
+      if (pass.length < 6) {
+        showAuthAlert('Password must be at least 6 characters.', 'error');
+        return;
+      }
+
+      if (pass !== confirmPass) {
+        showAuthAlert('Passwords do not match. Please re-enter your password.', 'error');
+        return;
+      }
+
+      const submitBtn = document.getElementById('btnRegisterSubmit');
+      const btnText = document.getElementById('registerBtnText');
+      submitBtn.disabled = true;
+      btnText.innerHTML = `<span style="display: inline-block; animation: spin 1s linear infinite; margin-right: 6px;">⟳</span> Creating Account...`;
+
+      try {
+        let result;
+        if (typeof window.signUpCustomer === 'function') {
+          result = await window.signUpCustomer(name, email, pass);
+        } else {
+          result = { success: false, error: 'Registration client unavailable.' };
+        }
+
+        if (result && result.success) {
+          if (result.emailConfirmationNeeded) {
+            pendingVerificationEmail = email;
+            showAuthAlert(
+              `Account created! A confirmation email has been sent to <strong>${email}</strong>. Please check your inbox (and spam folder) and click the verification link before signing in.`,
+              'success',
+              true
+            );
+            // Switch back to Login tab and fill the email field so user is ready after verifying
+            switchTab('login');
+            document.getElementById('loginEmail').value = email;
+            document.getElementById('loginPassword').value = '';
+          } else {
+            const destUrl = getRedirectDestination();
+            showAuthAlert('Account created successfully! Continuing...', 'success');
+            showToast('Account created successfully! Welcome.');
+            setTimeout(() => {
+              window.location.href = destUrl;
+            }, 500);
+          }
+        } else {
+          showAuthAlert(result?.error || 'Registration failed. Please try again.', 'error');
+        }
+      } catch (err) {
+        showAuthAlert(err.message || 'An error occurred during account creation.', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        btnText.textContent = 'Create Customer Account';
+      }
+    }
+
+    async function handleResendVerification(email) {
+      if (!email) return;
+      if (typeof window.resendVerificationEmail === 'function') {
+        const res = await window.resendVerificationEmail(email);
+        if (res.success) {
+          showToast(`Verification link resent to ${email}`);
+          showAuthAlert(res.message, 'success');
+        } else {
+          showAuthAlert(res.error || 'Failed to resend email.', 'error');
+        }
+      }
+    }
+
+    // Forgot Password Modal Handlers
+    function openForgotPasswordModal() {
+      const email = document.getElementById('loginEmail')?.value.trim() || '';
+      const forgotInput = document.getElementById('forgotEmailInput');
+      if (forgotInput) forgotInput.value = email;
+
+      const alertBox = document.getElementById('forgotAlertBox');
+      if (alertBox) alertBox.style.display = 'none';
+
+      document.getElementById('forgotPasswordModal').style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeForgotPasswordModal() {
+      document.getElementById('forgotPasswordModal').style.display = 'none';
+      document.body.style.overflow = '';
+    }
+
+    async function handleForgotPasswordSubmit(e) {
+      e.preventDefault();
+      const email = document.getElementById('forgotEmailInput').value.trim();
+      const alertBox = document.getElementById('forgotAlertBox');
+      const submitBtn = document.getElementById('btnForgotSubmit');
+      const btnText = document.getElementById('forgotBtnText');
+
+      if (!email) {
+        alertBox.style.display = 'block';
+        alertBox.className = 'auth-alert-box auth-alert-error';
+        alertBox.textContent = 'Please enter your email address.';
+        return;
+      }
+
+      submitBtn.disabled = true;
+      btnText.innerHTML = `Sending...`;
+
+      try {
+        if (typeof window.requestPasswordReset === 'function') {
+          const res = await window.requestPasswordReset(email);
+          if (res.success) {
+            alertBox.style.display = 'block';
+            alertBox.className = 'auth-alert-box auth-alert-success';
+            alertBox.innerHTML = `✓ ${res.message || 'Password reset link sent to your email.'}`;
+            showToast('Password reset email sent');
+          } else {
+            alertBox.style.display = 'block';
+            alertBox.className = 'auth-alert-box auth-alert-error';
+            alertBox.innerHTML = `⚠️ ${res.error || 'Unable to process reset request.'}`;
+          }
+        }
+      } catch (err) {
+        alertBox.style.display = 'block';
+        alertBox.className = 'auth-alert-box auth-alert-error';
+        alertBox.innerHTML = `⚠️ ${err.message || 'An error occurred.'}`;
+      } finally {
+        submitBtn.disabled = false;
+        btnText.textContent = 'Send Reset Link';
+      }
+    }
+  </script>
+</body>
+</html>

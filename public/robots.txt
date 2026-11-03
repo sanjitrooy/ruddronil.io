@@ -1,0 +1,31 @@
+# Ruddranil.io Robots Configuration
+# Current Google Search Central Guidelines
+
+User-agent: *
+Allow: /
+Allow: /portfolio
+Allow: /portfolio.html
+Allow: /reviews
+Allow: /reviews.html
+Allow: /public/
+Allow: /style.css
+Allow: /script.js
+Allow: /reviews.js
+Allow: /seo-config.js
+Allow: /showcase-config.js
+
+# Protect private admin, authentication, and customer dashboards
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /admin-login
+Disallow: /admin-login.html
+Disallow: /customer-dashboard
+Disallow: /customer-dashboard.html
+Disallow: /login
+Disallow: /login.html
+Disallow: /work-tracking
+Disallow: /work-tracking.html
+Disallow: /api/
+
+# Relative sitemap declaration (recognized by modern search crawlers, or served dynamically)
+Sitemap: /sitemap.xml

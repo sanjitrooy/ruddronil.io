@@ -1,0 +1,1765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ruddranil.io - Customer Dashboard</title>
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    (function() {
+      try {
+        const theme = localStorage.getItem('ruddranil_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+
+    // Early fallback definitions to prevent any ReferenceError on immediate user click
+    window.toggleNavProfileDropdown = function(e) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      const navMenu = document.getElementById('navMenu');
+      const navBackdrop = document.getElementById('navBackdrop');
+      const menuToggle = document.getElementById('menuToggle');
+      if (navMenu) navMenu.classList.remove('open');
+      if (navBackdrop) navBackdrop.classList.remove('open');
+      if (menuToggle) {
+        menuToggle.classList.remove('open');
+        menuToggle.setAttribute('aria-expanded', 'false');
+      }
+      document.body.style.overflow = '';
+
+      const dropdown = document.getElementById('navProfileDropdown');
+      const btn = document.getElementById('navProfilePillBtn');
+      if (!dropdown) return;
+      const isOpen = dropdown.classList.contains('open');
+      dropdown.classList.toggle('open', !isOpen);
+      if (btn) btn.setAttribute('aria-expanded', !isOpen ? 'true' : 'false');
+    };
+
+    window.closeNavProfileDropdown = function() {
+      const dropdown = document.getElementById('navProfileDropdown');
+      const btn = document.getElementById('navProfilePillBtn');
+      if (dropdown) dropdown.classList.remove('open');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    };
+
+    window.scrollToSection = function(id) {
+      if (typeof window.closeNavProfileDropdown === 'function') window.closeNavProfileDropdown();
+      const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    window.safeLogout = async function() {
+      if (typeof window.closeNavProfileDropdown === 'function') window.closeNavProfileDropdown();
+      if (typeof safeToast === 'function') safeToast('Signing out...');
+      if (window.sbClient && window.sbClient.auth) {
+        try { await window.sbClient.auth.signOut(); } catch (e) {}
+      }
+      localStorage.removeItem('currentUser');
+      setTimeout(() => { window.location.href = 'login.html'; }, 200);
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body style="background: var(--bg-dark);">
+
+  <!-- Single Minimal Navigation Bar for Customer Dashboard -->
+  <header class="navbar">
+    <div class="container nav-container">
+      <a href="customer-dashboard.html" class="brand-logo" title="Ruddranil.io Customer Portal">
+        Ruddranil<span class="dot">.io</span>
+      </a>
+
+      <!-- Minimal Dashboard Navigation Links -->
+      <nav class="nav-menu" id="navMenu" aria-label="Dashboard navigation">
+        <a href="customer-dashboard.html" class="nav-link active">Dashboard</a>
+        <a href="#myProfileSection" class="nav-link">My Profile</a>
+        <a href="#ordersSection" class="nav-link">My Orders</a>
+        <a href="work-tracking.html" class="nav-link">Work Tracking</a>
+        <a href="reviews.html" class="nav-link">Reviews</a>
+        <a href="index.html" class="nav-link">Back to Website</a>
+        <a href="javascript:void(0)" onclick="safeLogout()" class="nav-link" style="color: #f87171;">Logout</a>
+      </nav>
+
+      <div class="nav-actions">
+        <!-- Theme Toggle Button -->
+        <button id="themeToggleBtn" class="btn-theme-toggle" aria-label="Toggle light or dark theme" title="Toggle Theme (Light / Dark)" type="button">
+          <span class="theme-icon-indicator" aria-hidden="true">🌙</span>
+          <span class="theme-text-label">Dark</span>
+        </button>
+
+        <!-- Interactive Profile Dropdown Menu in Navbar -->
+        <div class="nav-profile-menu-wrap" id="navProfileMenuWrap">
+          <button type="button" class="nav-profile-pill" id="navProfilePillBtn" onclick="toggleNavProfileDropdown(event)" aria-label="Account Menu" aria-expanded="false">
+            <div style="position: relative; width: 28px; height: 28px; flex-shrink: 0;">
+              <img id="navAvatarImg" src="" alt="Avatar" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1.5px solid #38bdf8; display: none;">
+              <div id="navAvatarFallback" style="width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #2563eb, #06b6d4); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #fff;">C</div>
+            </div>
+            <span id="navClientName" style="max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Account</span>
+            <span style="font-size: 10px; opacity: 0.7;">▼</span>
+          </button>
+
+          <div id="navProfileDropdown" class="nav-profile-dropdown" role="menu">
+            <div style="padding: 10px 16px 8px;">
+              <div id="navDropdownName" style="font-weight: 800; font-size: 13.5px;">Customer</div>
+              <div id="navDropdownEmail" style="font-size: 11px; color: #94a3b8; text-overflow: ellipsis; overflow: hidden; margin-top: 1px;">customer@example.com</div>
+              <span class="badge-status badge-status-in-progress" style="margin-top: 5px; font-size: 10px; padding: 2px 8px; font-weight: 700;">Client Account</span>
+            </div>
+            <div class="nav-profile-dropdown-divider"></div>
+            <button type="button" class="nav-profile-dropdown-item" onclick="openEditProfileModal(); closeNavProfileDropdown();">
+              ✏️ Edit Profile
+            </button>
+            <button type="button" class="nav-profile-dropdown-item" onclick="openChangePasswordModal(); closeNavProfileDropdown();">
+              🔑 Change Password
+            </button>
+            <button type="button" class="nav-profile-dropdown-item" onclick="scrollToSection('ordersSection'); closeNavProfileDropdown();">
+              📦 My Orders &amp; Tracking
+            </button>
+            <div class="nav-profile-dropdown-divider"></div>
+            <button type="button" class="nav-profile-dropdown-item item-signout" onclick="safeLogout()" style="color: #f87171;">
+              🚪 Sign Out
+            </button>
+          </div>
+        </div>
+
+        <button id="menuToggle" class="menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false" type="button">
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="nav-backdrop" id="navBackdrop"></div>
+
+  <!-- Loading State Indicator while checking Supabase session -->
+  <div id="dashboardLoadingState" style="min-height: 70vh; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 14px;">
+    <div style="font-size: 32px; color: #38bdf8; animation: spin 1s linear infinite;">⟳</div>
+    <div style="color: #94a3b8; font-size: 14px; font-weight: 500;">Verifying secure session...</div>
+  </div>
+
+  <!-- Main Dashboard Content (Only shown when authenticated) -->
+  <main id="dashboardMainContent" style="display: none; padding: 28px 0 70px;">
+    <div class="container">
+      
+      <!-- 1. UNIFIED PREMIUM CUSTOMER PROFILE & HERO BANNER -->
+      <section id="myProfileSection" class="profile-clean-card profile-hero-card" aria-label="Customer Profile Header">
+        <!-- Hidden fallback elements to ensure 100% backward-compatibility with avatar rendering scripts -->
+        <div style="display: none;" aria-hidden="true">
+          <img id="welcomeAvatarImg" src="" alt="">
+          <div id="welcomeAvatarFallback">C</div>
+          <span id="detailProfileFullName">Customer</span>
+        </div>
+
+        <div class="profile-hero-grid">
+          <!-- Avatar Zone with interactive edit indicator -->
+          <div class="profile-avatar-wrap" onclick="openEditProfileModal()" role="button" tabindex="0" title="Click to edit profile & photo" aria-label="Change profile photo">
+            <div class="profile-avatar-inner">
+              <img id="detailProfileAvatarImg" src="" alt="Profile Photo" style="display: none;">
+              <div id="detailProfileAvatarFallback">C</div>
+            </div>
+            <div class="profile-avatar-edit-badge" title="Edit Avatar">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Profile Details Zone -->
+          <div class="profile-details-main">
+            <!-- Top Row: Welcome / Name + Verified Status Badge + Account Badge -->
+            <div class="profile-title-row">
+              <h1 id="dashWelcomeTitle" class="profile-display-name">
+                Welcome back!
+              </h1>
+              <div class="profile-badge-cluster">
+                <span id="detailProfileVerifiedBadge" class="badge-verified">
+                  ✓ Email Verified
+                </span>
+                <button type="button" id="btnResendVerification" onclick="handleResendVerification()" class="btn btn-outline btn-sm" style="display: none; font-size: 11px; padding: 2px 10px; color: #fbbf24; border-color: rgba(245, 158, 11, 0.4);">
+                  Resend Link
+                </button>
+                <span class="profile-role-pill">
+                  🛡️ Client Account
+                </span>
+              </div>
+            </div>
+
+            <!-- Subtitle -->
+            <p class="profile-sub-desc">
+              Track active project deliverables, review milestones, and manage your account.
+            </p>
+
+            <!-- Metadata Pills: Email, Phone, Location, Company -->
+            <div class="profile-metadata-pills" id="profileTagsContainer">
+              <div class="profile-tag-pill" title="Verified Customer Email">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.85; flex-shrink: 0;">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                  <polyline points="22,6 12,13 2,6"></polyline>
+                </svg>
+                <span style="opacity: 0.7; font-size: 11.5px;">Email:</span>
+                <span id="detailProfileEmail" style="font-weight: 700;">user@example.com</span>
+              </div>
+
+              <div class="profile-tag-pill" id="detailPhoneTag" style="display: none;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.85; flex-shrink: 0;">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                </svg>
+                <span id="detailProfilePhone"></span>
+              </div>
+
+              <div class="profile-tag-pill" id="detailLocationTag" style="display: none;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.85; flex-shrink: 0;">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                  <circle cx="12" cy="10" r="3"></circle>
+                </svg>
+                <span id="detailProfileLocation"></span>
+              </div>
+
+              <div class="profile-tag-pill" id="detailCompanyTag" style="display: none;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.85; flex-shrink: 0;">
+                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                </svg>
+                <span id="detailProfileCompany"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Profile Actions Group (Edit Profile & Change Password) -->
+          <div class="profile-hero-actions">
+            <button type="button" onclick="openEditProfileModal()" class="btn-profile-action" title="Edit Profile Details">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+              <span>Edit Profile</span>
+            </button>
+            <button type="button" onclick="openChangePasswordModal()" class="btn-profile-action" title="Change Account Password">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="16" r="1"></circle>
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+              <span>Change Password</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. ORDER SUMMARY METRIC CARDS -->
+      <section class="dash-summary-grid" aria-label="Orders summary metrics" style="margin-bottom: 30px;">
+        <!-- Stat Card 1: Total Orders -->
+        <div class="dash-summary-card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h5>Total Orders</h5>
+            <span style="font-size: 20px;">📦</span>
+          </div>
+          <div class="stat-count-num" id="cardTotalOrdersCount">0</div>
+          <p>All placed project orders</p>
+        </div>
+
+        <!-- Stat Card 2: Active Orders -->
+        <div class="dash-summary-card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h5>Active Orders</h5>
+            <span style="font-size: 20px;">⚡</span>
+          </div>
+          <div class="stat-count-num" id="cardActiveOrdersCount" style="color: #38bdf8;">0</div>
+          <p>In production pipeline</p>
+        </div>
+
+        <!-- Stat Card 3: Completed Orders -->
+        <div class="dash-summary-card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h5>Completed Orders</h5>
+            <span style="font-size: 20px;">✅</span>
+          </div>
+          <div class="stat-count-num" id="cardCompletedOrdersCount" style="color: #34d399;">0</div>
+          <p>Delivered &amp; finalized</p>
+        </div>
+      </section>
+
+      <!-- 4. MY ORDERS & WORK TRACKING SECTION -->
+      <section id="ordersSection">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 2px;">
+              My Orders &amp; Work Tracking
+            </h2>
+            <p style="font-size: 13px; color: #94a3b8; margin-bottom: 0;">
+              Live order milestones, progress tracking, and deliverables.
+            </p>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <button type="button" onclick="refreshCustomerOrders()" class="btn btn-secondary btn-sm" id="btnRefreshOrders" style="display: inline-flex; align-items: center; gap: 5px;">
+              ↻ Refresh
+            </button>
+            <button type="button" onclick="openNewOrderModal()" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 5px;">
+              + New Order
+            </button>
+          </div>
+        </div>
+
+        <!-- Orders List or Clean Empty State -->
+        <div id="ordersContainer">
+          <!-- Dynamically populated from Supabase -->
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- EDIT PROFILE MODAL -->
+  <div id="editProfileModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="editProfileTitle">
+    <div class="modal-card" style="max-width: 540px; border-radius: var(--radius-lg);">
+      <button type="button" onclick="closeEditProfileModal()" class="modal-close-btn" aria-label="Close modal">✕</button>
+      
+      <div style="display: inline-flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+        <span class="badge-status badge-status-in-progress" style="font-size: 10px; padding: 2px 8px;">CUSTOMER PROFILE</span>
+      </div>
+
+      <h3 id="editProfileTitle" class="modal-header-title" style="font-size: 20px; font-weight: 800; margin-bottom: 4px;">Edit Your Profile</h3>
+      <p class="modal-subtext" style="font-size: 13px; margin-bottom: 18px;">
+        Update your personal details, business info, and profile avatar.
+      </p>
+
+      <div id="profileAlertBox" class="auth-alert-box" style="margin-bottom: 16px;"></div>
+
+      <form id="editProfileForm" onsubmit="handleProfileFormSubmit(event)">
+        <!-- Photo Upload Section -->
+        <div class="modal-photo-upload-wrap" style="display: flex; align-items: center; gap: 16px; padding: 12px 14px; border-radius: var(--radius-sm); margin-bottom: 18px;">
+          <div style="position: relative; width: 56px; height: 56px; flex-shrink: 0;">
+            <img id="modalAvatarPreviewImg" src="" alt="Preview" style="width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2px solid #38bdf8; display: none;">
+            <div id="modalAvatarFallback" style="width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #2563eb, #06b6d4); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; color: #fff;">C</div>
+          </div>
+          <div style="flex: 1;">
+            <div class="modal-photo-title" style="font-size: 13px; font-weight: 700; margin-bottom: 2px;">Profile Photo</div>
+            <div class="modal-photo-desc" style="font-size: 11px; margin-bottom: 8px;">JPG, PNG, WebP (Max 5MB)</div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <label for="editPhotoFileInput" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 4px 10px; cursor: pointer;">
+                📷 Choose Photo
+              </label>
+              <input type="file" id="editPhotoFileInput" accept="image/jpeg,image/png,image/webp,image/gif" style="display: none;" onchange="handleProfilePhotoSelect(event)">
+              <button type="button" id="btnRemoveAvatar" onclick="handleRemoveAvatar()" class="btn btn-outline btn-sm" style="font-size: 11px; padding: 4px 10px; color: #ef4444; border-color: rgba(239, 68, 68, 0.4); display: none;">
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label" for="editFullName">Full Name <span style="color: #ef4444;">*</span></label>
+            <input type="text" id="editFullName" class="form-input" required placeholder="Your full name">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="editPhoneNumber">Phone Number</label>
+            <input type="tel" id="editPhoneNumber" class="form-input" placeholder="+1 234 567 890">
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label" for="editCountry">Country</label>
+            <input type="text" id="editCountry" class="form-input" placeholder="e.g. United States">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="editCity">City</label>
+            <input type="text" id="editCity" class="form-input" placeholder="e.g. New York">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="editCompany">Company / Studio (Optional)</label>
+          <input type="text" id="editCompany" class="form-input" placeholder="e.g. Acme Media Corp">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="editAddress">Full Address (Optional)</label>
+          <input type="text" id="editAddress" class="form-input" placeholder="Street, building, postal code">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="editBio">Biography / Project Focus (Optional)</label>
+          <textarea id="editBio" rows="2" class="form-textarea" placeholder="Brief note about your brand, channel, or goals..."></textarea>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+          <button type="button" onclick="closeEditProfileModal()" class="btn btn-secondary">
+            Cancel
+          </button>
+          <button type="submit" id="btnSaveProfileSubmit" class="btn btn-primary" style="min-width: 140px; justify-content: center;">
+            <span id="saveProfileBtnLabel">Save Changes</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- CHANGE PASSWORD MODAL -->
+  <div id="changePasswordModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="changePasswordTitle">
+    <div class="modal-card" style="max-width: 440px; border-radius: var(--radius-lg);">
+      <button type="button" onclick="closeChangePasswordModal()" class="modal-close-btn" aria-label="Close modal">✕</button>
+
+      <div style="display: inline-flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+        <span class="badge-status badge-status-in-progress" style="font-size: 10px; padding: 2px 8px;">SECURITY</span>
+      </div>
+
+      <h3 id="changePasswordTitle" class="modal-header-title" style="font-size: 20px; font-weight: 800; margin-bottom: 6px;">Change Password</h3>
+      <p class="modal-subtext" style="font-size: 13px; margin-bottom: 18px;">
+        Update your account password. Must be at least 6 characters.
+      </p>
+
+      <div id="pwdAlertBox" class="auth-alert-box" style="margin-bottom: 16px;"></div>
+
+      <form onsubmit="handleChangePasswordSubmit(event)">
+        <div class="form-group">
+          <label class="form-label" for="newPasswordInput">New Password</label>
+          <div class="password-input-wrap">
+            <input type="password" id="newPasswordInput" class="form-input" placeholder="Enter new password" required autocomplete="new-password">
+            <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('newPasswordInput', this)" aria-label="Toggle password visibility">
+              👁️
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="confirmPasswordInput">Confirm New Password</label>
+          <div class="password-input-wrap">
+            <input type="password" id="confirmPasswordInput" class="form-input" placeholder="Repeat new password" required autocomplete="new-password">
+            <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('confirmPasswordInput', this)" aria-label="Toggle password visibility">
+              👁️
+            </button>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px;">
+          <button type="button" onclick="closeChangePasswordModal()" class="btn btn-secondary">
+            Cancel
+          </button>
+          <button type="submit" id="btnChangePasswordSubmit" class="btn btn-primary" style="min-width: 150px; justify-content: center;">
+            <span id="changePasswordBtnText">Update Password</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- LEAVE A REVIEW MODAL (Professional High-End Theme for Completed Orders) -->
+  <div id="orderReviewModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="reviewModalTitle">
+    <div class="review-modal-card">
+      <button type="button" onclick="closeLeaveReviewModal()" class="modal-close-btn" aria-label="Close modal">✕</button>
+
+      <!-- Modal Header -->
+      <div class="review-modal-header">
+        <span class="review-pill-tag">⭐ VERIFIED ORDER REVIEW</span>
+        <h3 id="reviewModalTitle" class="review-modal-title">Rate Your Project Delivery</h3>
+        <p class="review-modal-subtext">
+          Order ID: <strong id="modalReviewOrderId" class="modal-order-id-highlight" style="font-family: monospace; color: var(--accent-cyan);"></strong> — <span id="modalReviewServiceName" style="font-weight: 700; color: #fff;"></span>
+        </p>
+      </div>
+
+      <div id="reviewAlertBox" class="auth-alert-box" style="margin-bottom: 16px; display: none;"></div>
+
+      <form onsubmit="handleReviewSubmit(event)">
+        <input type="hidden" id="reviewTargetOrderId" value="">
+        <input type="hidden" id="reviewTargetService" value="">
+        <input type="hidden" id="modalReviewRatingInput" value="5">
+
+        <!-- 1. Interactive Star Rating Panel -->
+        <div class="review-star-rating-panel">
+          <div style="font-size: 11.5px; font-weight: 800; letter-spacing: 0.5px; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px;">
+            Overall Experience Rating
+          </div>
+          <div id="modalStarPicker" class="review-stars-row" role="radiogroup" aria-label="Rating from 1 to 5 stars">
+            <span data-star="1" role="radio" aria-label="1 star" tabindex="0">★</span>
+            <span data-star="2" role="radio" aria-label="2 stars" tabindex="0">★</span>
+            <span data-star="3" role="radio" aria-label="3 stars" tabindex="0">★</span>
+            <span data-star="4" role="radio" aria-label="4 stars" tabindex="0">★</span>
+            <span data-star="5" role="radio" aria-label="5 stars" tabindex="0">★</span>
+          </div>
+          <div id="starRatingLabel" class="review-star-dynamic-label">
+            ★★★★★ 5.0 — Outstanding Work &amp; Flawless Delivery! 🔥
+          </div>
+        </div>
+
+        <!-- 2. Role / Title Input -->
+        <div class="review-input-group">
+          <label class="review-input-label" for="reviewRoleInput">
+            <span>Your Business Role / Title (Optional)</span>
+            <span style="font-size: 11px; color: var(--text-dark-gray); font-weight: 400;">e.g. Founder, Content Creator</span>
+          </label>
+          <input type="text" id="reviewRoleInput" class="form-input" placeholder="e.g. Founder, Marketing Director, Business Owner">
+        </div>
+
+        <!-- 3. Project or Website Link (New & Prominent!) -->
+        <div class="review-input-group">
+          <label class="review-input-label" for="reviewProjectLinkInput">
+            <span>Live Project or Website Link (Optional)</span>
+            <span style="font-size: 11px; color: var(--accent-cyan); font-weight: 600;">🔗 Public Showcase</span>
+          </label>
+          <div class="review-link-input-wrapper">
+            <span class="review-link-icon">🔗</span>
+            <input type="url" id="reviewProjectLinkInput" class="form-input review-link-field" placeholder="https://yourwebsite.com or YouTube video / live link">
+          </div>
+          <small style="font-size: 11px; color: var(--text-dark-gray); display: block; margin-top: 4px;">
+            Showcase the live website, video, or digital deliverable produced by Ruddranil.
+          </small>
+        </div>
+
+        <!-- 4. Detailed Feedback Textarea -->
+        <div class="review-input-group">
+          <div class="review-input-label">
+            <span>Detailed Review &amp; Feedback <span style="color: #ef4444;">*</span></span>
+            <span id="dashReviewCharNotice" style="font-size: 11px; color: var(--text-dark-gray);">Min 5 characters</span>
+          </div>
+          <textarea id="reviewCommentInput" rows="4" class="form-textarea" placeholder="Describe the quality of delivery, communication, turnaround speed, and results..." required oninput="updateDashReviewCharCount(this)"></textarea>
+        </div>
+
+        <!-- 5. Optional Project Deliverable Photo Upload -->
+        <div class="review-input-group">
+          <label class="review-input-label">
+            <span>Project Deliverable Photo / Screenshot (Optional)</span>
+            <span style="font-size: 11px; color: var(--text-dark-gray); font-weight: 400;">JPG, PNG, WebP · Auto-optimized</span>
+          </label>
+          
+          <div class="review-dropzone-box" onclick="document.getElementById('dashReviewPhotoInput').click()">
+            <input type="file" id="dashReviewPhotoInput" accept="image/png, image/jpeg, image/webp, image/jpg" style="display: none;" onchange="handleDashReviewPhotoSelect(this)">
+            <div id="dashReviewDropPrompt">
+              <div style="font-size: 26px; margin-bottom: 6px;">📷</div>
+              <div style="font-size: 13px; font-weight: 700; color: #fff;">Click to attach project screenshot or photo</div>
+              <div style="font-size: 11.5px; color: var(--text-dark-gray); margin-top: 2px;">Share visual proof of the finished design or marketing outcome</div>
+            </div>
+
+            <div id="dashReviewPreviewWrap" class="review-photo-preview-item" style="display: none;">
+              <div style="display: flex; align-items: center; gap: 10px; overflow: hidden;">
+                <img id="dashReviewPreviewImg" src="" alt="Preview" class="review-photo-preview-thumb">
+                <div style="text-align: left; overflow: hidden;">
+                  <div id="dashReviewFileName" style="font-size: 12.5px; font-weight: 700; color: #fff; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 250px;"></div>
+                  <div id="dashReviewFileSize" style="font-size: 11px; color: var(--accent-cyan); font-weight: 600;"></div>
+                </div>
+              </div>
+              <button type="button" onclick="event.stopPropagation(); clearDashReviewPhoto();" class="btn btn-sm" style="font-size: 11.5px; color: #f87171; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); padding: 4px 10px; cursor: pointer;">
+                ✕ Remove
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Actions -->
+        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+          <button type="button" onclick="closeLeaveReviewModal()" class="btn btn-secondary">
+            Cancel
+          </button>
+          <button type="submit" id="btnSubmitReviewAction" class="review-submit-btn-glow">
+            <span id="submitReviewBtnText">Publish Verified Review ⭐</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Direct Submit Request Modal (Fallback Quick Order Modal) -->
+  <div id="requestModal" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-card" style="max-width: 480px; border-radius: var(--radius-lg);">
+      <button type="button" onclick="closeSubmitModal()" class="modal-close-btn" aria-label="Close modal">✕</button>
+      <h3 class="modal-header-title" style="font-size: 20px; font-weight: 800; margin-bottom: 6px;">Submit New Service Request</h3>
+      <p class="modal-subtext" style="font-size: 13px; margin-bottom: 18px;">Place a quick order directly linked to your account.</p>
+
+      <form onsubmit="handleQuickOrderSubmit(event)">
+        <div class="form-group">
+          <label class="form-label" for="quickServiceSelect">Service Category</label>
+          <select id="quickServiceSelect" class="form-select" required>
+            <option value="Website Design">Website Design ($100.00)</option>
+            <option value="Facebook Marketing">Facebook Marketing ($30.00)</option>
+            <option value="YouTube Marketing">YouTube Marketing ($40.00)</option>
+            <option value="YouTube SEO">YouTube SEO ($25.00)</option>
+            <option value="Custom Creative">Custom Creative ($35.00)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="quickInstructions">Project Instructions</label>
+          <textarea id="quickInstructions" rows="3" class="form-textarea" placeholder="Detail your project requirements..." required></textarea>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+          <button type="button" onclick="closeSubmitModal()" class="btn btn-secondary">Cancel</button>
+          <button type="submit" id="btnQuickOrderSubmit" class="btn btn-primary" style="min-width: 140px; justify-content: center;">
+            <span id="quickOrderBtnText">Place Order</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Supabase & Core Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+  <script src="services-data.js"></script>
+  <script src="reviews.js"></script>
+  <script src="script.js"></script>
+  <script>
+    let activeCustomer = null;
+    let selectedProfilePhotoFile = null;
+    let modalAvatarUrl = '';
+    let currentReviewRating = 5;
+    let customerReviewedOrders = new Set();
+
+    // Strict Authentication Guard on Page Load
+    document.addEventListener('DOMContentLoaded', async () => {
+      // 1. Verify authenticated Supabase session
+      let sessionData = null;
+      if (typeof window.getCurrentCustomerSession === 'function') {
+        sessionData = await window.getCurrentCustomerSession();
+      }
+
+      // If no valid session exists, redirect to login
+      if (!sessionData || !sessionData.user) {
+        localStorage.removeItem('currentUser');
+        window.location.href = 'login.html';
+        return;
+      }
+
+      activeCustomer = sessionData.user;
+
+      // Reveal dashboard content
+      const loadingEl = document.getElementById('dashboardLoadingState');
+      const mainEl = document.getElementById('dashboardMainContent');
+      if (loadingEl) loadingEl.style.display = 'none';
+      if (mainEl) mainEl.style.display = 'block';
+
+      // 2. Render verified profile
+      updateProfileUI(activeCustomer);
+
+      // 3. Setup Star Picker
+      setupReviewStarPicker();
+
+      // 4. Fetch customer's reviewed order IDs
+      await loadCustomerReviewedOrders();
+
+      // 5. Fetch strictly this customer's orders from Supabase cloud
+      await refreshCustomerOrders();
+
+      // 6. Populate available services for quick orders
+      populateQuickServiceDropdown();
+      window.addEventListener('ruddranil_services_updated', populateQuickServiceDropdown);
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'ruddranil_services') populateQuickServiceDropdown();
+      });
+
+      // Ensure mobile menu toggle dismisses dropdowns to prevent duplicate layers
+      const menuToggle = document.getElementById('menuToggle');
+      if (menuToggle) {
+        menuToggle.addEventListener('click', () => {
+          closeNavProfileDropdown();
+        });
+      }
+
+      // Background listen to auth changes
+      if (window.sbClient && window.sbClient.auth) {
+        window.sbClient.auth.onAuthStateChange((event, session) => {
+          if (event === 'SIGNED_OUT' || !session) {
+            localStorage.removeItem('currentUser');
+            window.location.href = 'login.html';
+          }
+        });
+      }
+    });
+
+    /**
+     * Escape HTML helper to prevent XSS
+     */
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    /**
+     * Update customer profile UI elements
+     */
+    function updateProfileUI(profile) {
+      if (!profile) return;
+      const rawName = (profile.name || profile.fullName || '').trim();
+      const hasRealName = rawName && !['customer', 'user', 'client', 'null', 'undefined'].includes(rawName.toLowerCase());
+      const displayName = hasRealName ? rawName : '';
+      const email = profile.email || '';
+      const phone = profile.phoneNumber || '';
+      const country = profile.country || '';
+      const city = profile.city || '';
+      const company = profile.companyName || '';
+      const avatarUrl = profile.avatarUrl || '';
+      const isVerified = profile.emailVerified !== false;
+
+      // 1. Welcome header: "Welcome back, [Customer Name]!" or "Welcome back!" if no name
+      const welcomeTitle = document.getElementById('dashWelcomeTitle');
+      if (welcomeTitle) {
+        if (displayName) {
+          welcomeTitle.innerHTML = `Welcome back, <span class="customer-highlight-name">${escapeHtml(displayName)}</span>!`;
+        } else {
+          welcomeTitle.textContent = `Welcome back!`;
+        }
+      }
+
+      // 2. Nav bar profile pill & dropdown
+      const navClientName = document.getElementById('navClientName');
+      if (navClientName) navClientName.textContent = displayName || 'Account';
+
+      const navDropdownName = document.getElementById('navDropdownName');
+      if (navDropdownName) navDropdownName.textContent = displayName || 'Customer';
+
+      const navDropdownEmail = document.getElementById('navDropdownEmail');
+      if (navDropdownEmail) navDropdownEmail.textContent = email;
+
+      // 3. Dedicated Account Profile Card fields
+      const detailFullName = document.getElementById('detailProfileFullName');
+      if (detailFullName) detailFullName.textContent = displayName || 'Verified Customer';
+
+      const detailEmail = document.getElementById('detailProfileEmail');
+      if (detailEmail) detailEmail.textContent = email;
+
+      // Optional phone tag
+      const phoneTag = document.getElementById('detailPhoneTag');
+      const phoneVal = document.getElementById('detailProfilePhone');
+      if (phoneTag && phoneVal) {
+        if (phone) {
+          phoneVal.textContent = phone;
+          phoneTag.style.display = 'inline-flex';
+        } else {
+          phoneTag.style.display = 'none';
+        }
+      }
+
+      // Optional location tag
+      const locTag = document.getElementById('detailLocationTag');
+      const locVal = document.getElementById('detailProfileLocation');
+      if (locTag && locVal) {
+        const parts = [city, country].filter(Boolean);
+        if (parts.length > 0) {
+          locVal.textContent = parts.join(', ');
+          locTag.style.display = 'inline-flex';
+        } else {
+          locTag.style.display = 'none';
+        }
+      }
+
+      // Optional company tag
+      const companyTag = document.getElementById('detailCompanyTag');
+      const companyVal = document.getElementById('detailProfileCompany');
+      if (companyTag && companyVal) {
+        if (company) {
+          companyVal.textContent = company;
+          companyTag.style.display = 'inline-flex';
+        } else {
+          companyTag.style.display = 'none';
+        }
+      }
+
+      // Verified badge & resend button
+      const verifiedBadge = document.getElementById('detailProfileVerifiedBadge');
+      const resendBtn = document.getElementById('btnResendVerification');
+      if (verifiedBadge) {
+        if (isVerified) {
+          verifiedBadge.className = 'badge-verified';
+          verifiedBadge.textContent = '✓ Email Verified';
+          if (resendBtn) resendBtn.style.display = 'none';
+        } else {
+          verifiedBadge.className = 'badge-unverified';
+          verifiedBadge.textContent = '⚠️ Verification Pending';
+          if (resendBtn) resendBtn.style.display = 'inline-block';
+        }
+      }
+
+      // Avatars
+      const initial = (displayName || email || 'C')[0].toUpperCase();
+      renderAvatar('welcomeAvatarImg', 'welcomeAvatarFallback', avatarUrl, initial);
+      renderAvatar('navAvatarImg', 'navAvatarFallback', avatarUrl, initial);
+      renderAvatar('detailProfileAvatarImg', 'detailProfileAvatarFallback', avatarUrl, initial);
+    }
+
+    function renderAvatar(imgId, fallbackId, url, initial) {
+      const img = document.getElementById(imgId);
+      const fallback = document.getElementById(fallbackId);
+      if (!img || !fallback) return;
+
+      if (url) {
+        img.src = url;
+        img.style.display = 'block';
+        fallback.style.display = 'none';
+      } else {
+        img.style.display = 'none';
+        fallback.style.display = 'flex';
+        fallback.textContent = initial || 'C';
+      }
+    }
+
+    /**
+     * Resend Supabase email verification
+     */
+    async function handleResendVerification() {
+      if (!activeCustomer || !activeCustomer.email) return;
+      const btn = document.getElementById('btnResendVerification');
+      if (btn) btn.disabled = true;
+
+      try {
+        if (typeof window.resendVerificationEmail === 'function') {
+          const res = await window.resendVerificationEmail(activeCustomer.email);
+          if (res.success) {
+            safeToast(res.message || 'Verification link sent! Check your email.');
+          } else {
+            safeToast(res.error || 'Failed to resend verification.', 'error');
+          }
+        }
+      } catch (err) {
+        safeToast(err.message || 'Verification resend error.', 'error');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    /**
+     * Load already-reviewed order IDs for this customer
+     */
+    async function loadCustomerReviewedOrders() {
+      customerReviewedOrders.clear();
+      
+      // 1. From local app_reviews
+      try {
+        const localReviews = JSON.parse(localStorage.getItem('app_reviews') || '[]');
+        localReviews.forEach(r => {
+          if (r.orderId) customerReviewedOrders.add(r.orderId);
+        });
+      } catch (e) {}
+
+      // 2. From Supabase reviews table
+      if (window.sbClient && activeCustomer) {
+        try {
+          let query = window.sbClient.from('reviews').select('order_id');
+          if (activeCustomer.id && activeCustomer.email) {
+            query = query.or(`customer_email.eq.${activeCustomer.email},customer_id.eq.${activeCustomer.id}`);
+          } else if (activeCustomer.email) {
+            query = query.eq('customer_email', activeCustomer.email);
+          }
+          const { data } = await query;
+          if (data) {
+            data.forEach(r => {
+              if (r.order_id) customerReviewedOrders.add(r.order_id);
+            });
+          }
+        } catch (e) {
+          console.warn('[Reviews Cache Notice]:', e);
+        }
+      }
+    }
+
+    /**
+     * Refresh orders strictly for this authenticated customer
+     */
+    async function refreshCustomerOrders() {
+      if (!activeCustomer) return;
+      const btn = document.getElementById('btnRefreshOrders');
+      if (btn) btn.disabled = true;
+
+      try {
+        let orders = [];
+        if (typeof window.fetchOrdersFromCloud === 'function') {
+          orders = await window.fetchOrdersFromCloud(activeCustomer.id, activeCustomer.email);
+        }
+        renderClientOrders(orders || []);
+      } catch (e) {
+        console.warn('Orders refresh notice:', e);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    /**
+     * Render Customer Orders & Summary Stats
+     * Displays clean empty state if no orders exist for this customer
+     */
+    function renderClientOrders(orders = []) {
+      window.__cachedClientOrders = orders;
+      const totalCount = orders.length;
+      
+      // Active orders: Pending, In Progress, Review (not Delivered, Completed, or Cancelled)
+      const activeCount = orders.filter(o => {
+        const s = (o.status || '').toLowerCase();
+        return s !== 'delivered' && s !== 'completed' && s !== 'cancelled';
+      }).length;
+
+      // Completed orders: Delivered or Completed
+      const completedCount = orders.filter(o => {
+        const s = (o.status || '').toLowerCase();
+        return s === 'delivered' || s === 'completed';
+      }).length;
+
+      // Update Summary metrics
+      const totalEl = document.getElementById('cardTotalOrdersCount');
+      if (totalEl) totalEl.textContent = totalCount.toString();
+
+      const activeEl = document.getElementById('cardActiveOrdersCount');
+      if (activeEl) activeEl.textContent = activeCount.toString();
+
+      const completedEl = document.getElementById('cardCompletedOrdersCount');
+      if (completedEl) completedEl.textContent = completedCount.toString();
+
+      const container = document.getElementById('ordersContainer');
+      if (!container) return;
+
+      // Clean Empty State for New Customer with no orders
+      if (orders.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state-card">
+            <div class="empty-icon">📦</div>
+            <h3>You haven't placed an order yet.</h3>
+            <p>Ready to start your digital growth? Choose a professional service from our catalog to get started.</p>
+            <a href="index.html#services" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+              Browse Services →
+            </a>
+          </div>
+        `;
+        return;
+      }
+
+      // Render Order Cards
+      container.innerHTML = orders.map(order => {
+        const statusLower = (order.status || 'Pending').toLowerCase();
+        const isCompleted = statusLower === 'delivered' || statusLower === 'completed';
+        const isCancelled = statusLower === 'cancelled';
+        const isProgress = statusLower === 'in progress';
+        const isReview = statusLower === 'review' || statusLower === 'in review';
+        const hasReviewed = customerReviewedOrders.has(order.id);
+
+        let badgeClass = 'badge-status-pending';
+        let statusDot = '●';
+        if (isCompleted) {
+          badgeClass = 'badge-status-completed';
+          statusDot = '✓';
+        } else if (isProgress) {
+          badgeClass = 'badge-status-in-progress';
+          statusDot = '⚡';
+        } else if (isReview) {
+          badgeClass = 'badge-status-review';
+          statusDot = '👁️';
+        } else if (isCancelled) {
+          badgeClass = 'badge-status-cancelled';
+          statusDot = '✕';
+        }
+
+        const tierLabel = (order.packageTier || 'Basic').toUpperCase();
+        const progressVal = Math.min(100, Math.max(0, Number(order.progress || 0)));
+        const finalPriceDisplay = order.price || ('$' + Number(order.finalTotal || order.packagePrice || 30).toFixed(2));
+
+        return `
+          <div class="order-box">
+            <!-- Framed Order Header -->
+            <div class="order-box-header">
+              <div class="order-id-badge-frame">
+                <span class="order-id-tag">ORDER ID</span>
+                <span class="order-id-code">${escapeHtml(order.id)}</span>
+                <button type="button" class="btn-copy-id" onclick="copyOrderId('${escapeHtml(order.id)}', this)" title="Copy Order ID">
+                  <span class="copy-icon">📋</span>
+                  <span class="copy-text">Copy</span>
+                </button>
+              </div>
+
+              <div class="order-badges-group">
+                <span class="badge-status badge-tier-frame">
+                  ${escapeHtml(tierLabel)} TIER
+                </span>
+                <span class="badge-status ${badgeClass}">
+                  ${statusDot} ${escapeHtml(order.status || 'Pending')}
+                </span>
+              </div>
+            </div>
+
+            <!-- Framed Service Name Header -->
+            <div class="order-service-banner">
+              <span class="order-service-icon">💼</span>
+              <span class="order-service-label">Service:</span>
+              <strong class="order-service-name">${escapeHtml(order.service)}</strong>
+              ${order.packageName ? `<span class="order-package-pill">${escapeHtml(order.packageName)}</span>` : ''}
+            </div>
+
+            <!-- Financial & Timeline Grid: Every item cleanly Framed in a box -->
+            <div class="order-meta-grid">
+              <div class="order-metric-cell cell-final-price">
+                <span class="order-metric-label">FINAL PRICE</span>
+                <strong class="order-metric-val-hero">${escapeHtml(finalPriceDisplay)}</strong>
+              </div>
+              <div class="order-metric-cell">
+                <span class="order-metric-label">PACKAGE PRICE</span>
+                <span class="order-metric-val">$${Number(order.packagePrice || order.subtotal || 30).toFixed(2)}</span>
+              </div>
+              ${order.discountAmount > 0 ? `
+                <div class="order-metric-cell cell-discount">
+                  <span class="order-metric-label">DISCOUNT</span>
+                  <span class="order-metric-val discount-val">-$${Number(order.discountAmount).toFixed(2)}</span>
+                </div>
+              ` : ''}
+              <div class="order-metric-cell">
+                <span class="order-metric-label">TIMELINE</span>
+                <span class="order-metric-val timeline-val">
+                  <strong>${order.deliveryDays || 3} Days</strong> ${order.isExpress ? '<span class="express-tag">⚡ Express</span>' : ''}
+                </span>
+              </div>
+              <div class="order-metric-cell">
+                <span class="order-metric-label">ORDER DATE</span>
+                <span class="order-metric-val date-val">${escapeHtml(order.orderDate || 'Recently')}</span>
+              </div>
+            </div>
+
+            <!-- Framed Instructions Box -->
+            ${order.request ? `
+              <div class="order-instructions-frame">
+                <div class="instructions-header">
+                  <span class="instructions-icon">📝</span>
+                  <span class="instructions-title">Project Instructions &amp; Requirements</span>
+                </div>
+                <div class="instructions-body">${escapeHtml(order.request)}</div>
+              </div>
+            ` : ''}
+
+            <!-- Framed Delivery Banner if Delivered or In Revision -->
+            ${order.delivery ? `
+              <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 20px;">📦</span>
+                  <div>
+                    <strong style="color: #34d399; font-size: 13.5px; display: block;">Work Delivered by Ruddranil (v${order.delivery.version || 1})</strong>
+                    <span style="font-size: 11.5px; color: var(--text-dark-gray);">${(order.delivery.files || []).length} file(s) &amp; ${(order.delivery.links || []).length} live link(s) ready</span>
+                  </div>
+                </div>
+                <a href="work-tracking.html?id=${encodeURIComponent(order.id)}" class="btn btn-sm" style="background: #10b981; color: #fff; font-weight: 800; font-size: 12px; padding: 6px 14px; text-decoration: none; border-radius: 6px;">
+                  View &amp; Download Files →
+                </a>
+              </div>
+            ` : (statusLower === 'in revision' ? `
+              <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 20px;">🔄</span>
+                  <div>
+                    <strong style="color: #fbbf24; font-size: 13.5px; display: block;">Revision in Progress</strong>
+                    <span style="font-size: 11.5px; color: var(--text-dark-gray);">Ruddranil is updating your deliverables</span>
+                  </div>
+                </div>
+                <a href="work-tracking.html?id=${encodeURIComponent(order.id)}" class="btn btn-sm" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-weight: 700; font-size: 12px; padding: 6px 14px; text-decoration: none; border-radius: 6px;">
+                  Track Revision →
+                </a>
+              </div>
+            ` : '')}
+
+            <!-- Framed Delivery Progress -->
+            <div class="order-progress-frame">
+              <div class="progress-header-row">
+                <span class="progress-label">Delivery Progress</span>
+                <strong class="progress-val-text">${progressVal}% completed</strong>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill ${isCompleted ? 'progress-fill-completed' : 'progress-fill-active'}" style="width: ${progressVal}%;"></div>
+              </div>
+            </div>
+
+            <!-- Footer: Track Order & Leave Review -->
+            <div class="order-footer-bar">
+              <div>
+                ${isCompleted ? (
+                  hasReviewed ? `
+                    <span class="badge-reviewed">
+                      ✓ Review Published ⭐
+                    </span>
+                  ` : `
+                    <button type="button" onclick="openLeaveReviewModal('${escapeHtml(order.id)}', '${encodeURIComponent(order.service)}')" class="btn-review">
+                      ⭐ Leave a Review
+                    </button>
+                  `
+                ) : `
+                  <button type="button" onclick="window.triggerWriteReviewFlow ? window.triggerWriteReviewFlow() : openLeaveReviewModal('${escapeHtml(order.id)}', '${encodeURIComponent(order.service)}')" class="btn-review" style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">
+                    ⭐ Share Experience
+                  </button>
+                `}
+              </div>
+
+              <a href="work-tracking.html?id=${encodeURIComponent(order.id)}" onclick="window.cacheOrderBeforeTrack && window.cacheOrderBeforeTrack('${escapeHtml(order.id)}')" class="btn-track-order">
+                Track Order →
+              </a>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    window.cacheOrderBeforeTrack = function(orderId) {
+      try {
+        const allLocal = JSON.parse(localStorage.getItem('ruddranil_orders') || '[]');
+        const currentOrders = window.__cachedClientOrders || [];
+        const target = currentOrders.find(o => o.id === orderId);
+        if (target) {
+          const idx = allLocal.findIndex(o => o.id === target.id);
+          if (idx >= 0) allLocal[idx] = { ...allLocal[idx], ...target };
+          else allLocal.unshift(target);
+          localStorage.setItem('ruddranil_orders', JSON.stringify(allLocal));
+        }
+      } catch (e) {}
+    };
+
+    /**
+     * Copy Order ID to clipboard with feedback
+     */
+    function copyOrderId(orderId, btn) {
+      if (!orderId) return;
+
+      const performFeedback = () => {
+        if (btn) {
+          btn.classList.add('copied');
+          const textSpan = btn.querySelector('.copy-text');
+          if (textSpan) textSpan.textContent = 'Copied!';
+          setTimeout(() => {
+            btn.classList.remove('copied');
+            if (textSpan) textSpan.textContent = 'Copy';
+          }, 2000);
+        }
+        safeToast(`Order ID copied: ${orderId}`);
+      };
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(orderId)
+          .then(performFeedback)
+          .catch(() => fallbackCopyText(orderId, performFeedback));
+      } else {
+        fallbackCopyText(orderId, performFeedback);
+      }
+    }
+
+    function fallbackCopyText(text, callback) {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-9999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        if (callback) callback();
+      } catch (err) {
+        safeToast('Unable to copy', 'error');
+      }
+      document.body.removeChild(textArea);
+    }
+
+    function safeToast(msg, type = 'success') {
+      if (typeof window.showToast === 'function') {
+        window.showToast(msg, type);
+      } else if (typeof showToast === 'function') {
+        try { showToast(msg, type); } catch(e) {}
+      }
+    }
+
+    /**
+     * Edit Profile Modal Handlers
+     */
+    function openEditProfileModal() {
+      if (!activeCustomer) return;
+
+      const rawName = (activeCustomer.name || activeCustomer.fullName || '').trim();
+      const hasRealName = rawName && !['customer', 'user', 'client', 'null', 'undefined'].includes(rawName.toLowerCase());
+
+      document.getElementById('editFullName').value = hasRealName ? rawName : '';
+      document.getElementById('editPhoneNumber').value = activeCustomer.phoneNumber || '';
+      document.getElementById('editCompany').value = activeCustomer.companyName || '';
+      document.getElementById('editCountry').value = activeCustomer.country || '';
+      document.getElementById('editCity').value = activeCustomer.city || '';
+      document.getElementById('editAddress').value = activeCustomer.address || '';
+      document.getElementById('editBio').value = activeCustomer.bio || '';
+
+      selectedProfilePhotoFile = null;
+      modalAvatarUrl = activeCustomer.avatarUrl || '';
+
+      const previewImg = document.getElementById('modalAvatarPreviewImg');
+      const fallback = document.getElementById('modalAvatarFallback');
+      const removeBtn = document.getElementById('btnRemoveAvatar');
+
+      if (modalAvatarUrl) {
+        previewImg.src = modalAvatarUrl;
+        previewImg.style.display = 'block';
+        fallback.style.display = 'none';
+        if (removeBtn) removeBtn.style.display = 'inline-block';
+      } else {
+        previewImg.style.display = 'none';
+        fallback.style.display = 'flex';
+        fallback.textContent = (rawName || activeCustomer.email || 'C')[0].toUpperCase();
+        if (removeBtn) removeBtn.style.display = 'none';
+      }
+
+      const alertBox = document.getElementById('profileAlertBox');
+      if (alertBox) alertBox.style.display = 'none';
+
+      document.getElementById('editProfileModal').style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeEditProfileModal() {
+      document.getElementById('editProfileModal').style.display = 'none';
+      document.body.style.overflow = '';
+      selectedProfilePhotoFile = null;
+    }
+
+    function handleProfilePhotoSelect(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      if (!validTypes.includes(file.type)) {
+        showProfileAlert('Please choose a JPG, PNG, or WebP photo.', 'error');
+        e.target.value = '';
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        showProfileAlert('Image size exceeds 5MB limit.', 'error');
+        e.target.value = '';
+        return;
+      }
+
+      selectedProfilePhotoFile = file;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        modalAvatarUrl = event.target.result;
+        const previewImg = document.getElementById('modalAvatarPreviewImg');
+        const fallback = document.getElementById('modalAvatarFallback');
+        const removeBtn = document.getElementById('btnRemoveAvatar');
+
+        previewImg.src = event.target.result;
+        previewImg.style.display = 'block';
+        fallback.style.display = 'none';
+        if (removeBtn) removeBtn.style.display = 'inline-block';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function handleRemoveAvatar() {
+      selectedProfilePhotoFile = null;
+      modalAvatarUrl = '';
+      const inputEl = document.getElementById('editPhotoFileInput');
+      if (inputEl) inputEl.value = '';
+
+      const previewImg = document.getElementById('modalAvatarPreviewImg');
+      const fallback = document.getElementById('modalAvatarFallback');
+      const removeBtn = document.getElementById('btnRemoveAvatar');
+
+      previewImg.style.display = 'none';
+      fallback.style.display = 'flex';
+      fallback.textContent = (activeCustomer?.name || 'C')[0].toUpperCase();
+      if (removeBtn) removeBtn.style.display = 'none';
+    }
+
+    function showProfileAlert(msg, type = 'error') {
+      const box = document.getElementById('profileAlertBox');
+      if (!box) return;
+      box.style.display = 'block';
+      box.className = type === 'error' ? 'auth-alert-box auth-alert-error' : 'auth-alert-box auth-alert-success';
+      box.innerHTML = `${type === 'error' ? '⚠️' : '✓'} ${escapeHtml(msg)}`;
+    }
+
+    async function handleProfileFormSubmit(e) {
+      e.preventDefault();
+      const submitBtn = document.getElementById('btnSaveProfileSubmit');
+      const btnLabel = document.getElementById('saveProfileBtnLabel');
+
+      const fullName = document.getElementById('editFullName').value.trim();
+      const phoneNumber = document.getElementById('editPhoneNumber').value.trim();
+      const companyName = document.getElementById('editCompany').value.trim();
+      const country = document.getElementById('editCountry').value.trim();
+      const city = document.getElementById('editCity').value.trim();
+      const address = document.getElementById('editAddress').value.trim();
+      const bio = document.getElementById('editBio').value.trim();
+
+      if (!fullName) {
+        showProfileAlert('Full Name is required.', 'error');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      btnLabel.innerHTML = `Saving...`;
+
+      try {
+        const profileData = {
+          fullName,
+          phoneNumber,
+          companyName,
+          country,
+          city,
+          address,
+          bio,
+          email: activeCustomer.email,
+          avatarUrl: modalAvatarUrl
+        };
+
+        let result;
+        if (typeof window.saveCustomerProfile === 'function') {
+          result = await window.saveCustomerProfile(profileData, selectedProfilePhotoFile);
+        }
+
+        if (result && result.success) {
+          activeCustomer = result.profile;
+          updateProfileUI(activeCustomer);
+          safeToast('Profile updated successfully! ✨');
+          closeEditProfileModal();
+        } else {
+          showProfileAlert(result?.error || 'Failed to save profile.', 'error');
+        }
+      } catch (err) {
+        showProfileAlert(err.message || 'Error saving profile.', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        btnLabel.textContent = 'Save Changes';
+      }
+    }
+
+    /**
+     * Change Password Handlers
+     */
+    function openChangePasswordModal() {
+      const alertBox = document.getElementById('pwdAlertBox');
+      if (alertBox) alertBox.style.display = 'none';
+
+      document.getElementById('newPasswordInput').value = '';
+      document.getElementById('confirmPasswordInput').value = '';
+
+      document.getElementById('changePasswordModal').style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeChangePasswordModal() {
+      document.getElementById('changePasswordModal').style.display = 'none';
+      document.body.style.overflow = '';
+    }
+
+    async function handleChangePasswordSubmit(e) {
+      e.preventDefault();
+      const newPass = document.getElementById('newPasswordInput').value;
+      const confirmPass = document.getElementById('confirmPasswordInput').value;
+      const alertBox = document.getElementById('pwdAlertBox');
+      const submitBtn = document.getElementById('btnChangePasswordSubmit');
+      const btnText = document.getElementById('changePasswordBtnText');
+
+      if (!newPass || newPass.length < 6) {
+        alertBox.style.display = 'block';
+        alertBox.className = 'auth-alert-box auth-alert-error';
+        alertBox.innerHTML = '⚠️ Password must be at least 6 characters.';
+        return;
+      }
+
+      if (newPass !== confirmPass) {
+        alertBox.style.display = 'block';
+        alertBox.className = 'auth-alert-box auth-alert-error';
+        alertBox.innerHTML = '⚠️ Passwords do not match.';
+        return;
+      }
+
+      submitBtn.disabled = true;
+      btnText.innerHTML = `Updating...`;
+
+      try {
+        if (typeof window.changeCustomerPassword === 'function') {
+          const res = await window.changeCustomerPassword(newPass);
+          if (res.success) {
+            safeToast('Password updated successfully! 🔒');
+            closeChangePasswordModal();
+          } else {
+            alertBox.style.display = 'block';
+            alertBox.className = 'auth-alert-box auth-alert-error';
+            alertBox.innerHTML = `⚠️ ${escapeHtml(res.error || 'Failed to update password.')}`;
+          }
+        }
+      } catch (err) {
+        alertBox.style.display = 'block';
+        alertBox.className = 'auth-alert-box auth-alert-error';
+        alertBox.innerHTML = `⚠️ ${escapeHtml(err.message || 'Error updating password.')}`;
+      } finally {
+        submitBtn.disabled = false;
+        btnText.textContent = 'Update Password';
+      }
+    }
+
+    function togglePasswordVisibility(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁️';
+      }
+    }
+
+    /**
+     * Leave a Review Handlers (Professional 5-Star System with Photo & Live Link)
+     */
+    function setupReviewStarPicker() {
+      const stars = document.querySelectorAll('#modalStarPicker span');
+      const ratingInput = document.getElementById('modalReviewRatingInput');
+      const label = document.getElementById('starRatingLabel');
+
+      const starLabels = {
+        1: '★☆☆☆☆ 1.0 — Disappointed with Delivery ❌',
+        2: '★★☆☆☆ 2.0 — Below Expectations ⚠️',
+        3: '★★★☆☆ 3.0 — Good & Acceptable Delivery ⚡',
+        4: '★★★★☆ 4.0 — Very Good & Highly Recommended 👍',
+        5: '★★★★★ 5.0 — Outstanding Work & Flawless Delivery! 🔥'
+      };
+
+      stars.forEach(star => {
+        star.addEventListener('click', () => {
+          currentReviewRating = parseInt(star.getAttribute('data-star') || '5', 10);
+          if (ratingInput) ratingInput.value = currentReviewRating;
+          if (label) label.textContent = starLabels[currentReviewRating] || `${currentReviewRating} Stars`;
+          stars.forEach(s => {
+            const sVal = parseInt(s.getAttribute('data-star') || '0', 10);
+            s.style.color = sVal <= currentReviewRating ? '#fbbf24' : '#475569';
+          });
+        });
+      });
+    }
+
+    function updateDashReviewCharCount(textarea) {
+      const notice = document.getElementById('dashReviewCharNotice');
+      if (!notice) return;
+      const len = textarea.value.trim().length;
+      if (len < 5) {
+        notice.textContent = `${len}/5 characters (min 5 required)`;
+        notice.style.color = '#f87171';
+      } else {
+        notice.textContent = `${len} characters ✓`;
+        notice.style.color = 'var(--accent-cyan)';
+      }
+    }
+
+    let selectedDashboardReviewPhoto = null;
+
+    function handleDashReviewPhotoSelect(input) {
+      if (!input.files || !input.files[0]) return;
+      const file = input.files[0];
+      if (file.size > 10 * 1024 * 1024) {
+        safeToast('Photo must be 10MB or less.', 'error');
+        input.value = '';
+        return;
+      }
+      selectedDashboardReviewPhoto = file;
+
+      const prompt = document.getElementById('dashReviewDropPrompt');
+      const wrap = document.getElementById('dashReviewPreviewWrap');
+      const img = document.getElementById('dashReviewPreviewImg');
+      const name = document.getElementById('dashReviewFileName');
+      const size = document.getElementById('dashReviewFileSize');
+
+      if (prompt) prompt.style.display = 'none';
+      if (wrap) wrap.style.display = 'flex';
+      if (name) name.textContent = file.name;
+      if (size) size.textContent = `${(file.size / 1024).toFixed(1)} KB (Auto-Optimized)`;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (img) img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearDashReviewPhoto() {
+      selectedDashboardReviewPhoto = null;
+      const input = document.getElementById('dashReviewPhotoInput');
+      if (input) input.value = '';
+      const prompt = document.getElementById('dashReviewDropPrompt');
+      const wrap = document.getElementById('dashReviewPreviewWrap');
+      if (prompt) prompt.style.display = 'block';
+      if (wrap) wrap.style.display = 'none';
+    }
+
+    function openLeaveReviewModal(orderId, serviceName) {
+      if (typeof window.triggerWriteReviewFlow === 'function') {
+        window.triggerWriteReviewFlow();
+        return;
+      }
+
+      const alertBox = document.getElementById('reviewAlertBox');
+      if (alertBox) {
+        alertBox.style.display = 'none';
+        alertBox.innerHTML = '';
+      }
+
+      clearDashReviewPhoto();
+
+      document.getElementById('reviewTargetOrderId').value = orderId;
+      document.getElementById('reviewTargetService').value = decodeURIComponent(serviceName || '');
+      document.getElementById('modalReviewOrderId').textContent = orderId;
+      document.getElementById('modalReviewServiceName').textContent = decodeURIComponent(serviceName || '');
+      document.getElementById('reviewCommentInput').value = '';
+
+      const linkInput = document.getElementById('reviewProjectLinkInput');
+      if (linkInput) linkInput.value = '';
+
+      const charNotice = document.getElementById('dashReviewCharNotice');
+      if (charNotice) {
+        charNotice.textContent = 'Min 5 characters';
+        charNotice.style.color = 'var(--text-dark-gray)';
+      }
+
+      const roleInput = document.getElementById('reviewRoleInput');
+      if (roleInput) roleInput.value = activeCustomer?.companyName ? `${activeCustomer.companyName} Founder` : 'Verified Customer';
+
+      currentReviewRating = 5;
+      const ratingInput = document.getElementById('modalReviewRatingInput');
+      if (ratingInput) ratingInput.value = 5;
+      const stars = document.querySelectorAll('#modalStarPicker span');
+      stars.forEach(s => s.style.color = '#fbbf24');
+      const label = document.getElementById('starRatingLabel');
+      if (label) label.textContent = '★★★★★ 5.0 — Outstanding Work & Flawless Delivery! 🔥';
+
+      document.getElementById('orderReviewModal').style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeLeaveReviewModal() {
+      clearDashReviewPhoto();
+      document.getElementById('orderReviewModal').style.display = 'none';
+      document.body.style.overflow = '';
+    }
+
+    async function handleReviewSubmit(e) {
+      e.preventDefault();
+      const orderId = document.getElementById('reviewTargetOrderId').value;
+      const serviceName = document.getElementById('reviewTargetService').value;
+      const role = document.getElementById('reviewRoleInput').value.trim();
+      const projectUrl = document.getElementById('reviewProjectLinkInput')?.value.trim() || null;
+      const comment = document.getElementById('reviewCommentInput').value.trim();
+      const rating = currentReviewRating;
+
+      const alertBox = document.getElementById('reviewAlertBox');
+      const submitBtn = document.getElementById('btnSubmitReviewAction');
+      const btnText = document.getElementById('submitReviewBtnText');
+
+      if (!comment || comment.length < 5) {
+        alertBox.style.display = 'block';
+        alertBox.className = 'auth-alert-box auth-alert-error';
+        alertBox.innerHTML = '⚠️ Please enter a review comment of at least 5 characters.';
+        return;
+      }
+
+      submitBtn.disabled = true;
+      btnText.innerHTML = `Publishing Review...`;
+
+      try {
+        if (typeof window.submitCustomerReview === 'function') {
+          const res = await window.submitCustomerReview({
+            orderId,
+            serviceName,
+            role,
+            projectUrl,
+            comment,
+            rating,
+            imageFile: selectedDashboardReviewPhoto
+          });
+          if (res && res.success) {
+            customerReviewedOrders.add(orderId);
+            safeToast('Thank you! Your verified review has been published ⭐');
+            closeLeaveReviewModal();
+            await refreshCustomerOrders();
+          } else {
+            alertBox.style.display = 'block';
+            alertBox.className = 'auth-alert-box auth-alert-error';
+            alertBox.innerHTML = `⚠️ ${escapeHtml(res?.error || 'Unable to submit review.')}`;
+          }
+        }
+      } catch (err) {
+        alertBox.style.display = 'block';
+        alertBox.className = 'auth-alert-box auth-alert-error';
+        alertBox.innerHTML = `⚠️ ${escapeHtml(err.message || 'Error submitting review.')}`;
+      } finally {
+        submitBtn.disabled = false;
+        btnText.textContent = 'Publish Verified Review ⭐';
+      }
+    }
+
+    /**
+     * Order Placement (Fiverr modal or Quick Order)
+     */
+    function populateQuickServiceDropdown() {
+      const select = document.getElementById('quickServiceSelect');
+      if (!select) return;
+      const services = JSON.parse(localStorage.getItem('ruddranil_services') || '[]');
+      if (!services || services.length === 0) return;
+      select.innerHTML = services.map(s => {
+        const basicPrice = s.packages?.basic?.price || 30;
+        return `<option value="${s.name}">${s.name} ($${basicPrice}.00)</option>`;
+      }).join('');
+    }
+
+    function openNewOrderModal() {
+      const services = JSON.parse(localStorage.getItem('ruddranil_services') || '[]');
+      const defaultService = services[0]?.name || 'Website Design';
+      if (typeof window.openFiverrOrderModal === 'function') {
+        window.openFiverrOrderModal(defaultService, 'basic');
+      } else {
+        populateQuickServiceDropdown();
+        document.getElementById('requestModal').style.display = 'flex';
+      }
+    }
+
+    function closeSubmitModal() {
+      document.getElementById('requestModal').style.display = 'none';
+    }
+
+    async function handleQuickOrderSubmit(e) {
+      e.preventDefault();
+      const service = document.getElementById('quickServiceSelect').value;
+      const desc = document.getElementById('quickInstructions').value;
+      const btn = document.getElementById('btnQuickOrderSubmit');
+      const btnText = document.getElementById('quickOrderBtnText');
+
+      btn.disabled = true;
+      btnText.innerHTML = `Placing Order...`;
+
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+      const hexRand = Math.random().toString(16).substring(2, 10).toUpperCase();
+      const orderId = `RUD-${dateStr}-${hexRand}`;
+
+      const services = JSON.parse(localStorage.getItem('ruddranil_services') || '[]');
+      const matchedService = services.find(s => s.name === service);
+      const finalPrice = matchedService?.packages?.basic?.price || 30;
+      const deliveryDays = matchedService?.packages?.basic?.deliveryDays || 3;
+      const packageName = matchedService?.packages?.basic?.name || service;
+
+      const newOrder = {
+        id: orderId,
+        customerId: activeCustomer?.id || null,
+        customerName: activeCustomer?.name || 'Customer',
+        customerEmail: activeCustomer?.email || 'customer@example.com',
+        service: service,
+        serviceSlug: service.toLowerCase().replace(/\s+/g, '-'),
+        packageTier: 'basic',
+        packageName: packageName,
+        packagePrice: finalPrice,
+        subtotal: finalPrice,
+        finalTotal: finalPrice,
+        deliveryDays: deliveryDays,
+        isExpress: false,
+        expressFee: 0,
+        selectedAddons: [],
+        addonsTotal: 0,
+        couponCode: null,
+        discountAmount: 0,
+        orderDate: now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        lastUpdated: 'Just now',
+        request: desc,
+        status: 'Pending',
+        progress: 0,
+        price: `$${finalPrice.toFixed(2)}`
+      };
+
+      if (typeof window.syncOrderToSupabase === 'function') {
+        await window.syncOrderToSupabase(newOrder);
+      }
+
+      closeSubmitModal();
+      safeToast(`Order placed successfully! ID: ${orderId}`);
+      await refreshCustomerOrders();
+
+      btn.disabled = false;
+      btnText.textContent = 'Place Order';
+    }
+
+    /**
+     * Dashboard Menu Handler (Graceful fallback)
+     */
+    function toggleDashboardMenuPanel(forceOpen) {
+      const profileSection = document.getElementById('myProfileSection');
+      if (profileSection) {
+        profileSection.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+
+    /**
+     * Navbar Profile Dropdown (Clean, prevents duplicate layers)
+     */
+    function toggleNavProfileDropdown(e) {
+      if (e) e.stopPropagation();
+
+      // Cleanly dismiss any open mobile navigation drawer first (no duplicate layers)
+      const navMenu = document.getElementById('navMenu');
+      const navBackdrop = document.getElementById('navBackdrop');
+      const menuToggle = document.getElementById('menuToggle');
+      if (navMenu) navMenu.classList.remove('open');
+      if (navBackdrop) navBackdrop.classList.remove('open');
+      if (menuToggle) {
+        menuToggle.classList.remove('open');
+        menuToggle.setAttribute('aria-expanded', 'false');
+      }
+      document.body.style.overflow = '';
+
+      const dropdown = document.getElementById('navProfileDropdown');
+      const btn = document.getElementById('navProfilePillBtn');
+      if (!dropdown) return;
+      const isOpen = dropdown.classList.contains('open');
+      dropdown.classList.toggle('open', !isOpen);
+      btn?.setAttribute('aria-expanded', !isOpen);
+    }
+
+    function closeNavProfileDropdown() {
+      const dropdown = document.getElementById('navProfileDropdown');
+      const btn = document.getElementById('navProfilePillBtn');
+      if (dropdown) dropdown.classList.remove('open');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
+
+    document.addEventListener('click', (e) => {
+      const wrap = document.getElementById('navProfileMenuWrap');
+      if (wrap && !wrap.contains(e.target)) {
+        closeNavProfileDropdown();
+      }
+    });
+
+    function scrollToSection(id) {
+      closeNavProfileDropdown();
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+
+    async function safeLogout() {
+      closeNavProfileDropdown();
+      safeToast('Signing out...');
+      if (window.sbClient && window.sbClient.auth) {
+        try {
+          await window.sbClient.auth.signOut();
+        } catch (e) {}
+      }
+      localStorage.removeItem('currentUser');
+      setTimeout(() => {
+        window.location.href = 'login.html';
+      }, 300);
+    }
+
+    window.toggleNavProfileDropdown = toggleNavProfileDropdown;
+    window.closeNavProfileDropdown = closeNavProfileDropdown;
+    window.scrollToSection = scrollToSection;
+    window.safeLogout = safeLogout;
+  </script>
+</body>
+</html>
