@@ -1,15 +1,16 @@
 {
-  "version": 2,
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "cleanUrls": true,
-  "routes": [
-    { "src": "/robots.txt", "dest": "/public/robots.txt" },
-    { "src": "/sitemap.xml", "dest": "/public/sitemap.xml" },
-    { "src": "/login", "dest": "/login.html" },
-    { "src": "/customer-dashboard", "dest": "/customer-dashboard.html" },
-    { "src": "/admin", "dest": "/admin.html" },
-    { "src": "/work-tracking", "dest": "/work-tracking.html" },
-    { "src": "/portfolio", "dest": "/portfolio.html" },
-    { "src": "/reviews", "dest": "/reviews.html" },
-    { "src": "/(.*)", "dest": "/$1" }
+  "trailingSlash": false,
+  "rewrites": [
+    { "source": "/admin", "destination": "/admin.html" },
+    { "source": "/admin-login", "destination": "/admin-login.html" },
+    { "source": "/login", "destination": "/login.html" },
+    { "source": "/customer-dashboard", "destination": "/customer-dashboard.html" },
+    { "source": "/work-tracking", "destination": "/work-tracking.html" },
+    { "source": "/portfolio", "destination": "/portfolio.html" },
+    { "source": "/reviews", "destination": "/reviews.html" }
   ]
 }

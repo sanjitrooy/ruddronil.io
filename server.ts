@@ -488,6 +488,26 @@ async function startServer() {
     res.send(sitemapXml);
   });
 
+  // Clean URL mapping so /admin, /admin-login, /login, etc. serve HTML instead of matching .js files in Vite dev
+  const cleanHtmlRoutes: Record<string, string> = {
+    '/admin': '/admin.html',
+    '/admin-login': '/admin-login.html',
+    '/login': '/login.html',
+    '/customer-dashboard': '/customer-dashboard.html',
+    '/work-tracking': '/work-tracking.html',
+    '/portfolio': '/portfolio.html',
+    '/reviews': '/reviews.html',
+  };
+  app.use((req: Request, _res: Response, next) => {
+    const cleanPath = req.path.length > 1 ? req.path.replace(/\/+$/, '') : req.path;
+    if (cleanHtmlRoutes[cleanPath]) {
+      const qIndex = req.url.indexOf('?');
+      const query = qIndex >= 0 ? req.url.slice(qIndex) : '';
+      req.url = cleanHtmlRoutes[cleanPath] + query;
+    }
+    next();
+  });
+
   // ==========================================
   // VITE DEV MIDDLEWARE / STATIC PRODUCTION SERVING
   // ==========================================

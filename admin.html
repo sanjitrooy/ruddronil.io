@@ -1442,20 +1442,34 @@
       if (tabName === 'reviews' && typeof renderAdminReviews === 'function') renderAdminReviews();
     }
 
+    function safeAdminToast(msg, type = 'success') {
+      if (typeof window.showToast === 'function' && window.showToast !== safeAdminToast) {
+        window.showToast(msg, type);
+      }
+    }
+    if (typeof window.showToast !== 'function') {
+      window.showToast = safeAdminToast;
+    }
+
     // Passcode Security Gate
-    document.addEventListener('DOMContentLoaded', () => {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', checkAdminAccess);
+    } else {
       checkAdminAccess();
-    });
+    }
 
     function checkAdminAccess() {
-      const adminUnlocked = sessionStorage.getItem('ruddranil_admin_unlocked') === 'true';
+      let adminUnlocked = false;
+      try {
+        adminUnlocked = sessionStorage.getItem('ruddranil_admin_unlocked') === 'true';
+      } catch (e) {}
       let isVerifiedAdmin = adminUnlocked;
 
       try {
         const u = JSON.parse(localStorage.getItem('currentUser') || '{}');
         if (u && (u.role === 'admin' || (u.email && u.email.toLowerCase().includes('admin')))) {
           isVerifiedAdmin = true;
-          sessionStorage.setItem('ruddranil_admin_unlocked', 'true');
+          try { sessionStorage.setItem('ruddranil_admin_unlocked', 'true'); } catch (e) {}
         }
       } catch (e) {}
 
@@ -1473,33 +1487,46 @@
       if (typeof renderAdminDashboard === 'function') renderAdminDashboard();
     }
 
+    function setAdminSessionState() {
+      try { sessionStorage.setItem('ruddranil_admin_unlocked', 'true'); } catch (e) {}
+      try {
+        localStorage.setItem('currentUser', JSON.stringify({
+          id: 'admin-master',
+          name: 'Ruddranil',
+          email: 'admin@ruddranil.io',
+          role: 'admin',
+          emailVerified: true
+        }));
+      } catch (e) {}
+    }
+
     function verifyAdminPasscode(e) {
       e.preventDefault();
       const pass = document.getElementById('adminPassInput').value.trim();
       if (pass === 'admin123' || pass.length >= 3) {
-        sessionStorage.setItem('ruddranil_admin_unlocked', 'true');
-        showToast('Admin Console Unlocked! Welcome Ruddranil.');
+        setAdminSessionState();
+        safeAdminToast('Admin Console Unlocked! Welcome Ruddranil.');
         checkAdminAccess();
       } else {
-        showToast('Incorrect passcode. Use: admin123', 'error');
+        safeAdminToast('Incorrect passcode. Use: admin123', 'error');
       }
     }
 
     function bypassAdminUnlock() {
-      sessionStorage.setItem('ruddranil_admin_unlocked', 'true');
-      showToast('Admin Console Unlocked! Welcome Ruddranil.');
+      setAdminSessionState();
+      safeAdminToast('Admin Console Unlocked! Welcome Ruddranil.');
       checkAdminAccess();
     }
 
     function adminLogout() {
-      sessionStorage.removeItem('ruddranil_admin_unlocked');
+      try { sessionStorage.removeItem('ruddranil_admin_unlocked'); } catch (e) {}
       try {
         const u = JSON.parse(localStorage.getItem('currentUser') || '{}');
         if (u && u.role === 'admin') {
           localStorage.removeItem('currentUser');
         }
       } catch (e) {}
-      showToast('Admin session locked');
+      safeAdminToast('Admin session locked');
       setTimeout(() => {
         window.location.href = 'admin-login.html';
       }, 300);
@@ -1527,7 +1554,7 @@
       a.download = `ruddranil-complete-backup-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      showToast('Database JSON backup downloaded!');
+      safeAdminToast('Database JSON backup downloaded!');
     }
 
     window.switchAdminTab = switchAdminTab;
