@@ -1157,16 +1157,13 @@ DROP POLICY IF EXISTS "Public can view approved reviews" ON public.reviews;
 DROP POLICY IF EXISTS "Public can view verified reviews" ON public.reviews;
 CREATE POLICY "Public can view approved reviews"
     ON public.reviews FOR SELECT
-    USING (status = 'approved' OR public.is_admin());
+    USING (status = 'approved' OR status IS NULL OR public.is_admin());
 
 DROP POLICY IF EXISTS "Customers can insert reviews" ON public.reviews;
 CREATE POLICY "Customers can insert reviews"
     ON public.reviews FOR INSERT
-    WITH CHECK (
-        LOWER(customer_email) = LOWER(COALESCE(auth.jwt() ->> 'email', ''))
-        OR auth.role() = 'anon'
-        OR auth.role() = 'authenticated'
-    );
+    TO anon, authenticated
+    WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Admins have full access to reviews" ON public.reviews;
 CREATE POLICY "Admins have full access to reviews"
@@ -1175,10 +1172,36 @@ CREATE POLICY "Admins have full access to reviews"
     USING (public.is_admin())
     WITH CHECK (public.is_admin());
 
--- Storage Bucket for Project Review Images
+GRANT SELECT, INSERT ON public.reviews TO anon, authenticated;
+
+-- Safe RPC for public visitors to toggle helpful count on Supabase reviews (supports UUID or TEXT id)
+DROP FUNCTION IF EXISTS public.increment_review_helpful(UUID, INT);
+CREATE OR REPLACE FUNCTION public.increment_review_helpful(p_review_id TEXT, p_delta INT DEFAULT 1)
+RETURNS INT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    new_count INT;
+    safe_delta INT;
+BEGIN
+    safe_delta := GREATEST(-1, LEAST(1, COALESCE(p_delta, 1)));
+    UPDATE public.reviews
+    SET helpful_count = GREATEST(0, COALESCE(helpful_count, 0) + safe_delta),
+        updated_at = NOW()
+    WHERE id::text = p_review_id
+    RETURNING helpful_count INTO new_count;
+    RETURN new_count;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.increment_review_helpful(TEXT, INT) TO anon, authenticated;
+
+-- Storage Bucket for Project Review Images (Publicly readable, open for review uploads)
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('review-images', 'review-images', true)
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET public = true;
 
 DROP POLICY IF EXISTS "Public can view review images" ON storage.objects;
 CREATE POLICY "Public can view review images"
@@ -1188,6 +1211,7 @@ CREATE POLICY "Public can view review images"
 DROP POLICY IF EXISTS "Users can upload review images" ON storage.objects;
 CREATE POLICY "Users can upload review images"
     ON storage.objects FOR INSERT
+    TO anon, authenticated
     WITH CHECK (bucket_id = 'review-images');
 
 DROP POLICY IF EXISTS "Users can update review images" ON storage.objects;
@@ -1201,6 +1225,46 @@ CREATE POLICY "Admins can delete review images"
     ON storage.objects FOR DELETE
     TO authenticated
     USING (bucket_id = 'review-images' AND public.is_admin());
+
+-- ============================================================================
+-- 13b. Public Review Comments Table (Community Replies on Client Reviews)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.review_comments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    review_id TEXT NOT NULL,
+    reviewer_name TEXT,
+    author_name TEXT NOT NULL DEFAULT 'Visitor',
+    author_email TEXT,
+    comment_text TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'approved' CHECK (status IN ('pending', 'approved', 'rejected')),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_review_comments_review_id
+    ON public.review_comments (review_id, created_at DESC);
+
+ALTER TABLE public.review_comments ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public can view approved review comments" ON public.review_comments;
+CREATE POLICY "Public can view approved review comments"
+    ON public.review_comments FOR SELECT
+    USING (status = 'approved' OR status IS NULL OR public.is_admin());
+
+DROP POLICY IF EXISTS "Public can post review comments" ON public.review_comments;
+CREATE POLICY "Public can post review comments"
+    ON public.review_comments FOR INSERT
+    TO anon, authenticated
+    WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Admins have full access to review comments" ON public.review_comments;
+CREATE POLICY "Admins have full access to review comments"
+    ON public.review_comments FOR ALL
+    TO authenticated
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
+
+GRANT SELECT, INSERT ON public.review_comments TO anon, authenticated;
+GRANT ALL ON public.review_comments TO authenticated;
 
 -- ============================================================================
 -- 14. Portfolio Showcase Projects Table & Media Storage Bucket (portfolio-media)

@@ -196,17 +196,27 @@
     document.addEventListener('DOMContentLoaded', async () => {
       const toggle = document.getElementById('themeToggleBtn');
       if (toggle) {
+        const syncThemeBtn = (theme) => {
+          const label = toggle.querySelector('.theme-text-label');
+          const icon = toggle.querySelector('.theme-icon-indicator');
+          if (label) label.textContent = theme === 'dark' ? 'Dark' : 'Light';
+          if (icon) icon.textContent = theme === 'dark' ? '🌙' : '☀️';
+        };
+        syncThemeBtn(document.documentElement.getAttribute('data-theme') || 'dark');
         toggle.onclick = () => {
           const current = document.documentElement.getAttribute('data-theme') || 'dark';
           const next = current === 'dark' ? 'light' : 'dark';
           document.documentElement.setAttribute('data-theme', next);
           try { localStorage.setItem('ruddranil_theme', next); } catch (e) {}
-          const label = toggle.querySelector('.theme-text-label');
-          const icon = toggle.querySelector('.theme-icon-indicator');
-          if (label) label.textContent = next === 'dark' ? 'Dark' : 'Light';
-          if (icon) icon.textContent = next === 'dark' ? '🌙' : '☀️';
+          syncThemeBtn(next);
         };
       }
+
+      const adminIdentInput = document.getElementById('adminIdentifier');
+      if (adminIdentInput) {
+        adminIdentInput.addEventListener('input', () => syncAdminResetCooldownUI());
+      }
+      syncAdminResetCooldownUI();
 
       // Detect Supabase password recovery redirect (hash implicit OR PKCE ?code= / ?type=recovery)
       const hash = window.location.hash || '';
@@ -270,8 +280,11 @@
             console.warn('[Admin Recovery] Session hydration notice:', err);
           }
         }
-        showRecoveryMode();
+        try { sessionStorage.removeItem('ruddranil_pending_password_setup'); } catch (e) {}
         cleanRecoveryUrlBar();
+        if (!urlError) {
+          showAdminAlert('Recovery link expired or already used. Please request a fresh link via "Forgot / Set Password?".');
+        }
         return;
       }
 
@@ -350,18 +363,95 @@
       if (alert) alert.style.display = 'none';
     }
 
+    let adminResetCooldownInterval = null;
+
+    function getAdminRateStatus(email) {
+      const targetEmail = String(email || document.getElementById('adminIdentifier')?.value || ADMIN_EMAIL_CANONICAL).trim().toLowerCase();
+      if (typeof window.getEmailRateStatus === 'function') {
+        return window.getEmailRateStatus('admin_reset', targetEmail);
+      }
+      return { maxAttempts: 3, attemptsUsed: 0, remainingAttempts: 3, isLocked: false, formattedTime: '00:00' };
+    }
+
+    function syncAdminResetCooldownUI(emailOverride = null) {
+      if (adminResetCooldownInterval) {
+        clearInterval(adminResetCooldownInterval);
+        adminResetCooldownInterval = null;
+      }
+
+      const updateTick = () => {
+        const status = getAdminRateStatus(emailOverride);
+        const btnForgot = document.getElementById('btnForgotAdminPass');
+        const btnResend = document.getElementById('btnAdminResendVerify');
+
+        if (btnForgot) {
+          if (status.isLocked) {
+            btnForgot.disabled = true;
+            btnForgot.style.opacity = '0.65';
+            btnForgot.style.cursor = 'not-allowed';
+            btnForgot.textContent = `⏳ Cooldown ${status.formattedTime} (3/3)`;
+          } else {
+            btnForgot.disabled = false;
+            btnForgot.style.opacity = '1';
+            btnForgot.style.cursor = 'pointer';
+            btnForgot.textContent = status.attemptsUsed > 0
+              ? `Forgot / Set Password? (${status.remainingAttempts}/3 left)`
+              : 'Forgot / Set Password?';
+          }
+        }
+
+        if (btnResend) {
+          if (status.isLocked) {
+            btnResend.disabled = true;
+            btnResend.textContent = `⏳ ${status.formattedTime} পর Resend করা যাবে`;
+          } else {
+            btnResend.disabled = false;
+            btnResend.textContent = `Resend Verification Link (${status.remainingAttempts}/3 left)`;
+          }
+        }
+
+        if (!status.isLocked && adminResetCooldownInterval) {
+          clearInterval(adminResetCooldownInterval);
+          adminResetCooldownInterval = null;
+        }
+      };
+
+      updateTick();
+      const initial = getAdminRateStatus(emailOverride);
+      if (initial.isLocked) {
+        adminResetCooldownInterval = setInterval(updateTick, 1000);
+      }
+    }
+
     async function resendAdminVerificationEmail(email) {
+      const targetEmail = (email || ADMIN_EMAIL_CANONICAL).trim().toLowerCase();
+      const pre = getAdminRateStatus(targetEmail);
+      if (pre.isLocked) {
+        showAdminAlert(`সর্বোচ্চ ৩ বার ইমেইল পাঠানো হয়ে গেছে। অনুগ্রহ করে ${pre.formattedTime} পর আবার চেষ্টা করুন।`);
+        syncAdminResetCooldownUI(targetEmail);
+        return;
+      }
+      if (typeof window.resendVerificationEmail === 'function') {
+        const res = await window.resendVerificationEmail(targetEmail, 'admin_reset', '/admin-login');
+        if (res.success) {
+          showAdminAlert(res.message || `Verification email resent to ${targetEmail}.`, 'success');
+        } else {
+          showAdminAlert(res.error || 'Could not resend verification email.');
+        }
+        syncAdminResetCooldownUI(targetEmail);
+        return;
+      }
       if (!window.sbClient || !window.sbClient.auth) return;
       try {
         const { error } = await window.sbClient.auth.resend({
           type: 'signup',
-          email: (email || ADMIN_EMAIL_CANONICAL).trim().toLowerCase(),
-          options: { emailRedirectTo: `${window.location.origin}/admin-login.html` }
+          email: targetEmail,
+          options: { emailRedirectTo: `${window.location.origin}/admin-login` }
         });
         if (error) {
           showAdminAlert(error.message || 'Could not resend verification email.');
         } else {
-          showAdminAlert(`Verification email resent to ${email || ADMIN_EMAIL_CANONICAL}. Please confirm your inbox and try signing in again.`, 'success');
+          showAdminAlert(`Verification email resent to ${targetEmail}. Please confirm your inbox and try signing in again.`, 'success');
         }
       } catch (err) {
         showAdminAlert(err?.message || 'Could not resend verification email.');
@@ -417,10 +507,11 @@
         const errMsg = res?.error || 'Invalid email or password. Please sign in with your verified Supabase credentials.';
         if (/email not confirmed/i.test(errMsg)) {
           showAdminAlert(
-            `Email not confirmed for ${ADMIN_EMAIL_CANONICAL}. Check your Gmail inbox or <button type="button" onclick="resendAdminVerificationEmail('${ADMIN_EMAIL_CANONICAL}')" style="background:none;border:none;color:#38bdf8;text-decoration:underline;font-weight:700;cursor:pointer;padding:0;">Resend Verification Link</button>.`,
+            `Email not confirmed for ${ADMIN_EMAIL_CANONICAL}. Check your Gmail inbox or <button type="button" id="btnAdminResendVerify" onclick="resendAdminVerificationEmail('${ADMIN_EMAIL_CANONICAL}')" style="background:none;border:none;color:#38bdf8;text-decoration:underline;font-weight:700;cursor:pointer;padding:0;">Resend Verification Link</button>.`,
             'error',
             true
           );
+          syncAdminResetCooldownUI(ADMIN_EMAIL_CANONICAL);
         } else {
           showAdminAlert(errMsg);
         }
@@ -435,6 +526,13 @@
     async function handleAdminForgotPassword() {
       clearAdminAlert();
       const ident = (document.getElementById('adminIdentifier')?.value || ADMIN_EMAIL_CANONICAL).trim();
+      const preRate = getAdminRateStatus(ident);
+      if (preRate.isLocked) {
+        showAdminAlert(`সর্বোচ্চ ৩ বার রিসেট লিংক পাঠানো হয়ে গেছে। অনুগ্রহ করে ${preRate.formattedTime} পর আবার চেষ্টা করুন (১ ঘণ্টা কুলডাউন)।`);
+        syncAdminResetCooldownUI(ident);
+        return;
+      }
+
       if (typeof window.requestAdminPasswordReset !== 'function') {
         showAdminAlert('Supabase client unavailable.');
         return;
@@ -447,15 +545,16 @@
       try {
         const res = await window.requestAdminPasswordReset(ident);
         if (res.success) {
-          showAdminAlert(`Password setup/reset link sent to ${ident}. Check your Gmail inbox (and Spam folder) and click the link to set your new password.`, 'success');
+          const st = res.rateStatus || getAdminRateStatus(ident);
+          const attemptNote = st.isLocked
+            ? ` (প্রচেষ্টা ৩/৩ শেষ — পরবর্তী লিংকের জন্য ${st.formattedTime} কুলডাউন চালু হয়েছে)`
+            : ` (প্রচেষ্টা ${st.attemptsUsed}/3 • বাকি ${st.remainingAttempts} বার)`;
+          showAdminAlert(`Password setup/reset link sent to ${ident}.${attemptNote} Check your Gmail inbox (and Spam folder).`, 'success');
         } else {
           showAdminAlert(res.error || 'Could not send password reset email.');
         }
       } finally {
-        if (btn) {
-          btn.disabled = false;
-          btn.textContent = 'Forgot / Set Password?';
-        }
+        syncAdminResetCooldownUI(ident);
       }
     }
 

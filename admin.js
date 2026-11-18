@@ -116,6 +116,11 @@ async function loadAuthoritativeDataFromServer() {
     if (typeof syncAdminContactMessages === 'function') {
       await syncAdminContactMessages(false);
     }
+
+    // 7. Fetch Users & Client Profiles from Supabase
+    if (typeof syncAdminUsersList === 'function') {
+      await syncAdminUsersList(false);
+    }
   } catch (err) {
     console.warn('Cross-device initial fetch fallback:', err);
   }
@@ -183,8 +188,13 @@ window.initAdminConsole = function() {
         const hexRand = Math.random().toString(16).substring(2, 10).toUpperCase();
         const orderId = `RUD-${dateStr}-${hexRand}`;
 
+        const matchedClient = Array.isArray(cachedAdminUsers)
+          ? cachedAdminUsers.find(u => String(u.email || '').toLowerCase() === customerEmail.toLowerCase())
+          : null;
+
         const newOrder = {
           id: orderId,
+          customerId: matchedClient?.user_id || null,
           customerName,
           customerEmail,
           service: service.name,
@@ -2788,3 +2798,219 @@ window.deleteAdminContactMessage = async function(msgId) {
     showToast(res.error || 'Failed to delete inquiry', 'error');
   }
 };
+
+// ============================================================================
+// 7. Users & Clients Management Controller (Add User + Directory)
+// ============================================================================
+let cachedAdminUsers = [];
+
+async function syncAdminUsersList(showFeedback = false) {
+  if (typeof window.adminFetchAllUsers !== 'function') return;
+  try {
+    const users = await window.adminFetchAllUsers();
+    cachedAdminUsers = Array.isArray(users) ? users : [];
+    const countEl = document.getElementById('tabUsersCount');
+    if (countEl) countEl.textContent = String(cachedAdminUsers.length);
+    renderAdminUsersTable();
+    if (showFeedback && typeof showToast === 'function') {
+      showToast(`Users synced (${cachedAdminUsers.length} clients)`);
+    }
+  } catch (e) {
+    if (showFeedback && typeof showToast === 'function') {
+      showToast('Could not fetch users list', 'error');
+    }
+  }
+}
+window.syncAdminUsersList = syncAdminUsersList;
+
+function renderAdminUsersTable() {
+  const tbody = document.getElementById('adminUsersTableBody');
+  if (!tbody) return;
+
+  const query = (document.getElementById('adminUserSearch')?.value || '').toLowerCase().trim();
+  const orders = JSON.parse(localStorage.getItem('ruddranil_orders') || '[]');
+
+  const filtered = cachedAdminUsers.filter(u => {
+    const hay = `${u.full_name || ''} ${u.email || ''} ${u.phone_number || ''} ${u.country || ''} ${u.company_name || ''}`.toLowerCase();
+    return !query || hay.includes(query);
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5" style="padding: 26px; text-align: center; color: var(--text-dark-gray);">
+          ${query ? 'No users match your search.' : 'No customer users added yet. Use the form on the left to add a client.'}
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(u => {
+    const userOrdersCount = orders.filter(o =>
+      String(o.customerEmail || '').trim().toLowerCase() === String(u.email || '').trim().toLowerCase()
+    ).length;
+
+    const statusBadge = u.immediateSignInReady === true
+      ? '<span style="font-size: 10px; color: #34d399; font-weight: 700;">● Ready to Order</span>'
+      : (u.immediateSignInReady === false
+        ? '<span style="font-size: 10px; color: #fbbf24; font-weight: 700;">● Email Confirm Pending</span>'
+        : '<span style="font-size: 10px; color: var(--accent-cyan); font-weight: 700;">● Profile Active</span>');
+
+    return `
+      <tr class="admin-table-row">
+        <td style="padding: 12px;">
+          <div class="admin-table-title">${escapeHtmlText(u.full_name || 'Client')}</div>
+          ${u.company_name ? `<div style="font-size: 11px; color: var(--text-gray);">${escapeHtmlText(u.company_name)}</div>` : ''}
+          <div style="margin-top: 2px;">${statusBadge}</div>
+        </td>
+        <td style="padding: 12px;">
+          <div style="font-size: 12.5px; color: var(--accent-cyan); font-weight: 600;">${escapeHtmlText(u.email || '')}</div>
+        </td>
+        <td style="padding: 12px; font-size: 12px; color: var(--text-gray);">
+          <div>${escapeHtmlText(u.phone_number || '—')}</div>
+          ${u.country ? `<div style="font-size: 11px; color: var(--text-dark-gray);">${escapeHtmlText(u.country)}</div>` : ''}
+        </td>
+        <td style="padding: 12px;">
+          <span class="brand-badge" style="font-size: 11px;">${userOrdersCount} Orders</span>
+        </td>
+        <td style="padding: 12px;">
+          <button type="button" onclick="prefillManualOrderForUser('${escapeHtmlText(u.full_name || 'Client')}', '${escapeHtmlText(u.email || '')}')" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 5px 10px; white-space: nowrap;">
+            📦 New Order
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+window.renderAdminUsersTable = renderAdminUsersTable;
+
+window.generateAdminUserPassword = function() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#';
+  let out = '';
+  for (let i = 0; i < 10; i++) {
+    out += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  const el = document.getElementById('adminNewUserPassword');
+  if (el) {
+    el.type = 'text';
+    el.value = out;
+  }
+};
+
+window.copyAdminUserCredentials = async function(email, pass) {
+  const txt = `Login URL: ${window.location.origin}/login.html\nEmail: ${email}\nPassword: ${pass}`;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(txt);
+      showToast('User login credentials copied!');
+      return;
+    }
+  } catch (e) {}
+  prompt('Copy user login credentials:', txt);
+};
+
+window.prefillManualOrderForUser = function(name, email) {
+  if (typeof window.switchAdminTab === 'function') {
+    window.switchAdminTab('orders');
+  }
+  const nameEl = document.getElementById('adminCustName');
+  const emailEl = document.getElementById('adminCustEmail');
+  if (nameEl) nameEl.value = name || '';
+  if (emailEl) emailEl.value = email || '';
+  if (emailEl && typeof emailEl.scrollIntoView === 'function') {
+    emailEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  showToast(`Order form pre-filled for ${name || email}`);
+};
+
+window.handleAdminAddUserSubmit = async function(e) {
+  e.preventDefault();
+  const alertBox = document.getElementById('adminAddUserAlert');
+  const banner = document.getElementById('adminCreatedUserBanner');
+  const submitBtn = document.getElementById('btnAdminAddUserSubmit');
+
+  if (alertBox) alertBox.style.display = 'none';
+  if (banner) banner.style.display = 'none';
+
+  const fullName = document.getElementById('adminNewUserName')?.value.trim() || '';
+  const email = document.getElementById('adminNewUserEmail')?.value.trim() || '';
+  const password = document.getElementById('adminNewUserPassword')?.value || '';
+  const phoneNumber = document.getElementById('adminNewUserPhone')?.value.trim() || '';
+  const country = document.getElementById('adminNewUserCountry')?.value.trim() || '';
+  const companyName = document.getElementById('adminNewUserCompany')?.value.trim() || '';
+
+  if (typeof window.adminCreateCustomerAccount !== 'function') {
+    showToast('Supabase admin user creator unavailable.', 'error');
+    return;
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Creating Customer Account...';
+  }
+
+  try {
+    const res = await window.adminCreateCustomerAccount({
+      fullName,
+      email,
+      password,
+      phoneNumber,
+      country,
+      companyName
+    });
+
+    if (!res || !res.success) {
+      if (alertBox) {
+        alertBox.style.display = 'block';
+        alertBox.className = 'auth-alert-box auth-alert-error';
+        alertBox.innerHTML = `⚠️ ${escapeHtmlText(res?.error || 'Could not create user.')}`;
+      }
+      return;
+    }
+
+    if (alertBox) {
+      alertBox.style.display = 'block';
+      alertBox.className = 'auth-alert-box auth-alert-success';
+      alertBox.innerHTML = res.alreadyExists
+        ? `✓ User directory updated for <strong>${escapeHtmlText(email)}</strong> (${escapeHtmlText(res.authNotice)})`
+        : `✓ User account created for <strong>${escapeHtmlText(fullName)}</strong>!`;
+    }
+
+    if (banner) {
+      const statusHtml = res.immediateSignInReady
+        ? `<div style="font-size: 12.5px; color: #34d399; font-weight: 700; margin-bottom: 8px;">🟢 অ্যাকাউন্ট সাথে সাথে অ্যাক্টিভ! এই ইউজার এখন /login পেজে সাইন-ইন করে সরাসরি অর্ডার করতে পারবে।</div>`
+        : (res.alreadyExists
+          ? `<div style="font-size: 12.5px; color: #38bdf8; font-weight: 700; margin-bottom: 8px;">ℹ️ এই Gmail আগে থেকেই Supabase Auth-এ আছে—প্রোফাইল ডিরেক্টরিতে যুক্ত করা হয়েছে।</div>`
+          : `<div style="font-size: 12px; color: #fbbf24; line-height: 1.5; margin-bottom: 8px;">🟡 ইউজার Supabase Auth ও Profiles-এ যুক্ত হয়েছে। কিন্তু আপনার Supabase Dashboard-এ <strong>Confirm email</strong> চালু থাকায়, ইউজারকে Gmail ইনবক্স থেকে কনফার্ম করতে হবে — অথবা আপনি চাইলে Supabase Dashboard → Authentication → Users থেকে <strong>Confirm user</strong> (বা Providers → Email-এ Confirm email OFF) করলে সাথে সাথেই লগইন করে অর্ডার করতে পারবে।</div>`);
+
+      banner.style.display = 'block';
+      banner.innerHTML = `
+        <div style="font-weight: 800; color: #fff; font-size: 14px; margin-bottom: 6px;">🔑 Client Login Credentials</div>
+        ${statusHtml}
+        <div style="background: rgba(0,0,0,0.35); padding: 10px 12px; border-radius: 8px; font-family: monospace; font-size: 12px; color: #e2e8f0; margin-bottom: 10px;">
+          <div>Email: <strong>${escapeHtmlText(email)}</strong></div>
+          <div>Password: <strong>${escapeHtmlText(password)}</strong></div>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" onclick="copyAdminUserCredentials('${escapeHtmlText(email)}', '${escapeHtmlText(password)}')" class="btn btn-secondary btn-sm" style="font-size: 11.5px;">
+            📋 Copy Login Info
+          </button>
+          <button type="button" onclick="prefillManualOrderForUser('${escapeHtmlText(fullName)}', '${escapeHtmlText(email)}')" class="btn btn-primary btn-sm" style="font-size: 11.5px;">
+            📦 Log Order For User
+          </button>
+        </div>
+      `;
+    }
+
+    document.getElementById('adminAddUserForm')?.reset();
+    await syncAdminUsersList(false);
+    showToast(`User ${fullName} added!`);
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '➕ Add User & Enable Ordering';
+    }
+  }
+};
+

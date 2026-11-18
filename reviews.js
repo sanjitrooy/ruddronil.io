@@ -261,6 +261,11 @@
       .replace(/'/g, '&#39;');
   }
 
+  function escapeJsAttr(str) {
+    if (!str) return '';
+    return escapeHtml(String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
+  }
+
   /**
    * Safe URL linkifier for review feedback text
    */
@@ -284,13 +289,22 @@
     currentFilter = filter;
 
     let reviewData = { reviews: [], avgRating: '5.0', totalCount: 0, distribution: {} };
-    if (typeof window.fetchPublicReviews === 'function') {
-      try {
-        reviewData = await window.fetchPublicReviews();
-      } catch (e) {
-        console.warn('[Reviews UI] Fetch error:', e);
-      }
-    }
+    const fetchReviewsPromise = (typeof window.fetchPublicReviews === 'function')
+      ? window.fetchPublicReviews().catch((e) => {
+          console.warn('[Reviews UI] Fetch error:', e);
+          return { reviews: [], avgRating: '5.0', totalCount: 0, distribution: {} };
+        })
+      : Promise.resolve(reviewData);
+
+    const fetchCommentsPromise = (typeof window.fetchAllReviewCommentsFromCloud === 'function')
+      ? window.fetchAllReviewCommentsFromCloud().catch((e) => {
+          console.warn('[Reviews Comments UI] Fetch error:', e);
+          return {};
+        })
+      : Promise.resolve({});
+
+    const [fetchedReviewData] = await Promise.all([fetchReviewsPromise, fetchCommentsPromise]);
+    reviewData = fetchedReviewData || reviewData;
 
     let reviews = Array.isArray(reviewData.reviews) ? [...reviewData.reviews] : [];
 
@@ -450,7 +464,7 @@
             <!-- Dedicated Video Review Badge (if provided) -->
             ${attachedVideo ? `
               <div style="margin-bottom: 12px;">
-                <button type="button" class="btn-review-video-pill" onclick="window.openReviewVideoModal('${escapeHtml(attachedVideo)}', '${escapeHtml(reviewerName)}')" title="Watch Video Review">
+                <button type="button" class="btn-review-video-pill" onclick="window.openReviewVideoModal('${escapeJsAttr(attachedVideo)}', '${escapeJsAttr(reviewerName)}')" title="Watch Video Review">
                   <span>▶ Watch Video Review</span>
                   <span style="font-size: 11px; opacity: 0.8;">↗</span>
                 </button>
@@ -469,7 +483,7 @@
 
             <!-- Optional Attached Project Image (Thumbnail) -->
             ${attachedImage ? `
-              <div class="review-image-thumbnail-wrap" style="margin-bottom: 16px; border-radius: 10px; overflow: hidden; border: 1.5px solid rgba(0, 212, 255, 0.3); background: #040711; cursor: pointer; position: relative; max-height: 180px;" onclick="window.openReviewImageLightbox('${escapeHtml(attachedImage)}', '${escapeHtml(serviceName)} by ${escapeHtml(reviewerName)}')">
+              <div class="review-image-thumbnail-wrap" style="margin-bottom: 16px; border-radius: 10px; overflow: hidden; border: 1.5px solid rgba(0, 212, 255, 0.3); background: #040711; cursor: pointer; position: relative; max-height: 180px;" onclick="window.openReviewImageLightbox('${escapeJsAttr(attachedImage)}', '${escapeJsAttr(serviceName)} by ${escapeJsAttr(reviewerName)}')">
                 <img src="${escapeHtml(attachedImage)}" alt="Project deliverable for ${escapeHtml(serviceName)}" loading="lazy" style="width: 100%; height: 180px; object-fit: cover; transition: transform 0.3s ease; display: block;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
                 <div style="position: absolute; bottom: 8px; right: 8px; background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(6px); padding: 4px 9px; border-radius: 6px; font-size: 11px; color: #fff; font-weight: 700; display: flex; align-items: center; gap: 5px; border: 1px solid rgba(255,255,255,0.15);">
                   🔍 View Image
@@ -484,17 +498,17 @@
             
             <div class="review-actions-bar">
               <!-- 1. Helpful Like Button (Open to all visitors) -->
-              <button type="button" class="btn-review-action ${isRevLiked ? 'active-liked' : ''}" onclick="window.toggleReviewHelpful(this, '${revId}')" title="Like / Helpful">
+              <button type="button" class="btn-review-action ${isRevLiked ? 'active-liked' : ''}" onclick="window.toggleReviewHelpful(this, '${escapeJsAttr(revId)}')" title="Like / Helpful">
                 👍 <span>Helpful</span> (<span class="like-num">${revCount}</span>)
               </button>
 
               <!-- 2. Comment Button (Open to all visitors) -->
-              <button type="button" class="btn-review-action" onclick="window.openReviewCommentsModal('${revId}', '${escapeHtml(reviewerName)}')" title="Comments & Replies">
+              <button type="button" class="btn-review-action" onclick="window.openReviewCommentsModal('${escapeJsAttr(revId)}', '${escapeJsAttr(reviewerName)}')" title="Comments & Replies">
                 💬 <span>Comments</span> (${commentCount})
               </button>
 
               <!-- 3. Share Button (Open to all visitors) -->
-              <button type="button" class="btn-review-action" onclick="window.shareReviewItem('${revId}', '${escapeHtml(reviewerName)}')" title="Share this review">
+              <button type="button" class="btn-review-action" onclick="window.shareReviewItem('${escapeJsAttr(revId)}', '${escapeJsAttr(reviewerName)}')" title="Share this review">
                 ↗ <span>Share</span>
               </button>
             </div>
@@ -1067,7 +1081,22 @@
       showToast(isLiked ? 'Marked review as helpful! 👍' : 'Removed helpful vote');
     }
 
-    // Sync helpful vote to server for permanent cross-device reflection
+    // Sync helpful vote to Supabase RPC & fallback backend server
+    if (typeof window.toggleReviewHelpfulInCloud === 'function') {
+      window.toggleReviewHelpfulInCloud(revId, isLiked ? 1 : -1)
+        .then((cloudCount) => {
+          if (typeof cloudCount === 'number' && !isNaN(cloudCount)) {
+            if (numSpan) numSpan.textContent = cloudCount;
+            try {
+              const latestStore = JSON.parse(localStorage.getItem(storeKey) || '{}');
+              latestStore[revId] = { liked: isLiked, count: cloudCount };
+              localStorage.setItem(storeKey, JSON.stringify(latestStore));
+            } catch (e) {}
+          }
+        })
+        .catch(() => {});
+    }
+
     try {
       fetch(`/api/reviews/${encodeURIComponent(revId)}/helpful`, {
         method: 'POST',
@@ -1077,8 +1106,27 @@
     } catch (e) {}
   };
 
+  function renderReviewCommentsListMarkup(commentsList) {
+    if (!Array.isArray(commentsList) || commentsList.length === 0) {
+      return `
+        <div class="community-empty-notice" style="text-align: center; padding: 24px 12px; font-size: 13px; border-radius: 12px;">
+          No comments yet. Be the first visitor to reply!
+        </div>
+      `;
+    }
+    return commentsList.map(c => `
+      <div class="community-comment-bubble" style="border-radius: 12px; padding: 10px 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+          <strong class="community-comment-author" style="font-size: 13px;">👤 ${escapeHtml(c.author)}</strong>
+          <span class="community-comment-time" style="font-size: 11px;">${escapeHtml(c.time || 'Recent')}</span>
+        </div>
+        <p class="community-comment-text" style="font-size: 13px; margin: 0; line-height: 1.5;">${escapeHtml(c.text)}</p>
+      </div>
+    `).join('');
+  }
+
   /**
-   * Public Review Comments Modal (Open for all visitors)
+   * Public Review Comments Modal (Open for all visitors, synced via Supabase `review_comments`)
    */
   window.openReviewCommentsModal = function (revId, reviewerName) {
     let modal = document.getElementById('reviewCommentsModal');
@@ -1094,8 +1142,8 @@
       document.body.appendChild(modal);
     }
 
-    const commentsList = (typeof window.getReviewCommentsList === 'function') 
-      ? window.getReviewCommentsList(revId) 
+    const commentsList = (typeof window.getReviewCommentsList === 'function')
+      ? window.getReviewCommentsList(revId)
       : [];
 
     let currentVisitorName = '';
@@ -1104,6 +1152,8 @@
       if (u?.name) currentVisitorName = u.name;
     } catch (e) {}
 
+    modal.dataset.activeReviewId = String(revId);
+    modal.dataset.activeReviewerName = String(reviewerName || '');
     modal.innerHTML = `
       <div class="demo-review-modal-card" style="max-width: 480px;">
         <button type="button" onclick="window.closeReviewPromptModals()" class="modal-close-btn" aria-label="Close modal">✕</button>
@@ -1118,23 +1168,11 @@
 
         <!-- Comments Feed -->
         <div id="reviewCommentsListWrap" style="max-height: 250px; overflow-y: auto; margin-bottom: 18px; display: flex; flex-direction: column; gap: 10px; padding-right: 4px;">
-          ${commentsList.length === 0 ? `
-            <div class="community-empty-notice" style="text-align: center; padding: 24px 12px; font-size: 13px; border-radius: 12px;">
-              No comments yet. Be the first visitor to reply!
-            </div>
-          ` : commentsList.map(c => `
-            <div class="community-comment-bubble" style="border-radius: 12px; padding: 10px 14px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                <strong class="community-comment-author" style="font-size: 13px;">👤 ${escapeHtml(c.author)}</strong>
-                <span class="community-comment-time" style="font-size: 11px;">${escapeHtml(c.time || 'Recent')}</span>
-              </div>
-              <p class="community-comment-text" style="font-size: 13px; margin: 0; line-height: 1.5;">${escapeHtml(c.text)}</p>
-            </div>
-          `).join('')}
+          ${renderReviewCommentsListMarkup(commentsList)}
         </div>
 
         <!-- Add Reply Form -->
-        <form onsubmit="window.submitReviewCommentForm(event, '${escapeHtml(revId)}')" class="community-reply-form" style="padding-top: 14px;">
+        <form onsubmit="window.submitReviewCommentForm(event, '${escapeJsAttr(revId)}')" class="community-reply-form" style="padding-top: 14px;">
           <div style="margin-bottom: 10px;">
             <input 
               type="text" 
@@ -1157,7 +1195,7 @@
           </div>
           <div style="display: flex; justify-content: flex-end; gap: 8px;">
             <button type="button" onclick="window.closeReviewPromptModals()" class="btn btn-secondary btn-sm">Close</button>
-            <button type="submit" class="btn btn-primary btn-sm">Post Comment 💬</button>
+            <button type="submit" id="btnSubmitReviewComment" class="btn btn-primary btn-sm">Post Comment 💬</button>
           </div>
         </form>
       </div>
@@ -1165,24 +1203,59 @@
 
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
+
+    // Fetch live comments from Supabase `public.review_comments` for cross-device sync
+    if (typeof window.fetchReviewCommentsFromCloud === 'function') {
+      window.fetchReviewCommentsFromCloud(revId)
+        .then((freshComments) => {
+          if (modal.style.display !== 'none' && modal.dataset.activeReviewId === String(revId)) {
+            const listWrap = document.getElementById('reviewCommentsListWrap');
+            if (listWrap && Array.isArray(freshComments)) {
+              listWrap.innerHTML = renderReviewCommentsListMarkup(freshComments);
+            }
+          }
+        })
+        .catch(() => {});
+    }
   };
 
-  window.submitReviewCommentForm = function (e, revId) {
+  window.submitReviewCommentForm = async function (e, revId) {
     e.preventDefault();
+    const modal = document.getElementById('reviewCommentsModal');
+    const reviewerName = modal?.dataset?.activeReviewerName || '';
     const author = document.getElementById('replyAuthorInput')?.value.trim() || 'Visitor';
     const text = document.getElementById('replyTextInput')?.value.trim();
     if (!text) return;
 
-    if (typeof window.addReviewCommentItem === 'function') {
-      window.addReviewCommentItem(revId, author, text);
+    const submitBtn = document.getElementById('btnSubmitReviewComment');
+    const prevText = submitBtn ? submitBtn.textContent : 'Post Comment 💬';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Posting...';
     }
 
-    if (typeof showToast === 'function') {
-      showToast('Comment posted! 💬');
-    }
+    try {
+      let result = null;
+      if (typeof window.addReviewCommentItem === 'function') {
+        result = await window.addReviewCommentItem(revId, author, text, reviewerName);
+      }
 
-    window.closeReviewPromptModals();
-    refreshReviewsDisplay(currentFilter);
+      if (typeof showToast === 'function') {
+        if (result && result.syncedToCloud) {
+          showToast('Comment posted & saved! 💬');
+        } else {
+          showToast('Comment posted! 💬');
+        }
+      }
+
+      window.closeReviewPromptModals();
+      await refreshReviewsDisplay(currentFilter);
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = prevText;
+      }
+    }
   };
 
   /**
@@ -1350,13 +1423,17 @@
       });
     });
 
-    // 4. Listen for review updates
+    // 4. Listen for review & comment updates
     window.addEventListener('ruddranil_reviews_updated', () => {
       refreshReviewsDisplay(currentFilter);
     });
 
+    window.addEventListener('ruddranil_review_comments_updated', () => {
+      refreshReviewsDisplay(currentFilter);
+    });
+
     window.addEventListener('storage', (e) => {
-      if (e.key === 'app_reviews') {
+      if (e.key === 'app_reviews' || e.key === 'ruddranil_review_comments_v1') {
         refreshReviewsDisplay(currentFilter);
       }
     });

@@ -185,23 +185,161 @@ async function signInAdminSupabase(email, password) {
   }
 }
 
+const EMAIL_MAX_ATTEMPTS = 3;
+const EMAIL_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour cooldown (3600s)
+const EMAIL_RATE_LIMIT_STORAGE_KEY = 'ruddranil_email_rate_limits_v1';
+
+function isSupabaseRateLimitText(msg) {
+  const raw = String(msg || '');
+  return /rate limit/i.test(raw) || /\b429\b/.test(raw) || /security purposes/i.test(raw) || /too many requests/i.test(raw);
+}
+
+function readEmailRateStore() {
+  try {
+    const raw = localStorage.getItem(EMAIL_RATE_LIMIT_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return (parsed && typeof parsed === 'object') ? parsed : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function writeEmailRateStore(store) {
+  try {
+    localStorage.setItem(EMAIL_RATE_LIMIT_STORAGE_KEY, JSON.stringify(store));
+  } catch (e) {}
+}
+
+function formatCooldownMMSS(ms) {
+  const totalSec = Math.max(0, Math.ceil(Number(ms || 0) / 1000));
+  const mins = Math.floor(totalSec / 60);
+  const secs = totalSec % 60;
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+function getEmailRateStatus(scope = 'signup_confirm', email = '') {
+  const cleanEmail = String(email || '').trim().toLowerCase() || '_default_';
+  const key = `${scope}:${cleanEmail}`;
+  const store = readEmailRateStore();
+  let entry = store[key] || { attempts: 0, lockUntil: 0, lastSentAt: 0 };
+  const now = Date.now();
+
+  if (entry.lockUntil && now >= entry.lockUntil) {
+    delete store[key];
+    writeEmailRateStore(store);
+    entry = { attempts: 0, lockUntil: 0, lastSentAt: 0 };
+  }
+
+  const isLocked = Boolean(entry.lockUntil && now < entry.lockUntil);
+  const remainingMs = isLocked ? Math.max(0, entry.lockUntil - now) : 0;
+  const attemptsUsed = Math.min(EMAIL_MAX_ATTEMPTS, Number(entry.attempts || 0));
+  const remainingAttempts = isLocked ? 0 : Math.max(0, EMAIL_MAX_ATTEMPTS - attemptsUsed);
+
+  return {
+    scope,
+    email: cleanEmail,
+    maxAttempts: EMAIL_MAX_ATTEMPTS,
+    attemptsUsed,
+    remainingAttempts,
+    isLocked,
+    lockUntil: entry.lockUntil || 0,
+    remainingMs,
+    remainingSeconds: Math.ceil(remainingMs / 1000),
+    formattedTime: formatCooldownMMSS(remainingMs)
+  };
+}
+
+function recordEmailSendAttempt(scope = 'signup_confirm', email = '') {
+  const cleanEmail = String(email || '').trim().toLowerCase() || '_default_';
+  const key = `${scope}:${cleanEmail}`;
+  const store = readEmailRateStore();
+  const now = Date.now();
+  let entry = store[key] || { attempts: 0, lockUntil: 0, lastSentAt: 0 };
+
+  if (entry.lockUntil && now >= entry.lockUntil) {
+    entry = { attempts: 0, lockUntil: 0, lastSentAt: 0 };
+  }
+
+  entry.attempts = Math.min(EMAIL_MAX_ATTEMPTS, Number(entry.attempts || 0) + 1);
+  entry.lastSentAt = now;
+  if (entry.attempts >= EMAIL_MAX_ATTEMPTS) {
+    entry.lockUntil = now + EMAIL_COOLDOWN_MS;
+  }
+
+  store[key] = entry;
+  writeEmailRateStore(store);
+  return getEmailRateStatus(scope, cleanEmail);
+}
+
+function markEmailRateLimited(scope = 'signup_confirm', email = '') {
+  const cleanEmail = String(email || '').trim().toLowerCase() || '_default_';
+  const key = `${scope}:${cleanEmail}`;
+  const store = readEmailRateStore();
+  const now = Date.now();
+  store[key] = {
+    attempts: EMAIL_MAX_ATTEMPTS,
+    lockUntil: now + EMAIL_COOLDOWN_MS,
+    lastSentAt: now
+  };
+  writeEmailRateStore(store);
+  return getEmailRateStatus(scope, cleanEmail);
+}
+
+const ruddranilEmailRateLimiter = {
+  MAX_ATTEMPTS: EMAIL_MAX_ATTEMPTS,
+  COOLDOWN_MS: EMAIL_COOLDOWN_MS,
+  formatCooldownMMSS,
+  getStatus: getEmailRateStatus,
+  recordAttempt: recordEmailSendAttempt,
+  markLocked: markEmailRateLimited
+};
+
+function formatSupabaseEmailError(msg, fallback, rateStatus = null) {
+  const raw = String(msg || fallback || 'Email request failed.');
+  if (isSupabaseRateLimitText(raw)) {
+    const waitStr = rateStatus?.formattedTime ? ` (${rateStatus.formattedTime} remaining)` : ' (~60 minutes)';
+    return `সর্বোচ্চ ৩ বার ইমেইল পাঠানো হয়ে গেছে বা Supabase rate limit পূর্ণ হয়েছে। অনুগ্রহ করে ১ ঘণ্টা পর আবার চেষ্টা করুন${waitStr} অথবা অন্য একটি Gmail ব্যবহার করুন।`;
+  }
+  return raw;
+}
+
 async function requestAdminPasswordReset(email = ADMIN_STORAGE_EMAIL) {
   const cleanEmail = String(email || ADMIN_STORAGE_EMAIL).trim().toLowerCase();
   if (!isAdminEmailMatch(cleanEmail)) {
     return { success: false, error: `Only authorized admin email (${ADMIN_STORAGE_EMAIL}) can reset admin access.` };
+  }
+  const currentRate = getEmailRateStatus('admin_reset', cleanEmail);
+  if (currentRate.isLocked) {
+    return {
+      success: false,
+      rateLimited: true,
+      rateStatus: currentRate,
+      error: `সর্বোচ্চ ৩ বার রিসেট লিংক পাঠানো হয়েছে। অনুগ্রহ করে ${currentRate.formattedTime} পর আবার চেষ্টা করুন।`
+    };
   }
   if (!sbClient || !sbClient.auth) {
     return { success: false, error: 'Supabase Auth client unavailable.' };
   }
   try {
     const redirectTo = typeof window !== 'undefined'
-      ? `${window.location.origin}/admin-login.html`
+      ? `${window.location.origin}/admin-login`
       : undefined;
     const { error } = await sbClient.auth.resetPasswordForEmail(cleanEmail, redirectTo ? { redirectTo } : undefined);
-    if (error) return { success: false, error: error.message };
-    return { success: true };
+    if (error) {
+      if (isSupabaseRateLimitText(error.message)) {
+        const locked = markEmailRateLimited('admin_reset', cleanEmail);
+        return { success: false, rateLimited: true, rateStatus: locked, error: formatSupabaseEmailError(error.message, 'Could not send reset email.', locked) };
+      }
+      return { success: false, rateStatus: currentRate, error: formatSupabaseEmailError(error.message, 'Could not send reset email.') };
+    }
+    const nextRate = recordEmailSendAttempt('admin_reset', cleanEmail);
+    return { success: true, rateStatus: nextRate };
   } catch (err) {
-    return { success: false, error: err?.message || 'Could not send reset email.' };
+    if (isSupabaseRateLimitText(err?.message)) {
+      const locked = markEmailRateLimited('admin_reset', cleanEmail);
+      return { success: false, rateLimited: true, rateStatus: locked, error: formatSupabaseEmailError(err?.message, 'Could not send reset email.', locked) };
+    }
+    return { success: false, rateStatus: currentRate, error: formatSupabaseEmailError(err?.message, 'Could not send reset email.') };
   }
 }
 
@@ -475,8 +613,13 @@ async function syncOrderToSupabase(order) {
         try {
           const { data: { user } } = await sbClient.auth.getUser();
           if (user) {
-            authUserId = user.id;
-            if (!authEmail) authEmail = user.email;
+            const adminActor = isAdminEmailMatch(user.email);
+            if (!adminActor && !authUserId) {
+              authUserId = user.id;
+            }
+            if (!authEmail && !adminActor) {
+              authEmail = user.email;
+            }
           }
         } catch (e) {
           console.warn('[Orders] Could not get auth user:', e);
@@ -1831,6 +1974,16 @@ async function signUpCustomer(fullName, email, password) {
   const cleanEmail = email.trim().toLowerCase();
   const cleanName = fullName.trim();
 
+  const currentRate = getEmailRateStatus('signup_confirm', cleanEmail);
+  if (currentRate.isLocked) {
+    return {
+      success: false,
+      rateLimited: true,
+      rateStatus: currentRate,
+      error: `এই Gmail-এ সর্বোচ্চ ৩ বার কনফার্মেশন মেইল পাঠানো হয়েছে। অনুগ্রহ করে ${currentRate.formattedTime} পর আবার চেষ্টা করুন অথবা অন্য একটি Gmail দিন।`
+    };
+  }
+
   if (!sbClient || !sbClient.auth) {
     return { success: false, error: 'Supabase authentication service is currently unavailable.' };
   }
@@ -1850,6 +2003,15 @@ async function signUpCustomer(fullName, email, password) {
 
     if (error) {
       console.warn('[Supabase Auth signUp notice]:', error.message);
+      if (isSupabaseRateLimitText(error.message)) {
+        const locked = markEmailRateLimited('signup_confirm', cleanEmail);
+        return {
+          success: false,
+          rateLimited: true,
+          rateStatus: locked,
+          error: formatSupabaseEmailError(error.message, 'Registration email rate limit exceeded.', locked)
+        };
+      }
       if (error.message.toLowerCase().includes('already registered')) {
         return { success: false, error: 'An account with this email already exists. Please sign in.' };
       }
@@ -1864,12 +2026,14 @@ async function signUpCustomer(fullName, email, password) {
       // DO NOT treat unverified user as logged in!
       // Keep localStorage clean so unauthenticated users cannot enter dashboard.
       localStorage.removeItem('currentUser');
+      const nextRate = recordEmailSendAttempt('signup_confirm', cleanEmail);
 
-      return { 
-        success: true, 
+      return {
+        success: true,
         emailConfirmationNeeded: true,
         email: cleanEmail,
-        message: `Account created! A confirmation link has been sent to ${cleanEmail}. Please verify your email before logging in.`
+        rateStatus: nextRate,
+        message: `Account created! A confirmation link has been sent to ${cleanEmail} (Attempt ${nextRate.attemptsUsed}/3). Please verify your email before logging in.`
       };
     }
 
@@ -1896,34 +2060,50 @@ async function signUpCustomer(fullName, email, password) {
       };
       localStorage.setItem('currentUser', JSON.stringify(userObj));
 
-      return { 
-        success: true, 
-        user: userObj, 
-        emailConfirmationNeeded: false 
+      return {
+        success: true,
+        user: userObj,
+        emailConfirmationNeeded: false
       };
     }
 
-    return { 
-      success: true, 
-      emailConfirmationNeeded: true, 
-      email: cleanEmail 
+    const nextRate = recordEmailSendAttempt('signup_confirm', cleanEmail);
+    return {
+      success: true,
+      emailConfirmationNeeded: true,
+      email: cleanEmail,
+      rateStatus: nextRate
     };
   } catch (err) {
     console.warn('[Supabase Auth exception]:', err);
+    if (isSupabaseRateLimitText(err?.message)) {
+      const locked = markEmailRateLimited('signup_confirm', cleanEmail);
+      return { success: false, rateLimited: true, rateStatus: locked, error: formatSupabaseEmailError(err?.message, 'Registration error.', locked) };
+    }
     return { success: false, error: err.message || 'Registration error.' };
   }
 }
 
 /**
- * Resend verification email via Supabase Auth
+ * Resend verification email via Supabase Auth (enforces max 3 attempts + 1 hour cooldown)
  */
-async function resendVerificationEmail(email) {
+async function resendVerificationEmail(email, scope = 'signup_confirm', redirectPath = '/login.html') {
   if (!email) throw new Error('Email is required to resend verification.');
   const cleanEmail = email.trim().toLowerCase();
 
+  const currentRate = getEmailRateStatus(scope, cleanEmail);
+  if (currentRate.isLocked) {
+    return {
+      success: false,
+      rateLimited: true,
+      rateStatus: currentRate,
+      error: `সর্বোচ্চ ৩ বার কনফার্মেশন মেইল পাঠানো হয়ে গেছে। অনুগ্রহ করে ${currentRate.formattedTime} পর আবার চেষ্টা করুন।`
+    };
+  }
+
   if (sbClient && sbClient.auth) {
     try {
-      const redirectTo = window.location.origin + '/login.html';
+      const redirectTo = window.location.origin + redirectPath;
       const { data, error } = await sbClient.auth.resend({
         type: 'signup',
         email: cleanEmail,
@@ -1933,11 +2113,29 @@ async function resendVerificationEmail(email) {
       });
 
       if (error) {
-        return { success: false, error: error.message };
+        if (isSupabaseRateLimitText(error.message)) {
+          const locked = markEmailRateLimited(scope, cleanEmail);
+          return { success: false, rateLimited: true, rateStatus: locked, error: formatSupabaseEmailError(error.message, 'Could not resend verification email.', locked) };
+        }
+        return { success: false, rateStatus: currentRate, error: formatSupabaseEmailError(error.message, 'Could not resend verification email.') };
       }
-      return { success: true, message: `Verification email resent to ${cleanEmail}. Please check your inbox.` };
+
+      const nextRate = recordEmailSendAttempt(scope, cleanEmail);
+      const cooldownHint = nextRate.isLocked
+        ? ` এটি ৩ নম্বর (শেষ) প্রচেষ্টা ছিল—পরবর্তী মেইলের জন্য ১ ঘণ্টা (${nextRate.formattedTime}) অপেক্ষা করতে হবে।`
+        : ` (বাকি আছে ${nextRate.remainingAttempts} বার প্রচেষ্টা)`;
+
+      return {
+        success: true,
+        rateStatus: nextRate,
+        message: `Verification email resent to ${cleanEmail} (${nextRate.attemptsUsed}/3).${cooldownHint}`
+      };
     } catch (e) {
-      return { success: false, error: e.message };
+      if (isSupabaseRateLimitText(e?.message)) {
+        const locked = markEmailRateLimited(scope, cleanEmail);
+        return { success: false, rateLimited: true, rateStatus: locked, error: formatSupabaseEmailError(e.message, 'Could not resend verification email.', locked) };
+      }
+      return { success: false, rateStatus: currentRate, error: formatSupabaseEmailError(e.message, 'Could not resend verification email.') };
     }
   }
 
@@ -1971,7 +2169,7 @@ async function changeCustomerPassword(newPassword) {
 }
 
 /**
- * Send Password Reset Email via Supabase Auth
+ * Send Password Reset Email via Supabase Auth (enforces max 3 attempts + 1 hour cooldown)
  */
 async function requestPasswordReset(email) {
   if (!email) {
@@ -1979,6 +2177,15 @@ async function requestPasswordReset(email) {
   }
 
   const cleanEmail = email.trim().toLowerCase();
+  const currentRate = getEmailRateStatus('customer_reset', cleanEmail);
+  if (currentRate.isLocked) {
+    return {
+      success: false,
+      rateLimited: true,
+      rateStatus: currentRate,
+      error: `সর্বোচ্চ ৩ বার পাসওয়ার্ড রিসেট মেইল পাঠানো হয়েছে। অনুগ্রহ করে ${currentRate.formattedTime} পর আবার চেষ্টা করুন।`
+    };
+  }
 
   if (sbClient && sbClient.auth) {
     try {
@@ -1988,15 +2195,241 @@ async function requestPasswordReset(email) {
       });
 
       if (error) {
-        return { success: false, error: error.message };
+        if (isSupabaseRateLimitText(error.message)) {
+          const locked = markEmailRateLimited('customer_reset', cleanEmail);
+          return { success: false, rateLimited: true, rateStatus: locked, error: formatSupabaseEmailError(error.message, 'Could not send reset email.', locked) };
+        }
+        return { success: false, rateStatus: currentRate, error: formatSupabaseEmailError(error.message, 'Could not send reset email.') };
       }
-      return { success: true, message: `Password reset instructions sent to ${cleanEmail}.` };
+
+      const nextRate = recordEmailSendAttempt('customer_reset', cleanEmail);
+      const cooldownHint = nextRate.isLocked
+        ? ` (৩/৩ প্রচেষ্টা সম্পন্ন — পরবর্তী রিসেটের জন্য ${nextRate.formattedTime} অপেক্ষা করতে হবে)`
+        : ` (প্রচেষ্টা ${nextRate.attemptsUsed}/3 • বাকি ${nextRate.remainingAttempts} বার)`;
+
+      return {
+        success: true,
+        rateStatus: nextRate,
+        message: `Password reset instructions sent to ${cleanEmail}.${cooldownHint}`
+      };
     } catch (err) {
-      return { success: false, error: err.message };
+      if (isSupabaseRateLimitText(err?.message)) {
+        const locked = markEmailRateLimited('customer_reset', cleanEmail);
+        return { success: false, rateLimited: true, rateStatus: locked, error: formatSupabaseEmailError(err?.message, 'Could not send reset email.', locked) };
+      }
+      return { success: false, rateStatus: currentRate, error: formatSupabaseEmailError(err.message, 'Could not send reset email.') };
     }
   }
 
   return { success: false, error: 'Database service unavailable.' };
+}
+
+// ============================================================================
+// 6B. ADMIN CUSTOMER USER CREATION & DIRECTORY (NO SESSION OVERWRITE)
+// ============================================================================
+let sbIsolatedAuthClient = null;
+const ADMIN_USERS_CACHE_KEY = 'ruddranil_admin_users_cache_v1';
+
+function getIsolatedSupabaseAuthClient() {
+  if (sbIsolatedAuthClient) return sbIsolatedAuthClient;
+  if (typeof window !== 'undefined' && typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+    sbIsolatedAuthClient = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        storageKey: 'sb-ruddranil-admin-create-user-isolated'
+      }
+    });
+  }
+  return sbIsolatedAuthClient;
+}
+
+async function adminCreateCustomerAccount({ fullName, email, password, phoneNumber = '', country = '', companyName = '', notes = '' }) {
+  const cleanName = String(fullName || '').trim();
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const cleanPass = String(password || '');
+
+  if (!cleanName || !cleanEmail || !cleanPass) {
+    return { success: false, error: 'Full name, Gmail/email, and password are required.' };
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+    return { success: false, error: 'Please enter a valid email address.' };
+  }
+  if (cleanPass.length < 6) {
+    return { success: false, error: 'Password must be at least 6 characters long.' };
+  }
+  if (isAdminEmailMatch(cleanEmail)) {
+    return { success: false, error: 'Cannot create a customer account using the restricted Admin email.' };
+  }
+
+  const isAdmin = await isCurrentUserAdmin();
+  if (!isAdmin) {
+    return { success: false, error: 'Only an authenticated Admin session can add users.' };
+  }
+
+  const tempClient = getIsolatedSupabaseAuthClient();
+  if (!tempClient || !tempClient.auth) {
+    return { success: false, error: 'Supabase Auth client is unavailable.' };
+  }
+
+  let authUserId = null;
+  let immediateSignInReady = false;
+  let alreadyExists = false;
+  let authNotice = '';
+
+  try {
+    const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/login.html` : undefined;
+    const { data, error } = await tempClient.auth.signUp({
+      email: cleanEmail,
+      password: cleanPass,
+      options: {
+        data: {
+          full_name: cleanName,
+          added_by_admin: true
+        },
+        ...(redirectTo ? { emailRedirectTo: redirectTo } : {})
+      }
+    });
+
+    if (error) {
+      const msgLower = String(error.message || '').toLowerCase();
+      if (msgLower.includes('already registered') || msgLower.includes('already exists')) {
+        alreadyExists = true;
+        authNotice = 'This email is already registered in Supabase Auth. Profile record updated in directory.';
+      } else if (isSupabaseRateLimitText(error.message)) {
+        return {
+          success: false,
+          rateLimited: true,
+          error: formatSupabaseEmailError(error.message, 'Supabase email rate limit exceeded while sending confirmation to user.')
+        };
+      } else {
+        return { success: false, error: error.message || 'Could not create user in Supabase Auth.' };
+      }
+    } else {
+      authUserId = data?.user?.id || null;
+      immediateSignInReady = Boolean(data?.session) || Boolean(data?.user?.email_confirmed_at);
+    }
+  } catch (authErr) {
+    return { success: false, error: authErr?.message || 'Error communicating with Supabase Auth.' };
+  }
+
+  const profilePayload = {
+    user_id: authUserId,
+    email: cleanEmail,
+    full_name: cleanName,
+    phone_number: String(phoneNumber || '').trim(),
+    country: String(country || '').trim(),
+    company_name: String(companyName || '').trim(),
+    bio: String(notes || '').trim(),
+    updated_at: new Date().toISOString()
+  };
+
+  let profileSynced = false;
+  let profileWarning = '';
+
+  if (sbClient) {
+    try {
+      const { error: profErr } = await sbClient
+        .from('profiles')
+        .upsert([profilePayload], { onConflict: 'email' });
+      if (profErr) {
+        profileWarning = profErr.message;
+      } else {
+        profileSynced = true;
+      }
+    } catch (e) {
+      profileWarning = e?.message || 'Profile upsert notice';
+    }
+  }
+
+  const cachedUsers = JSON.parse(localStorage.getItem(ADMIN_USERS_CACHE_KEY) || '[]');
+  const existingIdx = cachedUsers.findIndex(u => String(u.email || '').toLowerCase() === cleanEmail);
+  const userEntry = {
+    id: authUserId || ('usr-' + Date.now()),
+    user_id: authUserId,
+    email: cleanEmail,
+    full_name: cleanName,
+    phone_number: profilePayload.phone_number,
+    country: profilePayload.country,
+    company_name: profilePayload.company_name,
+    bio: profilePayload.bio,
+    immediateSignInReady,
+    alreadyExists,
+    created_at: new Date().toISOString()
+  };
+  if (existingIdx >= 0) cachedUsers[existingIdx] = { ...cachedUsers[existingIdx], ...userEntry };
+  else cachedUsers.unshift(userEntry);
+  safeSetLocalJson(ADMIN_USERS_CACHE_KEY, cachedUsers);
+
+  return {
+    success: true,
+    user: userEntry,
+    immediateSignInReady,
+    emailConfirmationNeeded: !immediateSignInReady && !alreadyExists,
+    alreadyExists,
+    profileSynced,
+    profileWarning,
+    authNotice
+  };
+}
+
+async function adminFetchAllUsers() {
+  const usersMap = new Map();
+
+  const upsertMapUser = (row) => {
+    const email = String(row?.email || '').trim().toLowerCase();
+    if (!email || isAdminEmailMatch(email)) return;
+    const prev = usersMap.get(email) || {};
+    usersMap.set(email, {
+      id: row.id || prev.id || email,
+      user_id: row.user_id || prev.user_id || null,
+      email,
+      full_name: row.full_name || row.name || prev.full_name || email.split('@')[0],
+      phone_number: row.phone_number || prev.phone_number || '',
+      country: row.country || prev.country || '',
+      company_name: row.company_name || prev.company_name || '',
+      bio: row.bio || prev.bio || '',
+      immediateSignInReady: row.immediateSignInReady !== undefined ? row.immediateSignInReady : prev.immediateSignInReady,
+      created_at: row.created_at || prev.created_at || new Date().toISOString(),
+      source: row.source || prev.source || 'profile'
+    });
+  };
+
+  if (sbClient) {
+    try {
+      const { data, error } = await sbClient
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error && Array.isArray(data)) {
+        data.forEach(p => upsertMapUser({ ...p, source: 'supabase' }));
+      }
+    } catch (e) {
+      console.warn('[Admin Users] Profiles query notice:', e);
+    }
+  }
+
+  try {
+    const cached = JSON.parse(localStorage.getItem(ADMIN_USERS_CACHE_KEY) || '[]');
+    if (Array.isArray(cached)) cached.forEach(u => upsertMapUser({ ...u, source: u.source || 'admin' }));
+  } catch (e) {}
+
+  try {
+    const orders = JSON.parse(localStorage.getItem('ruddranil_orders') || '[]');
+    orders.forEach(o => {
+      if (o.customerEmail && !isAdminEmailMatch(o.customerEmail)) {
+        upsertMapUser({
+          email: o.customerEmail,
+          full_name: o.customerName || o.customerEmail.split('@')[0],
+          user_id: o.customerId || null,
+          source: 'order'
+        });
+      }
+    });
+  } catch (e) {}
+
+  return Array.from(usersMap.values());
 }
 
 // ============================================================================
@@ -2109,7 +2542,7 @@ async function uploadReviewImage(file) {
         .upload(filePath, fileToUpload, {
           contentType: 'image/jpeg',
           cacheControl: '3600',
-          upsert: true
+          upsert: false
         });
 
       if (!error && data) {
@@ -2460,6 +2893,19 @@ async function submitCustomerReview({
 async function fetchPublicReviews() {
   let reviews = [];
 
+  const normalizeReviewImageUrl = (rawUrl) => {
+    if (!rawUrl) return null;
+    const trimmed = String(rawUrl).trim();
+    if (!trimmed) return null;
+    if (/^(https?:\/\/|data:image\/|blob:)/i.test(trimmed)) return trimmed;
+    if (sbClient && sbClient.storage) {
+      const cleanPath = trimmed.replace(/^review-images\//i, '').replace(/^\/+/, '');
+      const { data: pubData } = sbClient.storage.from('review-images').getPublicUrl(cleanPath);
+      if (pubData?.publicUrl) return pubData.publicUrl;
+    }
+    return trimmed;
+  };
+
   // 1. Fetch from Supabase
   if (sbClient) {
     try {
@@ -2470,28 +2916,31 @@ async function fetchPublicReviews() {
         .order('created_at', { ascending: false });
 
       if (!error && Array.isArray(data) && data.length > 0) {
-        reviews = data.map(cloudRev => ({
-          id: cloudRev.id || cloudRev.order_id || ('rev_' + Math.random()),
-          orderId: cloudRev.order_id,
-          order_id: cloudRev.order_id,
-          name: cloudRev.customer_name || 'Client',
-          customer_name: cloudRev.customer_name || 'Client',
-          avatar: cloudRev.customer_avatar || null,
-          role: cloudRev.role_company || 'Verified Customer',
-          rating: Number(cloudRev.rating) || 5,
-          comment: cloudRev.comment || '',
-          service: cloudRev.service_name || 'Digital Creative',
-          imageUrl: cloudRev.image_url || null,
-          image_url: cloudRev.image_url || null,
-          videoUrl: cloudRev.video_url || cloudRev.videoUrl || null,
-          video_url: cloudRev.video_url || cloudRev.videoUrl || null,
-          projectUrl: cloudRev.project_url || cloudRev.projectUrl || null,
-          project_url: cloudRev.project_url || cloudRev.projectUrl || null,
-          status: cloudRev.status || 'approved',
-          verified: cloudRev.verified_order !== false,
-          helpful: Number(cloudRev.helpful_count) || 0,
-          date: cloudRev.created_at ? new Date(cloudRev.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recent'
-        }));
+        reviews = data.map(cloudRev => {
+          const resolvedImg = normalizeReviewImageUrl(cloudRev.image_url);
+          return {
+            id: cloudRev.id || cloudRev.order_id || ('rev_' + Math.random()),
+            orderId: cloudRev.order_id,
+            order_id: cloudRev.order_id,
+            name: cloudRev.customer_name || 'Client',
+            customer_name: cloudRev.customer_name || 'Client',
+            avatar: cloudRev.customer_avatar || null,
+            role: cloudRev.role_company || 'Verified Customer',
+            rating: Number(cloudRev.rating) || 5,
+            comment: cloudRev.comment || '',
+            service: cloudRev.service_name || 'Digital Creative',
+            imageUrl: resolvedImg,
+            image_url: resolvedImg,
+            videoUrl: cloudRev.video_url || cloudRev.videoUrl || null,
+            video_url: cloudRev.video_url || cloudRev.videoUrl || null,
+            projectUrl: cloudRev.project_url || cloudRev.projectUrl || null,
+            project_url: cloudRev.project_url || cloudRev.projectUrl || null,
+            status: cloudRev.status || 'approved',
+            verified: cloudRev.verified_order !== false,
+            helpful: Number(cloudRev.helpful_count) || 0,
+            date: cloudRev.created_at ? new Date(cloudRev.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recent'
+          };
+        });
       }
     } catch (e) {
       console.warn('[Supabase Reviews Fetch Note]:', e);
@@ -2561,41 +3010,249 @@ async function fetchPublicReviews() {
 }
 
 /**
- * Public Review Comments Storage & Management (Open for all visitors)
+ * Public Review Comments Storage & Supabase Cloud Sync (Open for all visitors)
  */
 const REVIEW_COMMENTS_KEY = 'ruddranil_review_comments_v1';
 
-function getReviewCommentsList(reviewId) {
+function formatReviewCommentTime(isoString) {
+  if (!isoString) return 'Just now';
   try {
-    const raw = localStorage.getItem(REVIEW_COMMENTS_KEY);
-    const store = raw ? JSON.parse(raw) : {};
-    return store[reviewId] || [];
+    const dt = new Date(isoString);
+    if (isNaN(dt.getTime())) return 'Recent';
+    const diffSec = Math.max(0, Math.floor((Date.now() - dt.getTime()) / 1000));
+    if (diffSec < 60) return 'Just now';
+    if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+    if (diffSec < 604800) return `${Math.floor(diffSec / 86400)}d ago`;
+    return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   } catch (e) {
-    return [];
+    return 'Recent';
   }
 }
 
-function addReviewCommentItem(reviewId, author, text) {
+function mapCloudReviewComment(row) {
+  return {
+    id: row.id,
+    reviewId: String(row.review_id),
+    reviewerName: row.reviewer_name || '',
+    author: (row.author_name || 'Visitor').trim(),
+    text: (row.comment_text || '').trim(),
+    time: formatReviewCommentTime(row.created_at),
+    created_at: row.created_at || new Date().toISOString(),
+    syncedToCloud: true
+  };
+}
+
+function readLocalReviewCommentsStore() {
   try {
     const raw = localStorage.getItem(REVIEW_COMMENTS_KEY);
-    const store = raw ? JSON.parse(raw) : {};
-    if (!store[reviewId]) store[reviewId] = [];
-
-    const newComment = {
-      id: 'rc_' + Date.now(),
-      author: (author || 'Visitor').trim(),
-      text: (text || '').trim(),
-      time: 'Just now',
-      created_at: new Date().toISOString()
-    };
-
-    store[reviewId].unshift(newComment);
-    localStorage.setItem(REVIEW_COMMENTS_KEY, JSON.stringify(store));
-    return newComment;
+    return raw ? JSON.parse(raw) : {};
   } catch (e) {
-    console.warn('[Review Comments Error]:', e);
-    return null;
+    return {};
   }
+}
+
+function writeLocalReviewCommentsStore(store) {
+  try {
+    localStorage.setItem(REVIEW_COMMENTS_KEY, JSON.stringify(store));
+  } catch (e) {
+    console.warn('[Review Comments Cache Notice]:', e);
+  }
+}
+
+function getReviewCommentsList(reviewId) {
+  const store = readLocalReviewCommentsStore();
+  return store[String(reviewId)] || [];
+}
+
+/**
+ * Fetch all approved review comments from Supabase `public.review_comments`
+ * Merges with local cache so all visitors across devices see every reply.
+ */
+async function fetchAllReviewCommentsFromCloud() {
+  const localStore = readLocalReviewCommentsStore();
+  if (!sbClient) return localStore;
+
+  try {
+    const { data, error } = await sbClient
+      .from('review_comments')
+      .select('*')
+      .or('status.eq.approved,status.is.null')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('[Supabase Review Comments Fetch Notice]:', error.message);
+      return localStore;
+    }
+
+    const mergedStore = {};
+    if (Array.isArray(data)) {
+      data.forEach(row => {
+        const revKey = String(row.review_id);
+        if (!mergedStore[revKey]) mergedStore[revKey] = [];
+        mergedStore[revKey].push(mapCloudReviewComment(row));
+      });
+    }
+
+    // Preserve any local comments that haven't synced to cloud yet
+    Object.keys(localStore).forEach(revKey => {
+      const localItems = Array.isArray(localStore[revKey]) ? localStore[revKey] : [];
+      if (!mergedStore[revKey]) mergedStore[revKey] = [];
+      localItems.forEach(loc => {
+        const alreadyInCloud = mergedStore[revKey].some(c =>
+          c.id === loc.id ||
+          (c.author === loc.author && c.text === loc.text)
+        );
+        if (!alreadyInCloud && loc.syncedToCloud === false) {
+          mergedStore[revKey].unshift(loc);
+        }
+      });
+    });
+
+    writeLocalReviewCommentsStore(mergedStore);
+    return mergedStore;
+  } catch (e) {
+    console.warn('[Supabase Review Comments Exception]:', e);
+    return localStore;
+  }
+}
+
+/**
+ * Fetch live comments for a specific review from Supabase `public.review_comments`
+ */
+async function fetchReviewCommentsFromCloud(reviewId) {
+  const revKey = String(reviewId);
+  const localList = getReviewCommentsList(revKey);
+  if (!sbClient || !revKey) return localList;
+
+  try {
+    const { data, error } = await sbClient
+      .from('review_comments')
+      .select('*')
+      .eq('review_id', revKey)
+      .or('status.eq.approved,status.is.null')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('[Supabase Review Comments Fetch Notice]:', error.message);
+      return localList;
+    }
+
+    const cloudList = Array.isArray(data) ? data.map(mapCloudReviewComment) : [];
+    const mergedList = [...cloudList];
+
+    localList.forEach(loc => {
+      const alreadyInCloud = mergedList.some(c =>
+        c.id === loc.id ||
+        (c.author === loc.author && c.text === loc.text)
+      );
+      if (!alreadyInCloud && loc.syncedToCloud === false) {
+        mergedList.unshift(loc);
+      }
+    });
+
+    const fullStore = readLocalReviewCommentsStore();
+    fullStore[revKey] = mergedList;
+    writeLocalReviewCommentsStore(fullStore);
+
+    return mergedList;
+  } catch (e) {
+    console.warn('[Supabase Review Comments Exception]:', e);
+    return localList;
+  }
+}
+
+/**
+ * Post a new comment on a review -> saves to Supabase `public.review_comments` + local cache
+ */
+async function addReviewCommentItem(reviewId, author, text, reviewerName = '') {
+  const revKey = String(reviewId || '').trim();
+  const cleanAuthor = (author || 'Visitor').trim() || 'Visitor';
+  const cleanText = (text || '').trim();
+  if (!revKey || !cleanText) return null;
+
+  let authorEmail = null;
+  try {
+    const localUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    if (localUser?.email) authorEmail = localUser.email;
+  } catch (e) {}
+
+  let cloudRecord = null;
+  let syncedToCloud = false;
+  let cloudError = null;
+
+  if (sbClient) {
+    try {
+      const payload = {
+        review_id: revKey,
+        reviewer_name: (reviewerName || '').trim() || null,
+        author_name: cleanAuthor,
+        author_email: authorEmail,
+        comment_text: cleanText,
+        status: 'approved'
+      };
+      const { data, error } = await sbClient
+        .from('review_comments')
+        .insert([payload])
+        .select('*')
+        .single();
+
+      if (!error && data) {
+        cloudRecord = mapCloudReviewComment(data);
+        syncedToCloud = true;
+      } else if (error) {
+        cloudError = error.message;
+        console.warn('[Supabase Review Comments Insert Notice]:', error.message);
+      }
+    } catch (e) {
+      cloudError = e.message;
+      console.warn('[Supabase Review Comments Insert Exception]:', e);
+    }
+  }
+
+  const savedComment = cloudRecord || {
+    id: 'rc_' + Date.now(),
+    reviewId: revKey,
+    reviewerName: (reviewerName || '').trim(),
+    author: cleanAuthor,
+    text: cleanText,
+    time: 'Just now',
+    created_at: new Date().toISOString(),
+    syncedToCloud: false
+  };
+
+  try {
+    const store = readLocalReviewCommentsStore();
+    if (!Array.isArray(store[revKey])) store[revKey] = [];
+    store[revKey] = store[revKey].filter(c => c.id !== savedComment.id);
+    store[revKey].unshift(savedComment);
+    writeLocalReviewCommentsStore(store);
+  } catch (e) {
+    console.warn('[Review Comments Local Cache Error]:', e);
+  }
+
+  try {
+    window.dispatchEvent(new CustomEvent('ruddranil_review_comments_updated', {
+      detail: { reviewId: revKey, comment: savedComment }
+    }));
+  } catch (e) {}
+
+  return { ...savedComment, syncedToCloud, cloudError };
+}
+
+/**
+ * Sync Helpful vote delta (+1 / -1) to Supabase `public.reviews` via safe RPC
+ */
+async function toggleReviewHelpfulInCloud(reviewId, delta = 1) {
+  if (!sbClient || !reviewId) return null;
+  try {
+    const { data, error } = await sbClient.rpc('increment_review_helpful', {
+      p_review_id: String(reviewId),
+      p_delta: delta >= 0 ? 1 : -1
+    });
+    if (!error && typeof data === 'number') return data;
+  } catch (e) {}
+  return null;
 }
 
 /**
@@ -3389,6 +4046,10 @@ window.getAdminAuthHeaders = getAdminAuthHeaders;
 window.isCurrentUserAdmin = isCurrentUserAdmin;
 window.signInAdminSupabase = signInAdminSupabase;
 window.requestAdminPasswordReset = requestAdminPasswordReset;
+window.ruddranilEmailRateLimiter = ruddranilEmailRateLimiter;
+window.getEmailRateStatus = getEmailRateStatus;
+window.adminCreateCustomerAccount = adminCreateCustomerAccount;
+window.adminFetchAllUsers = adminFetchAllUsers;
 window.getSignedStorageUrl = getSignedStorageUrl;
 window.resolveStorageFileUrl = resolveStorageFileUrl;
 window.uploadFileToBucket = uploadFileToBucket;
@@ -3413,7 +4074,10 @@ window.isProjectLiked = isProjectLiked;
 window.getProjectLikeCount = getProjectLikeCount;
 window.getProjectComments = getProjectComments;
 window.getReviewCommentsList = getReviewCommentsList;
+window.fetchAllReviewCommentsFromCloud = fetchAllReviewCommentsFromCloud;
+window.fetchReviewCommentsFromCloud = fetchReviewCommentsFromCloud;
 window.addReviewCommentItem = addReviewCommentItem;
+window.toggleReviewHelpfulInCloud = toggleReviewHelpfulInCloud;
 window.fetchCustomerProfile = fetchCustomerProfile;
 window.uploadProfileAvatar = uploadProfileAvatar;
 window.saveCustomerProfile = saveCustomerProfile;
@@ -3471,6 +4135,7 @@ async function runSupabaseHealthCheck() {
     { name: 'portfolio_projects', select: 'id' },
     { name: 'coupons', select: 'code' },
     { name: 'reviews', select: 'id' },
+    { name: 'review_comments', select: 'id' },
     { name: 'profiles', select: 'id' },
     { name: 'contact_messages', select: 'id' }
   ];
