@@ -87,7 +87,7 @@
 
           <div class="form-group" style="margin-bottom: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <label class="form-label" for="adminPassword" style="margin-bottom: 0;">Supabase Auth Password</label>
+              <label class="form-label" for="adminPassword" style="margin-bottom: 0;">Admin Password / PIN</label>
               <button type="button" id="btnForgotAdminPass" onclick="handleAdminForgotPassword()" style="background: none; border: none; color: var(--accent-cyan); font-size: 11.5px; font-weight: 600; cursor: pointer; padding: 0;">
                 Forgot / Set Password?
               </button>
@@ -97,7 +97,7 @@
                 type="password" 
                 id="adminPassword" 
                 class="form-input" 
-                placeholder="Enter your Supabase account password" 
+                placeholder="Enter your Supabase password or 6-digit PIN" 
                 value="" 
                 required 
                 autocomplete="current-password"
@@ -113,31 +113,31 @@
           </button>
         </form>
 
-        <!-- Password Recovery Form (shown when arriving via Supabase password reset/set email link) -->
+        <!-- Password / PIN Recovery Form (shown when arriving via Supabase password reset/set email link) -->
         <form id="adminRecoveryForm" onsubmit="handleAdminPasswordUpdate(event)" style="display: none; margin-top: 12px;" novalidate>
           <div style="padding: 10px 12px; border-radius: 10px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.28); margin-bottom: 14px; font-size: 12px; color: #a7f3d0;">
-            🔐 Setting / Resetting Supabase Admin password for <strong>sanjitrooy733@gmail.com</strong>
+            🔐 Set a New Admin Password or 6-Digit PIN for <strong>sanjitrooy733@gmail.com</strong>
           </div>
           <div class="form-group" style="margin-bottom: 14px;">
-            <label class="form-label" for="adminNewPassword">Set New Supabase Admin Password</label>
+            <label class="form-label" for="adminNewPassword">New Password or 6-Digit PIN (min 6 chars)</label>
             <div class="password-input-wrap">
-              <input type="password" id="adminNewPassword" class="form-input" placeholder="Minimum 8 characters" minlength="8" required autocomplete="new-password">
+              <input type="password" id="adminNewPassword" class="form-input" placeholder="e.g. 6-digit PIN or strong password" minlength="6" required autocomplete="new-password">
               <button type="button" class="password-toggle-btn" onclick="togglePassVisibility('adminNewPassword', this)" aria-label="Toggle password visibility">
                 👁️
               </button>
             </div>
           </div>
           <div class="form-group" style="margin-bottom: 16px;">
-            <label class="form-label" for="adminConfirmPassword">Confirm New Password</label>
+            <label class="form-label" for="adminConfirmPassword">Confirm Password / PIN</label>
             <div class="password-input-wrap">
-              <input type="password" id="adminConfirmPassword" class="form-input" placeholder="Repeat new password" minlength="8" required autocomplete="new-password">
+              <input type="password" id="adminConfirmPassword" class="form-input" placeholder="Repeat password or PIN" minlength="6" required autocomplete="new-password">
               <button type="button" class="password-toggle-btn" onclick="togglePassVisibility('adminConfirmPassword', this)" aria-label="Toggle password visibility">
                 👁️
               </button>
             </div>
           </div>
           <button type="submit" id="btnSaveRecoveryPass" class="btn btn-primary btn-block btn-lg" style="background: linear-gradient(135deg, #059669, #10b981); border-color: #10b981; justify-content: center; font-weight: 700; margin-bottom: 10px;">
-            Save New Password &amp; Enter Console →
+            Save Password / PIN &amp; Enter Console →
           </button>
           <button type="button" onclick="exitRecoveryMode()" class="btn btn-secondary btn-block btn-sm" style="justify-content: center; font-size: 12px;">
             ← Back to Sign In
@@ -159,21 +159,36 @@
     const ADMIN_EMAIL_CANONICAL = 'sanjitrooy733@gmail.com';
     let isRecoveryModeActive = false;
 
+    function cleanRecoveryUrlBar() {
+      try {
+        if (window.history && typeof window.history.replaceState === 'function') {
+          const cleanPath = (window.location.pathname || '/admin-login').replace(/\.html$/i, '') || '/admin-login';
+          window.history.replaceState(null, document.title, cleanPath);
+        }
+      } catch (e) {}
+    }
+
     function showRecoveryMode() {
       isRecoveryModeActive = true;
+      try {
+        sessionStorage.setItem('ruddranil_pending_password_setup', 'true');
+        sessionStorage.removeItem('ruddranil_admin_unlocked');
+      } catch (e) {}
       const loginForm = document.getElementById('adminLoginForm');
       const recForm = document.getElementById('adminRecoveryForm');
       if (loginForm) loginForm.style.display = 'none';
       if (recForm) recForm.style.display = 'block';
-      showAdminAlert('Recovery session verified. Set a strong new password for your admin account.', 'success');
+      showAdminAlert('Recovery link verified. Enter a new password or 6-digit PIN below to complete setup.', 'success');
     }
 
     function exitRecoveryMode() {
       isRecoveryModeActive = false;
+      try { sessionStorage.removeItem('ruddranil_pending_password_setup'); } catch (e) {}
       const loginForm = document.getElementById('adminLoginForm');
       const recForm = document.getElementById('adminRecoveryForm');
       if (recForm) recForm.style.display = 'none';
       if (loginForm) loginForm.style.display = 'block';
+      cleanRecoveryUrlBar();
       clearAdminAlert();
     }
 
@@ -198,6 +213,8 @@
       const searchParams = new URLSearchParams(window.location.search || '');
       const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
       const authCode = searchParams.get('code');
+      const hashAccessToken = hashParams.get('access_token');
+      const hashRefreshToken = hashParams.get('refresh_token');
       const urlError = searchParams.get('error_description') || hashParams.get('error_description');
       const isRecoveryHash = hash.includes('type=recovery') || searchParams.get('type') === 'recovery' || hashParams.get('type') === 'recovery';
 
@@ -205,12 +222,14 @@
         window.sbClient.auth.onAuthStateChange((event) => {
           if (event === 'PASSWORD_RECOVERY') {
             showRecoveryMode();
+            cleanRecoveryUrlBar();
           }
         });
       }
 
       if (urlError) {
         showAdminAlert(decodeURIComponent(urlError.replace(/\+/g, ' ')) + ' — You can request a fresh link via "Forgot / Set Password?".');
+        cleanRecoveryUrlBar();
       }
 
       if (authCode && window.sbClient && window.sbClient.auth) {
@@ -218,10 +237,12 @@
           const { data, error } = await window.sbClient.auth.exchangeCodeForSession(authCode);
           if (!error && (data?.session || isRecoveryHash)) {
             showRecoveryMode();
+            cleanRecoveryUrlBar();
             return;
           }
           if (error) {
             showAdminAlert(error.message || 'Recovery link expired or invalid. Please request a new reset link.');
+            cleanRecoveryUrlBar();
           }
         } catch (err) {
           showAdminAlert(err?.message || 'Could not verify recovery code.');
@@ -229,25 +250,68 @@
       }
 
       if (isRecoveryHash) {
+        // Ensure Supabase JS finishes reading #access_token before scrubbing the long token from URL bar
+        if (window.sbClient && window.sbClient.auth) {
+          try {
+            let { data: { session } } = await window.sbClient.auth.getSession();
+            if (!session && hashAccessToken && hashRefreshToken) {
+              const setRes = await window.sbClient.auth.setSession({
+                access_token: hashAccessToken,
+                refresh_token: hashRefreshToken
+              });
+              session = setRes?.data?.session || null;
+            }
+            if (session) {
+              showRecoveryMode();
+              cleanRecoveryUrlBar();
+              return;
+            }
+          } catch (err) {
+            console.warn('[Admin Recovery] Session hydration notice:', err);
+          }
+        }
         showRecoveryMode();
+        cleanRecoveryUrlBar();
         return;
       }
 
-      // Clear any stale or spoofed local admin flags unless backed by a valid Supabase Admin JWT
-      let isCloudAdmin = false;
-      if (typeof window.isCurrentUserAdmin === 'function') {
+      // If an incomplete OTP recovery session exists (user clicked email link earlier without finishing PIN/Password setup),
+      // force the Set New Password / PIN form and NEVER auto-enter admin.html!
+      let isOtpOnlyRecovery = false;
+      if (typeof window.isSupabaseRecoveryOtpOnlySession === 'function') {
         try {
-          isCloudAdmin = await window.isCurrentUserAdmin();
+          isOtpOnlyRecovery = await window.isSupabaseRecoveryOtpOnlySession();
         } catch (e) {}
       }
 
-      if (isCloudAdmin && !isRecoveryModeActive) {
-        const u = await window.getSupabaseAuthUser();
-        completeAdminLogin(u?.user_metadata?.full_name || 'Ruddranil', u?.email || ADMIN_EMAIL_CANONICAL, u?.id);
-        return;
+      if (isOtpOnlyRecovery) {
+        const currentUser = typeof window.getSupabaseAuthUser === 'function' ? await window.getSupabaseAuthUser() : null;
+        if (currentUser) {
+          showRecoveryMode();
+          cleanRecoveryUrlBar();
+          return;
+        } else {
+          try { sessionStorage.removeItem('ruddranil_pending_password_setup'); } catch (e) {}
+        }
       }
 
-      // Not verified on Supabase: clear any spoofed local admin session flags
+      // Never auto-bypass the Admin Login form unless THIS browser tab session already unlocked with Password/PIN!
+      const isTabUnlocked = (() => {
+        try { return sessionStorage.getItem('ruddranil_admin_unlocked') === 'true'; } catch (e) { return false; }
+      })();
+
+      if (isTabUnlocked && !isRecoveryModeActive && typeof window.isCurrentUserAdmin === 'function') {
+        try {
+          const isCloudAdmin = await window.isCurrentUserAdmin();
+          if (isCloudAdmin) {
+            const u = await window.getSupabaseAuthUser();
+            completeAdminLogin(u?.user_metadata?.full_name || 'Ruddranil', u?.email || ADMIN_EMAIL_CANONICAL, u?.id);
+            return;
+          }
+        } catch (e) {}
+      }
+
+      // Require explicit Password / PIN entry on Admin Login page
       try { sessionStorage.removeItem('ruddranil_admin_unlocked'); } catch (e) {}
       try {
         const cu = JSON.parse(localStorage.getItem('currentUser') || 'null');
@@ -341,6 +405,7 @@
         const res = await Promise.race([authPromise, timeoutPromise]);
 
         if (res?.success && res.user) {
+          try { sessionStorage.removeItem('ruddranil_pending_password_setup'); } catch (err) {}
           completeAdminLogin(
             res.user.user_metadata?.full_name || 'Ruddranil',
             res.user.email || ADMIN_EMAIL_CANONICAL,
@@ -399,18 +464,18 @@
       clearAdminAlert();
       const p1 = document.getElementById('adminNewPassword')?.value || '';
       const p2 = document.getElementById('adminConfirmPassword')?.value || '';
-      if (p1.length < 8) {
-        showAdminAlert('Password must be at least 8 characters long.');
+      if (p1.length < 6) {
+        showAdminAlert('Password or PIN must be at least 6 characters/digits long.');
         return;
       }
       if (p1 !== p2) {
-        showAdminAlert('Passwords do not match.');
+        showAdminAlert('Passwords / PINs do not match.');
         return;
       }
       const btn = document.getElementById('btnSaveRecoveryPass');
       if (btn) {
         btn.disabled = true;
-        btn.textContent = 'Updating password...';
+        btn.textContent = 'Saving Password / PIN...';
       }
       try {
         const { data, error } = await window.sbClient.auth.updateUser({ password: p1 });
@@ -421,13 +486,22 @@
           showAdminAlert('Password updated, but account is not authorized for Admin access.');
           return;
         }
+        try { sessionStorage.removeItem('ruddranil_pending_password_setup'); } catch (err) {}
+        // Re-authenticate with password so JWT amr switches cleanly from 'otp' to 'password'
+        if (typeof window.signInAdminSupabase === 'function') {
+          const signInRes = await window.signInAdminSupabase(user.email, p1);
+          if (signInRes?.success && signInRes.user) {
+            completeAdminLogin(signInRes.user.user_metadata?.full_name || 'Ruddranil', signInRes.user.email, signInRes.user.id);
+            return;
+          }
+        }
         completeAdminLogin(user.user_metadata?.full_name || 'Ruddranil', user.email, user.id);
       } catch (err) {
-        showAdminAlert(err?.message || 'Failed to update password.');
+        showAdminAlert(err?.message || 'Failed to update password / PIN. Request a fresh link if your recovery token expired.');
       } finally {
         if (btn) {
           btn.disabled = false;
-          btn.textContent = 'Save New Password & Enter Console →';
+          btn.textContent = 'Save Password / PIN & Enter Console →';
         }
       }
     }

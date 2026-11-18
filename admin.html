@@ -1681,6 +1681,17 @@
     }
 
     async function checkAdminAccess() {
+      if (typeof window.isSupabaseRecoveryOtpOnlySession === 'function') {
+        try {
+          const pendingRecovery = await window.isSupabaseRecoveryOtpOnlySession();
+          if (pendingRecovery) {
+            try { sessionStorage.removeItem('ruddranil_admin_unlocked'); } catch (e) {}
+            window.location.replace('/admin-login?type=recovery');
+            return;
+          }
+        } catch (e) {}
+      }
+
       let isVerifiedAdmin = false;
       let adminUser = null;
 

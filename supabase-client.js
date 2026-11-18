@@ -39,16 +39,24 @@ function isAdminEmailMatch(email) {
 // is not yet allowlisted in Authentication -> URL Configuration, forward admin recovery to /admin-login.html
 (function setupAdminRecoveryFallbackRouter() {
   if (typeof window === 'undefined') return;
-  const path = window.location.pathname || '/';
-  if (path.endsWith('/admin-login.html') || path.endsWith('admin-login.html')) return;
-
+  const cleanPath = (window.location.pathname || '/').replace(/\/+$/, '') || '/';
   const hash = window.location.hash || '';
   const search = window.location.search || '';
   const searchParams = new URLSearchParams(search);
   const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
 
-  if (hashParams.get('type') === 'recovery' || searchParams.get('type') === 'recovery') {
-    window.location.replace(`/admin-login.html${search}${hash}`);
+  const hasRecoveryParam = hashParams.get('type') === 'recovery' || searchParams.get('type') === 'recovery';
+  if (hasRecoveryParam) {
+    try {
+      sessionStorage.setItem('ruddranil_pending_password_setup', 'true');
+      sessionStorage.removeItem('ruddranil_admin_unlocked');
+    } catch (e) {}
+  }
+
+  if (cleanPath.endsWith('/admin-login') || cleanPath.endsWith('/admin-login.html')) return;
+
+  if (hasRecoveryParam) {
+    window.location.replace(`/admin-login${search}${hash}`);
     return;
   }
 
@@ -57,12 +65,49 @@ function isAdminEmailMatch(email) {
       if (event === 'PASSWORD_RECOVERY') {
         const userEmail = session?.user?.email;
         if (!userEmail || isAdminEmailMatch(userEmail)) {
-          window.location.replace('/admin-login.html?type=recovery');
+          try {
+            sessionStorage.setItem('ruddranil_pending_password_setup', 'true');
+            sessionStorage.removeItem('ruddranil_admin_unlocked');
+          } catch (e) {}
+          window.location.replace('/admin-login?type=recovery');
         }
       }
     });
   }
 })();
+
+function decodeJwtPayloadUnsafe(token) {
+  try {
+    const parts = String(token || '').split('.');
+    if (parts.length < 2) return null;
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+    return JSON.parse(atob(padded));
+  } catch (e) {
+    return null;
+  }
+}
+
+async function isSupabaseRecoveryOtpOnlySession() {
+  try {
+    if (sessionStorage.getItem('ruddranil_pending_password_setup') === 'true') {
+      return true;
+    }
+  } catch (e) {}
+  if (!sbClient || !sbClient.auth) return false;
+  try {
+    const { data: { session } } = await sbClient.auth.getSession();
+    if (!session?.access_token) return false;
+    const payload = decodeJwtPayloadUnsafe(session.access_token);
+    const amr = Array.isArray(payload?.amr) ? payload.amr : [];
+    const methods = amr.map(a => String(a?.method || a || '').toLowerCase()).filter(Boolean);
+    if (methods.length > 0 && !methods.includes('password') && (methods.includes('otp') || methods.includes('recovery'))) {
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+window.isSupabaseRecoveryOtpOnlySession = isSupabaseRecoveryOtpOnlySession;
 
 async function getSupabaseAuthUser() {
   if (!sbClient || !sbClient.auth) return null;
