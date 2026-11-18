@@ -1,23 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- 
-  Ruddranil.io Sitemap Index
-  Note: When deployed to Vercel or a custom domain, update the domain below
-  or let server.ts serve it dynamically with your active origin.
--->
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
-    <loc>https://YOUR_PRODUCTION_DOMAIN/</loc>
+    <loc>https://ruddronil-io-kdcr.vercel.app/</loc>
+    <lastmod>2026-11-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://ruddronil-io-kdcr.vercel.app/assets/aistudio/file_000000001e5881f5bec7048c347e325c_07632167.png</image:loc>
+      <image:title>Ruddranil.io Digital Services &amp; Automation Showcase</image:title>
+    </image:image>
   </url>
   <url>
-    <loc>https://YOUR_PRODUCTION_DOMAIN/portfolio.html</loc>
+    <loc>https://ruddronil-io-kdcr.vercel.app/portfolio</loc>
+    <lastmod>2026-11-17</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
+    <priority>0.90</priority>
+    <image:image>
+      <image:loc>https://ruddronil-io-kdcr.vercel.app/assets/aistudio/file_000000001e5881f5bec7048c347e325c_07632167.png</image:loc>
+      <image:title>Ruddranil.io Portfolio &amp; Project Showcase</image:title>
+    </image:image>
   </url>
   <url>
-    <loc>https://YOUR_PRODUCTION_DOMAIN/reviews.html</loc>
+    <loc>https://ruddronil-io-kdcr.vercel.app/reviews</loc>
+    <lastmod>2026-11-17</lastmod>
     <changefreq>daily</changefreq>
-    <priority>0.8</priority>
+    <priority>0.85</priority>
   </url>
 </urlset>

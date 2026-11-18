@@ -3939,19 +3939,33 @@ async function syncStoreWithServer() {
     console.warn('Services sync fallback notice:', servErr);
   }
 
-  // 2. Independent Projects Showcase Sync
+  // 2. Independent Projects Showcase Sync (Supabase Cloud first, then /api/projects)
   try {
-    const resProj = await fetch('/api/projects?t=' + Date.now());
-    if (resProj.ok) {
-      const serverProjects = await resProj.json();
-      if (Array.isArray(serverProjects) && serverProjects.length > 0) {
-        localStorage.setItem('ruddranil_portfolio_projects', JSON.stringify(serverProjects));
+    if (typeof window.fetchPortfolioProjectsFromCloud === 'function') {
+      const cloudProjects = await window.fetchPortfolioProjectsFromCloud();
+      if (Array.isArray(cloudProjects) && cloudProjects.length > 0) {
         if (typeof syncPublicPortfolioGrid === 'function') syncPublicPortfolioGrid();
+      }
+    } else {
+      const resProj = await fetch('/api/projects?t=' + Date.now());
+      if (resProj.ok) {
+        const serverProjects = await resProj.json();
+        if (Array.isArray(serverProjects) && serverProjects.length > 0) {
+          localStorage.setItem('ruddranil_portfolio_projects', JSON.stringify(serverProjects));
+          if (typeof syncPublicPortfolioGrid === 'function') syncPublicPortfolioGrid();
+        }
       }
     }
   } catch (projErr) {
     console.warn('Projects sync fallback notice:', projErr);
   }
+
+  // 3. Coupons Cloud Sync
+  try {
+    if (typeof window.fetchCouponsFromCloud === 'function') {
+      await window.fetchCouponsFromCloud();
+    }
+  } catch (couponErr) {}
 }
 window.syncStoreWithServer = syncStoreWithServer;
 
@@ -4654,14 +4668,21 @@ async function syncPublicPortfolioGrid() {
   }
   renderCards(currentProjects);
 
-  // 2. Fetch latest authoritative projects from backend API (/api/projects)
+  // 2. Fetch latest authoritative projects from Supabase Cloud (with /api/projects fallback)
   try {
-    const res = await fetch('/api/projects?t=' + Date.now());
-    if (res.ok) {
-      const serverProjects = await res.json();
-      if (Array.isArray(serverProjects) && serverProjects.length > 0) {
-        localStorage.setItem('ruddranil_portfolio_projects', JSON.stringify(serverProjects));
-        renderCards(serverProjects);
+    if (typeof window.fetchPortfolioProjectsFromCloud === 'function') {
+      const cloudProjects = await window.fetchPortfolioProjectsFromCloud();
+      if (Array.isArray(cloudProjects) && cloudProjects.length > 0) {
+        renderCards(cloudProjects);
+      }
+    } else {
+      const res = await fetch('/api/projects?t=' + Date.now());
+      if (res.ok) {
+        const serverProjects = await res.json();
+        if (Array.isArray(serverProjects) && serverProjects.length > 0) {
+          localStorage.setItem('ruddranil_portfolio_projects', JSON.stringify(serverProjects));
+          renderCards(serverProjects);
+        }
       }
     }
   } catch (err) {
@@ -5110,20 +5131,21 @@ function renderFiverrOrderModalContent() {
 
         <!-- Reference File Upload Dropzone -->
         <div class="form-group">
-          <label class="form-label">6. Reference Materials / Attachments (Optional)</label>
+          <label class="form-label">6. Reference Photos / Materials (Optional — Up to 5 files)</label>
           <div class="file-upload-dropzone" onclick="document.getElementById('orderFileInput').click()">
             <input 
               type="file" 
               id="orderFileInput" 
               style="display: none;" 
-              accept=".jpg,.jpeg,.png,.webp,.pdf,.zip,.svg"
+              accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.zip,.svg,.docx,.txt"
+              multiple
               onchange="handleOrderFileUpload(this)"
             >
-            <div style="font-size: 24px; margin-bottom: 6px;">📎</div>
-            <div class="dropzone-title">Click to upload reference image or file</div>
-            <div style="font-size: 11px; color: var(--text-dark-gray);">Supports PNG, JPG, PDF, ZIP (Max 10MB)</div>
+            <div style="font-size: 24px; margin-bottom: 6px;">📷</div>
+            <div class="dropzone-title">Click to attach reference photos or files</div>
+            <div style="font-size: 11px; color: var(--text-dark-gray);">Supports PNG, JPG, WebP, PDF, ZIP (Max 15MB per file)</div>
           </div>
-          <div id="uploadedFilesList"></div>
+          <div id="uploadedFilesList" style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;"></div>
         </div>
 
         <!-- Customer Identity & Account Verification -->
@@ -5343,7 +5365,7 @@ window.toggleAddonItem = function(addonId, isChecked) {
   updateOrderCalculationsUI();
 };
 
-window.applyCouponCode = function() {
+window.applyCouponCode = async function() {
   const input = document.getElementById('orderCouponInput');
   const code = (input?.value || '').toUpperCase().trim();
   const statusPill = document.getElementById('couponStatusPill');
@@ -5353,18 +5375,27 @@ window.applyCouponCode = function() {
     return;
   }
 
-  const coupons = JSON.parse(localStorage.getItem('ruddranil_coupons') || '[]');
-  const matched = coupons.find(c => c.code.toUpperCase() === code && c.active);
+  const calcBefore = calculateAuthoritativeTotals();
+  let validationRes = null;
 
-  if (!matched) {
+  if (typeof window.validateCouponFromCloud === 'function') {
+    validationRes = await window.validateCouponFromCloud(code, calcBefore.subtotal);
+  } else {
+    const coupons = JSON.parse(localStorage.getItem('ruddranil_coupons') || '[]');
+    const matched = coupons.find(c => c.code.toUpperCase() === code && c.active);
+    validationRes = matched ? { valid: true, code } : { valid: false, error: `Invalid or expired coupon code "${code}"` };
+  }
+
+  if (!validationRes || !validationRes.valid) {
     currentOrderState.couponCode = '';
     currentOrderState.discountAmount = 0;
+    const errMsg = validationRes?.error || `Invalid or expired coupon code "${code}"`;
     if (statusPill) {
       statusPill.className = 'coupon-status-pill error';
-      statusPill.innerHTML = `<span>✕ Invalid or expired coupon code "${code}"</span>`;
+      statusPill.innerHTML = `<span>✕ ${escapeHtmlText(errMsg)}</span>`;
     }
     updateOrderCalculationsUI();
-    showToast(`Invalid coupon code "${code}"`, 'error');
+    showToast(errMsg, 'error');
     return;
   }
 
@@ -5377,54 +5408,96 @@ window.applyCouponCode = function() {
   showToast(`Coupon ${code} applied successfully! 🎉`);
 };
 
-window.handleOrderFileUpload = function(input) {
-  if (!input.files || input.files.length === 0) return;
-  const file = input.files[0];
-
-  // Validation: Max 10MB
-  if (file.size > 10 * 1024 * 1024) {
-    showToast('File exceeds 10MB limit. Please upload a smaller file.', 'error');
-    input.value = '';
-    return;
-  }
-
-  const validExts = ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'zip', 'svg'];
-  const ext = file.name.split('.').pop().toLowerCase();
-  if (!validExts.includes(ext)) {
-    showToast(`Unsupported file type (.${ext}). Use PNG, JPG, PDF, or ZIP.`, 'error');
-    input.value = '';
-    return;
-  }
-
-  currentOrderState.uploadedFiles = [{
-    name: file.name,
-    size: (file.size / 1024).toFixed(1) + ' KB',
-    type: file.type
-  }];
-
+function renderCheckoutReferencePreviews() {
   const filesList = document.getElementById('uploadedFilesList');
-  if (filesList) {
-    filesList.innerHTML = `
-      <div class="uploaded-file-chip">
-        <span>📄 ${file.name} (${(file.size / 1024).toFixed(1)} KB)</span>
-        <button type="button" onclick="removeOrderFile()">✕</button>
-      </div>
-    `;
+  if (!filesList) return;
+  const list = Array.isArray(currentOrderState.uploadedFiles) ? currentOrderState.uploadedFiles : [];
+  if (list.length === 0) {
+    filesList.innerHTML = '';
+    return;
   }
-  showToast(`File "${file.name}" attached!`);
+
+  filesList.innerHTML = list.map((f, idx) => `
+    <div class="uploaded-file-chip" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 8px;">
+      <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+        ${f.previewUrl ? `<img src="${f.previewUrl}" alt="${escapeHtmlText(f.name)}" style="width: 42px; height: 42px; object-fit: cover; border-radius: 6px; border: 1px solid rgba(56,189,248,0.4); flex-shrink: 0;">` : `<span style="font-size: 20px;">📄</span>`}
+        <div style="min-width: 0;">
+          <div style="font-size: 12.5px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtmlText(f.name)}</div>
+          <div style="font-size: 11px; color: var(--text-dark-gray);">${escapeHtmlText(f.size)}</div>
+        </div>
+      </div>
+      <button type="button" onclick="removeOrderFile(${idx})" title="Remove attachment">✕</button>
+    </div>
+  `).join('');
+}
+
+window.handleOrderFileUpload = function(input) {
+  const selected = Array.from(input.files || []);
+  if (selected.length === 0) return;
+
+  const validExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf', 'zip', 'svg', 'docx', 'txt'];
+  if (!Array.isArray(currentOrderState.uploadedRawFiles)) currentOrderState.uploadedRawFiles = [];
+  if (!Array.isArray(currentOrderState.uploadedFiles)) currentOrderState.uploadedFiles = [];
+
+  for (const file of selected) {
+    if (currentOrderState.uploadedRawFiles.length >= 5) {
+      showToast('Maximum 5 reference files per order.', 'error');
+      break;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      showToast(`"${file.name}" exceeds 15MB limit.`, 'error');
+      continue;
+    }
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    if (!validExts.includes(ext)) {
+      showToast(`Unsupported file type (.${ext}) on "${file.name}".`, 'error');
+      continue;
+    }
+    const isImage = (file.type || '').startsWith('image/') || ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext);
+    const previewUrl = isImage ? URL.createObjectURL(file) : null;
+
+    currentOrderState.uploadedRawFiles.push(file);
+    currentOrderState.uploadedFiles.push({
+      name: file.name,
+      size: (file.size / 1024).toFixed(1) + ' KB',
+      rawSize: file.size,
+      type: file.type || (isImage ? 'image/jpeg' : 'application/octet-stream'),
+      previewUrl
+    });
+  }
+
+  renderCheckoutReferencePreviews();
+  if (currentOrderState.uploadedFiles.length > 0) {
+    showToast(`${currentOrderState.uploadedFiles.length} reference file(s) attached and ready!`);
+  }
+  input.value = '';
 };
 
-window.removeOrderFile = function() {
-  currentOrderState.uploadedFiles = [];
-  const filesList = document.getElementById('uploadedFilesList');
+window.removeOrderFile = function(index) {
+  if (typeof index === 'number') {
+    const removed = currentOrderState.uploadedFiles?.[index];
+    if (removed?.previewUrl && removed.previewUrl.startsWith('blob:')) {
+      try { URL.revokeObjectURL(removed.previewUrl); } catch (e) {}
+    }
+    currentOrderState.uploadedFiles.splice(index, 1);
+    currentOrderState.uploadedRawFiles.splice(index, 1);
+  } else {
+    (currentOrderState.uploadedFiles || []).forEach(f => {
+      if (f?.previewUrl && f.previewUrl.startsWith('blob:')) {
+        try { URL.revokeObjectURL(f.previewUrl); } catch (e) {}
+      }
+    });
+    currentOrderState.uploadedFiles = [];
+    currentOrderState.uploadedRawFiles = [];
+  }
   const input = document.getElementById('orderFileInput');
-  if (filesList) filesList.innerHTML = '';
   if (input) input.value = '';
+  renderCheckoutReferencePreviews();
   showToast('Attachment removed');
 };
 
 // 9. Atomic Order Placement Submission
-window.handlePlaceOrderSubmit = function(e) {
+window.handlePlaceOrderSubmit = async function(e) {
   e.preventDefault();
 
   if (typeof isCustomerLoggedIn === 'function' && !isCustomerLoggedIn()) {
@@ -5436,85 +5509,114 @@ window.handlePlaceOrderSubmit = function(e) {
   }
 
   const btn = document.getElementById('placeOrderBtn');
+  const origBtnText = btn ? btn.textContent : 'Place Order Now';
   if (btn) {
     btn.disabled = true;
     btn.textContent = 'Processing Order...';
   }
 
-  const s = currentOrderState.service;
-  const currentPkg = s.packages[currentOrderState.packageTier] || s.packages.basic;
-  const calc = calculateAuthoritativeTotals();
+  try {
+    const s = currentOrderState.service;
+    const currentPkg = s.packages[currentOrderState.packageTier] || s.packages.basic;
+    const calc = calculateAuthoritativeTotals();
 
-  const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
-  const customerName = document.getElementById('orderCustomerName')?.value.trim() || currentUser?.name || 'Customer';
-  const customerEmail = document.getElementById('orderCustomerEmail')?.value.trim() || currentUser?.email || '';
-  const instructions = document.getElementById('orderInstructionsInput')?.value.trim() || 'Project requirements';
+    const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    const customerName = document.getElementById('orderCustomerName')?.value.trim() || currentUser?.name || 'Customer';
+    const customerEmail = document.getElementById('orderCustomerEmail')?.value.trim() || currentUser?.email || '';
+    const instructions = document.getElementById('orderInstructionsInput')?.value.trim() || 'Project requirements';
 
-  // Generate Unique Order ID (Format: RUD-YYYYMMDD-XXXXXXXX)
-  const now = new Date();
-  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
-  const hexRand = Math.random().toString(16).substring(2, 10).toUpperCase();
-  const orderId = `RUD-${dateStr}-${hexRand}`;
+    // Generate Unique Order ID (Format: RUD-YYYYMMDD-XXXXXXXX)
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const hexRand = Math.random().toString(16).substring(2, 10).toUpperCase();
+    const orderId = `RUD-${dateStr}-${hexRand}`;
 
-  const newOrder = {
-    id: orderId,
-    customerId: currentUser?.id || null,
-    customerName,
-    customerEmail,
-    service: s.name,
-    serviceSlug: s.slug,
-    packageTier: currentOrderState.packageTier,
-    packageName: currentPkg.name,
-    packagePrice: calc.packagePrice,
-    subtotal: calc.subtotal,
-    discountAmount: calc.discount,
-    finalTotal: calc.finalTotal,
-    deliveryDays: calc.deliveryDays,
-    isExpress: currentOrderState.isExpress,
-    expressFee: calc.expressFee,
-    selectedAddons: currentOrderState.selectedAddons,
-    addonsTotal: calc.addonsTotal,
-    couponCode: currentOrderState.couponCode,
-    request: instructions,
-    referenceFiles: currentOrderState.uploadedFiles,
-    status: 'Pending',
-    progress: 0,
-    price: `$${calc.finalTotal.toFixed(2)}`,
-    orderDate: now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-    lastUpdated: 'Just now'
-  };
+    // Upload attached reference files to Supabase Storage ('order-references')
+    let finalReferenceFiles = Array.isArray(currentOrderState.uploadedFiles) ? [...currentOrderState.uploadedFiles] : [];
+    const rawFiles = Array.isArray(currentOrderState.uploadedRawFiles) ? currentOrderState.uploadedRawFiles : [];
+    if (rawFiles.length > 0 && typeof window.uploadOrderReferenceToCloud === 'function') {
+      if (btn) btn.textContent = 'Uploading reference files...';
+      const uploadedMetaList = [];
+      for (const rf of rawFiles) {
+        try {
+          const uploaded = await window.uploadOrderReferenceToCloud(rf, orderId);
+          uploadedMetaList.push(uploaded);
+        } catch (upErr) {
+          console.warn('[Order Ref Upload Notice]:', upErr);
+        }
+      }
+      if (uploadedMetaList.length > 0) {
+        finalReferenceFiles = uploadedMetaList;
+      }
+    }
 
-  // Atomic Persistence in localStorage
-  const orders = JSON.parse(localStorage.getItem('ruddranil_orders') || '[]');
-  orders.unshift(newOrder);
-  localStorage.setItem('ruddranil_orders', JSON.stringify(orders));
+    if (btn) btn.textContent = 'Saving order to cloud...';
 
-  // Sync with Supabase Cloud Database
-  if (typeof window.syncOrderToSupabase === 'function') {
-    window.syncOrderToSupabase(newOrder);
-  }
+    const newOrder = {
+      id: orderId,
+      customerId: currentUser?.id || null,
+      customerName,
+      customerEmail,
+      service: s.name,
+      serviceSlug: s.slug,
+      packageTier: currentOrderState.packageTier,
+      packageName: currentPkg.name,
+      packagePrice: calc.packagePrice,
+      subtotal: calc.subtotal,
+      discountAmount: calc.discount,
+      finalTotal: calc.finalTotal,
+      deliveryDays: calc.deliveryDays,
+      isExpress: currentOrderState.isExpress,
+      expressFee: calc.expressFee,
+      selectedAddons: currentOrderState.selectedAddons,
+      addonsTotal: calc.addonsTotal,
+      couponCode: currentOrderState.couponCode,
+      request: instructions,
+      referenceFiles: finalReferenceFiles,
+      status: 'Pending',
+      progress: 0,
+      price: `$${calc.finalTotal.toFixed(2)}`,
+      orderDate: now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      lastUpdated: 'Just now'
+    };
 
-  // Sync Current User Session if none
-  if (!localStorage.getItem('currentUser') && customerEmail) {
-    localStorage.setItem('currentUser', JSON.stringify({
-      name: customerName,
-      email: customerEmail,
-      role: 'customer'
-    }));
-  }
+    // Sync with Supabase Cloud Database (also handles localStorage + /api/orders)
+    if (typeof window.syncOrderToSupabase === 'function') {
+      await window.syncOrderToSupabase(newOrder);
+    } else {
+      const orders = JSON.parse(localStorage.getItem('ruddranil_orders') || '[]');
+      orders.unshift(newOrder);
+      localStorage.setItem('ruddranil_orders', JSON.stringify(orders));
+    }
 
-  // Update Coupon Usage Count
-  if (currentOrderState.couponCode) {
-    const coupons = JSON.parse(localStorage.getItem('ruddranil_coupons') || '[]');
-    const cp = coupons.find(c => c.code === currentOrderState.couponCode);
-    if (cp) {
-      cp.timesUsed = (cp.timesUsed || 0) + 1;
-      localStorage.setItem('ruddranil_coupons', JSON.stringify(coupons));
+    // Sync Current User Session if none
+    if (!localStorage.getItem('currentUser') && customerEmail) {
+      localStorage.setItem('currentUser', JSON.stringify({
+        name: customerName,
+        email: customerEmail,
+        role: 'customer'
+      }));
+    }
+
+    // Update Coupon Usage Count locally
+    if (currentOrderState.couponCode) {
+      const coupons = JSON.parse(localStorage.getItem('ruddranil_coupons') || '[]');
+      const cp = coupons.find(c => c.code === currentOrderState.couponCode);
+      if (cp) {
+        cp.timesUsed = (cp.timesUsed || 0) + 1;
+        localStorage.setItem('ruddranil_coupons', JSON.stringify(coupons));
+      }
+    }
+
+    currentOrderState.uploadedRawFiles = [];
+    closeFiverrOrderModal();
+    openOrderConfirmationScreen(newOrder);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = origBtnText;
     }
   }
-
-  closeFiverrOrderModal();
-  openOrderConfirmationScreen(newOrder);
 };
 
 // 10. Order Success Confirmation Screen
@@ -6047,6 +6149,11 @@ function setupContactForm() {
       return;
     }
 
+    // Save inquiry to Supabase contact_messages asynchronously (non-blocking)
+    if (typeof window.submitContactMessageToCloud === 'function' && name && email && message) {
+      window.submitContactMessageToCloud({ name, email, serviceName, message }).catch(() => {});
+    }
+
     // Redirect to Fiverr-style modal pre-selected with this service!
     openFiverrOrderModal(serviceName, 'basic');
     setTimeout(() => {
@@ -6156,54 +6263,47 @@ async function renderOrderTracking(orderId, isSilentRefresh = false) {
     }
   } catch (err) {}
 
-  // 3. Query Supabase cloud table for latest status and progress
-  if (window.sbClient) {
-    try {
-      const { data, error } = await window.sbClient
-        .from('orders')
-        .select('*')
-        .ilike('id', cleanId)
-        .maybeSingle();
-
-      if (data) {
-        // Status rank precedence: Never let a stale "Pending" downgrade an active order
-        const getStatusRank = (st) => {
-          const s = (st || '').toLowerCase();
-          if (s === 'delivered' || s === 'completed') return 5;
-          if (s === 'review' || s === 'in review') return 4;
-          if (s === 'in progress') return 3;
-          if (s === 'accepted') return 2;
-          if (s === 'pending') return 1;
-          return 0;
-        };
-
-        const existingStatus = order?.status || 'Pending';
-        const cloudStatus = data.status || 'Pending';
-        const effectiveStatus = getStatusRank(cloudStatus) >= getStatusRank(existingStatus) ? cloudStatus : existingStatus;
-
-        // Progress precedence: higher progress wins, or status-derived
-        const cloudProg = (data.progress !== undefined && data.progress !== null) ? Number(data.progress) : 0;
-        const existingProg = order?.progress ? Number(order.progress) : 0;
-        const effectiveProg = Math.max(cloudProg, existingProg);
-
-        order = {
-          ...(order || {}),
-          id: data.id,
-          customerName: data.customer_name || order?.customerName || 'Client',
-          customerEmail: data.customer_email || order?.customerEmail || '',
-          service: data.service || order?.service || 'Service',
-          packageTier: data.package_tier || order?.packageTier || 'Basic',
-          price: data.price || order?.price || `$${Number(data.final_total || 30).toFixed(2)}`,
-          status: effectiveStatus,
-          progress: effectiveProg,
-          lastUpdated: data.last_updated ? new Date(data.last_updated).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : (order?.lastUpdated || 'Just now'),
-          deliveryDays: data.delivery_days || order?.deliveryDays || 3,
-          isExpress: Boolean(data.is_express !== undefined ? data.is_express : order?.isExpress)
-        };
-      }
-    } catch (e) {
-      console.warn('Tracking cloud lookup notice:', e);
+  // 3. Query Supabase cloud (via RPC get_order_tracking_by_id + table fallback)
+  try {
+    let cloudOrder = null;
+    if (typeof window.fetchOrderTrackingFromCloud === 'function') {
+      cloudOrder = await window.fetchOrderTrackingFromCloud(cleanId);
     }
+
+    if (cloudOrder) {
+      const getStatusRank = (st) => {
+        const s = (st || '').toLowerCase();
+        if (s === 'completed') return 6;
+        if (s === 'delivered') return 5;
+        if (s === 'in revision') return 5;
+        if (s === 'review' || s === 'in review') return 4;
+        if (s === 'in progress') return 3;
+        if (s === 'accepted') return 2;
+        if (s === 'pending') return 1;
+        return 0;
+      };
+
+      const existingStatus = order?.status || 'Pending';
+      const cloudStatus = cloudOrder.status || 'Pending';
+      const effectiveStatus = getStatusRank(cloudStatus) >= getStatusRank(existingStatus) ? cloudStatus : existingStatus;
+
+      const cloudProg = (cloudOrder.progress !== undefined && cloudOrder.progress !== null) ? Number(cloudOrder.progress) : 0;
+      const existingProg = order?.progress ? Number(order.progress) : 0;
+      const effectiveProg = Math.max(cloudProg, existingProg);
+
+      order = {
+        ...(order || {}),
+        ...cloudOrder,
+        status: effectiveStatus,
+        progress: effectiveProg,
+        delivery: cloudOrder.delivery || order?.delivery || null,
+        deliveries: (Array.isArray(cloudOrder.deliveries) && cloudOrder.deliveries.length > 0) ? cloudOrder.deliveries : (order?.deliveries || []),
+        revisions: (Array.isArray(cloudOrder.revisions) && cloudOrder.revisions.length > 0) ? cloudOrder.revisions : (order?.revisions || []),
+        clientAccepted: Boolean(cloudOrder.clientAccepted || order?.clientAccepted)
+      };
+    }
+  } catch (e) {
+    console.warn('Tracking cloud lookup notice:', e);
   }
 
   if (!order) {
@@ -6349,20 +6449,23 @@ async function renderOrderTracking(orderId, isSilentRefresh = false) {
             <span>📥 Attached Deliverable Files (${files.length})</span>
           </div>
           <div class="delivery-files-grid">
-            ${files.map(f => `
-              <div class="delivery-file-card">
-                <div class="file-info-col">
-                  <span class="file-type-icon">${getFileIcon(f.name)}</span>
-                  <div class="file-name-size">
-                    <span class="file-name-text" title="${escapeHtmlText(f.name)}">${escapeHtmlText(f.name)}</span>
-                    <span class="file-size-text">${escapeHtmlText(f.size || 'Download File')}</span>
+            ${files.map(f => {
+              const fileHref = f.signedUrl || f.url || f.publicUrl || f.dataUrl || '#';
+              return `
+                <div class="delivery-file-card">
+                  <div class="file-info-col">
+                    <span class="file-type-icon">${getFileIcon(f.name)}</span>
+                    <div class="file-name-size">
+                      <span class="file-name-text" title="${escapeHtmlText(f.name)}">${escapeHtmlText(f.name)}</span>
+                      <span class="file-size-text">${escapeHtmlText(f.size || 'Download File')}</span>
+                    </div>
                   </div>
+                  <a href="${escapeHtmlText(fileHref)}" download="${escapeHtmlText(f.name)}" onclick="downloadDeliveryFile('${escapeHtmlText(f.storageBucket || '')}', '${escapeHtmlText(f.storagePath || '')}', '${escapeHtmlText(fileHref)}', '${escapeHtmlText(f.name)}', event)" class="btn-file-download" title="Download ${escapeHtmlText(f.name)}">
+                    ⬇️ Download
+                  </a>
                 </div>
-                <a href="${f.dataUrl || '#'}" download="${escapeHtmlText(f.name)}" class="btn-file-download" title="Download ${escapeHtmlText(f.name)}">
-                  ⬇️ Download
-                </a>
-              </div>
-            `).join('')}
+              `;
+            }).join('')}
           </div>
         ` : ''}
 
@@ -6566,6 +6669,30 @@ window.setDeliveryRating = function(rating) {
   }
 };
 
+window.downloadDeliveryFile = async function(bucket, path, fallbackUrl, fileName, e) {
+  if (e && fallbackUrl === '#') e.preventDefault();
+  let targetUrl = (fallbackUrl && fallbackUrl !== '#') ? fallbackUrl : '';
+  if (bucket && path && typeof window.resolveStorageFileUrl === 'function') {
+    try {
+      const freshUrl = await window.resolveStorageFileUrl({ storageBucket: bucket, storagePath: path, url: targetUrl });
+      if (freshUrl) targetUrl = freshUrl;
+    } catch (err) {}
+  }
+  if (!targetUrl || targetUrl === '#') {
+    if (typeof showToast === 'function') showToast('File link is not available yet.', 'error');
+    return;
+  }
+  if (e) e.preventDefault();
+  const a = document.createElement('a');
+  a.href = targetUrl;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  a.download = fileName || 'deliverable';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+};
+
 window.handleAcceptDeliveryFormSubmit = async function(e) {
   e.preventDefault();
   const orderId = document.getElementById('acceptDeliveryOrderId')?.value;
@@ -6577,15 +6704,17 @@ window.handleAcceptDeliveryFormSubmit = async function(e) {
     return;
   }
 
-  // 1. Update order status to Completed in local storage
   const cleanId = orderId.replace(/^#/, '');
   const orders = JSON.parse(localStorage.getItem('ruddranil_orders') || '[]');
-  const order = orders.find(o => 
-    (o.id || '').toLowerCase() === cleanId.toLowerCase() || 
+  const order = orders.find(o =>
+    (o.id || '').toLowerCase() === cleanId.toLowerCase() ||
     (o.id || '').toLowerCase().replace(/^#/, '') === cleanId.toLowerCase()
   );
 
-  if (order) {
+  // 1. Accept order in Supabase Cloud (via RPC + backend fallback)
+  if (typeof window.acceptOrderDeliveryInCloud === 'function') {
+    await window.acceptOrderDeliveryInCloud(cleanId);
+  } else if (order) {
     order.status = 'Completed';
     order.progress = 100;
     order.clientAccepted = true;
@@ -6594,56 +6723,37 @@ window.handleAcceptDeliveryFormSubmit = async function(e) {
     localStorage.setItem('ruddranil_orders', JSON.stringify(orders));
   }
 
-  // 2. Submit Review to public reviews system
+  // 2. Submit Review to Supabase & public reviews system
   try {
-    const reviewPayload = {
-      orderId: cleanId,
-      name: order?.customerName || 'Verified Client',
-      email: order?.customerEmail || '',
-      service: order?.service || 'Digital Service',
-      rating: rating,
-      comment: comment,
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(order?.customerName || 'Client')}`,
-      verified: true
-    };
-
-    if (window.submitReview && typeof window.submitReview === 'function') {
-      window.submitReview(reviewPayload);
+    if (typeof window.submitCustomerReview === 'function') {
+      await window.submitCustomerReview({
+        orderId: cleanId,
+        rating: rating,
+        comment: comment,
+        reviewerName: order?.customerName || 'Verified Client',
+        serviceName: order?.service || 'Digital Service'
+      });
     } else {
       const existingReviews = JSON.parse(localStorage.getItem('app_reviews') || '[]');
-      existingReviews.unshift({ id: 'REV-' + Date.now(), ...reviewPayload });
+      existingReviews.unshift({
+        id: 'REV-' + Date.now(),
+        orderId: cleanId,
+        name: order?.customerName || 'Verified Client',
+        service: order?.service || 'Digital Service',
+        rating,
+        comment,
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        verified: true
+      });
       localStorage.setItem('app_reviews', JSON.stringify(existingReviews));
     }
-  } catch (err) {}
-
-  // 3. Sync status to backend & Supabase
-  try {
-    await fetch(`/api/orders/${encodeURIComponent(cleanId)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        status: 'Completed',
-        progress: 100,
-        clientAccepted: true,
-        completedAt: new Date().toISOString(),
-        lastUpdated: new Date().toISOString()
-      })
-    });
-  } catch (err) {}
-
-  if (window.sbClient) {
-    try {
-      await window.sbClient
-        .from('orders')
-        .update({ status: 'Completed', progress: 100, last_updated: new Date().toISOString() })
-        .ilike('id', cleanId);
-    } catch (e) {}
+  } catch (err) {
+    console.warn('[Delivery Review Notice]:', err);
   }
 
   closeAcceptDeliveryModal();
   if (typeof showToast === 'function') {
-    showToast('🎉 Delivery accepted! Thank you for your 5-star review!');
+    showToast('🎉 Delivery accepted! Thank you for your review!');
   }
 
   renderOrderTracking(cleanId);
@@ -6675,8 +6785,8 @@ window.handleClientRevisionSubmit = async function(e) {
 
   const cleanId = orderId.replace(/^#/, '');
   const orders = JSON.parse(localStorage.getItem('ruddranil_orders') || '[]');
-  const order = orders.find(o => 
-    (o.id || '').toLowerCase() === cleanId.toLowerCase() || 
+  const order = orders.find(o =>
+    (o.id || '').toLowerCase() === cleanId.toLowerCase() ||
     (o.id || '').toLowerCase().replace(/^#/, '') === cleanId.toLowerCase()
   );
 
@@ -6689,35 +6799,14 @@ window.handleClientRevisionSubmit = async function(e) {
   };
   const updatedRevisions = [...existingRevisions, revObj];
 
-  if (order) {
+  if (typeof window.requestOrderRevisionInCloud === 'function') {
+    await window.requestOrderRevisionInCloud(cleanId, note, updatedRevisions);
+  } else if (order) {
     order.status = 'In Revision';
     order.progress = 80;
     order.revisions = updatedRevisions;
     order.lastUpdated = 'Just now';
     localStorage.setItem('ruddranil_orders', JSON.stringify(orders));
-  }
-
-  // Sync to backend and cloud
-  try {
-    await fetch(`/api/orders/${encodeURIComponent(cleanId)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        status: 'In Revision',
-        progress: 80,
-        revisions: updatedRevisions,
-        lastUpdated: new Date().toISOString()
-      })
-    });
-  } catch (err) {}
-
-  if (window.sbClient) {
-    try {
-      await window.sbClient
-        .from('orders')
-        .update({ status: 'In Revision', progress: 80, last_updated: new Date().toISOString() })
-        .ilike('id', cleanId);
-    } catch (e) {}
   }
 
   closeClientRevisionModal();

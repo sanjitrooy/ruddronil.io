@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ruddranil.io - Administrative Authentication Terminal</title>
   <meta name="robots" content="noindex, nofollow, noarchive">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="style.css">
   <script>
     (function() {
@@ -69,30 +70,35 @@
 
         <form id="adminLoginForm" onsubmit="handleAdminAuth(event)" novalidate>
           <div class="form-group" style="margin-bottom: 16px;">
-            <label class="form-label" for="adminIdentifier">Admin Identifier / Email</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <label class="form-label" for="adminIdentifier" style="margin-bottom: 0;">Admin Email (Supabase Storage Center)</label>
+              <span style="font-size: 11px; color: var(--accent-cyan);">sanjitrooy733@gmail.com</span>
+            </div>
             <input 
-              type="text" 
+              type="email" 
               id="adminIdentifier" 
               class="form-input" 
-              placeholder="admin@ruddranil.io or username" 
-              value="admin@ruddranil.io" 
+              placeholder="sanjitrooy733@gmail.com" 
+              value="sanjitrooy733@gmail.com" 
               required 
               autocomplete="username"
             >
           </div>
 
-          <div class="form-group" style="margin-bottom: 20px;">
+          <div class="form-group" style="margin-bottom: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <label class="form-label" for="adminPassword" style="margin-bottom: 0;">Master Passcode / Key</label>
-              <span style="font-size: 11px; color: var(--text-dark-gray);">Default: admin123</span>
+              <label class="form-label" for="adminPassword" style="margin-bottom: 0;">Supabase Auth Password</label>
+              <button type="button" id="btnForgotAdminPass" onclick="handleAdminForgotPassword()" style="background: none; border: none; color: var(--accent-cyan); font-size: 11.5px; font-weight: 600; cursor: pointer; padding: 0;">
+                Forgot / Set Password?
+              </button>
             </div>
             <div class="password-input-wrap">
               <input 
                 type="password" 
                 id="adminPassword" 
                 class="form-input" 
-                placeholder="Enter master password" 
-                value="admin123" 
+                placeholder="Enter your Supabase account password" 
+                value="" 
                 required 
                 autocomplete="current-password"
               >
@@ -102,17 +108,44 @@
             </div>
           </div>
 
-          <button type="submit" id="btnAdminSubmit" class="btn btn-primary btn-block btn-lg" style="background: linear-gradient(135deg, #ef4444, #dc2626); border-color: #ef4444; justify-content: center; font-weight: 700; margin-bottom: 12px;">
-            <span id="adminBtnLabel">Unlock Admin Console →</span>
+          <button type="submit" id="btnAdminSubmit" class="btn btn-primary btn-block btn-lg" style="background: linear-gradient(135deg, #ef4444, #dc2626); border-color: #ef4444; justify-content: center; font-weight: 700; margin-bottom: 10px;">
+            <span id="adminBtnLabel">Verify &amp; Unlock Admin Console →</span>
           </button>
+        </form>
 
-          <button type="button" onclick="quickAdminUnlock()" class="btn btn-secondary btn-block btn-sm" style="justify-content: center; font-size: 12px;">
-            ⚡ Quick Access (Ruddranil Master)
+        <!-- Password Recovery Form (shown when arriving via Supabase password reset/set email link) -->
+        <form id="adminRecoveryForm" onsubmit="handleAdminPasswordUpdate(event)" style="display: none; margin-top: 12px;" novalidate>
+          <div style="padding: 10px 12px; border-radius: 10px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.28); margin-bottom: 14px; font-size: 12px; color: #a7f3d0;">
+            🔐 Setting / Resetting Supabase Admin password for <strong>sanjitrooy733@gmail.com</strong>
+          </div>
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label class="form-label" for="adminNewPassword">Set New Supabase Admin Password</label>
+            <div class="password-input-wrap">
+              <input type="password" id="adminNewPassword" class="form-input" placeholder="Minimum 8 characters" minlength="8" required autocomplete="new-password">
+              <button type="button" class="password-toggle-btn" onclick="togglePassVisibility('adminNewPassword', this)" aria-label="Toggle password visibility">
+                👁️
+              </button>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label class="form-label" for="adminConfirmPassword">Confirm New Password</label>
+            <div class="password-input-wrap">
+              <input type="password" id="adminConfirmPassword" class="form-input" placeholder="Repeat new password" minlength="8" required autocomplete="new-password">
+              <button type="button" class="password-toggle-btn" onclick="togglePassVisibility('adminConfirmPassword', this)" aria-label="Toggle password visibility">
+                👁️
+              </button>
+            </div>
+          </div>
+          <button type="submit" id="btnSaveRecoveryPass" class="btn btn-primary btn-block btn-lg" style="background: linear-gradient(135deg, #059669, #10b981); border-color: #10b981; justify-content: center; font-weight: 700; margin-bottom: 10px;">
+            Save New Password &amp; Enter Console →
+          </button>
+          <button type="button" onclick="exitRecoveryMode()" class="btn btn-secondary btn-block btn-sm" style="justify-content: center; font-size: 12px;">
+            ← Back to Sign In
           </button>
         </form>
 
         <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color); text-align: center; font-size: 11.5px; color: var(--text-dark-gray);">
-          <span>🔒 End-to-End Encrypted Session • IP Logged for Security</span>
+          <span>🔒 Strict Supabase JWT Session • Restricted to sanjitrooy733@gmail.com</span>
         </div>
 
       </div>
@@ -123,8 +156,29 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-client.js"></script>
   <script>
-    // Dual Theme initialization
-    document.addEventListener('DOMContentLoaded', () => {
+    const ADMIN_EMAIL_CANONICAL = 'sanjitrooy733@gmail.com';
+    let isRecoveryModeActive = false;
+
+    function showRecoveryMode() {
+      isRecoveryModeActive = true;
+      const loginForm = document.getElementById('adminLoginForm');
+      const recForm = document.getElementById('adminRecoveryForm');
+      if (loginForm) loginForm.style.display = 'none';
+      if (recForm) recForm.style.display = 'block';
+      showAdminAlert('Recovery session verified. Set a strong new password for your admin account.', 'success');
+    }
+
+    function exitRecoveryMode() {
+      isRecoveryModeActive = false;
+      const loginForm = document.getElementById('adminLoginForm');
+      const recForm = document.getElementById('adminRecoveryForm');
+      if (recForm) recForm.style.display = 'none';
+      if (loginForm) loginForm.style.display = 'block';
+      clearAdminAlert();
+    }
+
+    // Dual Theme initialization & Strict Supabase Session Check
+    document.addEventListener('DOMContentLoaded', async () => {
       const toggle = document.getElementById('themeToggleBtn');
       if (toggle) {
         toggle.onclick = () => {
@@ -139,16 +193,68 @@
         };
       }
 
-      // If already unlocked, redirect straight to admin console
-      let existingRole = '';
+      // Detect Supabase password recovery redirect (hash implicit OR PKCE ?code= / ?type=recovery)
+      const hash = window.location.hash || '';
+      const searchParams = new URLSearchParams(window.location.search || '');
+      const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
+      const authCode = searchParams.get('code');
+      const urlError = searchParams.get('error_description') || hashParams.get('error_description');
+      const isRecoveryHash = hash.includes('type=recovery') || searchParams.get('type') === 'recovery' || hashParams.get('type') === 'recovery';
+
+      if (window.sbClient && window.sbClient.auth) {
+        window.sbClient.auth.onAuthStateChange((event) => {
+          if (event === 'PASSWORD_RECOVERY') {
+            showRecoveryMode();
+          }
+        });
+      }
+
+      if (urlError) {
+        showAdminAlert(decodeURIComponent(urlError.replace(/\+/g, ' ')) + ' — You can request a fresh link via "Forgot / Set Password?".');
+      }
+
+      if (authCode && window.sbClient && window.sbClient.auth) {
+        try {
+          const { data, error } = await window.sbClient.auth.exchangeCodeForSession(authCode);
+          if (!error && (data?.session || isRecoveryHash)) {
+            showRecoveryMode();
+            return;
+          }
+          if (error) {
+            showAdminAlert(error.message || 'Recovery link expired or invalid. Please request a new reset link.');
+          }
+        } catch (err) {
+          showAdminAlert(err?.message || 'Could not verify recovery code.');
+        }
+      }
+
+      if (isRecoveryHash) {
+        showRecoveryMode();
+        return;
+      }
+
+      // Clear any stale or spoofed local admin flags unless backed by a valid Supabase Admin JWT
+      let isCloudAdmin = false;
+      if (typeof window.isCurrentUserAdmin === 'function') {
+        try {
+          isCloudAdmin = await window.isCurrentUserAdmin();
+        } catch (e) {}
+      }
+
+      if (isCloudAdmin && !isRecoveryModeActive) {
+        const u = await window.getSupabaseAuthUser();
+        completeAdminLogin(u?.user_metadata?.full_name || 'Ruddranil', u?.email || ADMIN_EMAIL_CANONICAL, u?.id);
+        return;
+      }
+
+      // Not verified on Supabase: clear any spoofed local admin session flags
+      try { sessionStorage.removeItem('ruddranil_admin_unlocked'); } catch (e) {}
       try {
         const cu = JSON.parse(localStorage.getItem('currentUser') || 'null');
-        existingRole = cu?.role || '';
+        if (cu && cu.role === 'admin') {
+          localStorage.removeItem('currentUser');
+        }
       } catch (e) {}
-      if (sessionStorage.getItem('ruddranil_admin_unlocked') === 'true' || existingRole === 'admin') {
-        sessionStorage.setItem('ruddranil_admin_unlocked', 'true');
-        window.location.href = 'admin.html';
-      }
     });
 
     function togglePassVisibility(id, btn) {
@@ -163,12 +269,16 @@
       }
     }
 
-    function showAdminAlert(msg, type = 'error') {
+    function showAdminAlert(msg, type = 'error', allowHtml = false) {
       const alert = document.getElementById('adminAuthAlert');
       if (!alert) return;
       alert.style.display = 'block';
       alert.className = type === 'error' ? 'auth-alert-box auth-alert-error' : 'auth-alert-box auth-alert-success';
-      alert.innerHTML = `${type === 'error' ? '⚠️' : '✓'} ${msg}`;
+      if (allowHtml) {
+        alert.innerHTML = `${type === 'error' ? '⚠️' : '✓'} ${msg}`;
+      } else {
+        alert.textContent = `${type === 'error' ? '⚠️' : '✓'} ${msg}`;
+      }
     }
 
     function clearAdminAlert() {
@@ -176,85 +286,169 @@
       if (alert) alert.style.display = 'none';
     }
 
+    async function resendAdminVerificationEmail(email) {
+      if (!window.sbClient || !window.sbClient.auth) return;
+      try {
+        const { error } = await window.sbClient.auth.resend({
+          type: 'signup',
+          email: (email || ADMIN_EMAIL_CANONICAL).trim().toLowerCase(),
+          options: { emailRedirectTo: `${window.location.origin}/admin-login.html` }
+        });
+        if (error) {
+          showAdminAlert(error.message || 'Could not resend verification email.');
+        } else {
+          showAdminAlert(`Verification email resent to ${email || ADMIN_EMAIL_CANONICAL}. Please confirm your inbox and try signing in again.`, 'success');
+        }
+      } catch (err) {
+        showAdminAlert(err?.message || 'Could not resend verification email.');
+      }
+    }
+
     async function handleAdminAuth(e) {
       e.preventDefault();
       clearAdminAlert();
 
       const ident = document.getElementById('adminIdentifier').value.trim();
-      const pass = document.getElementById('adminPassword').value.trim();
+      const pass = document.getElementById('adminPassword').value;
 
       if (!ident || !pass) {
-        showAdminAlert('Please enter both identifier and password.');
+        showAdminAlert('Please enter both your admin email and Supabase password.');
+        return;
+      }
+
+      if (typeof window.isAdminEmailMatch === 'function' && !window.isAdminEmailMatch(ident)) {
+        showAdminAlert(`Unauthorized email. Only ${ADMIN_EMAIL_CANONICAL} is permitted to access the Admin Terminal.`);
         return;
       }
 
       const submitBtn = document.getElementById('btnAdminSubmit');
       const btnLabel = document.getElementById('adminBtnLabel');
       submitBtn.disabled = true;
-      btnLabel.innerHTML = 'Verifying credentials...';
+      btnLabel.textContent = 'Verifying Supabase JWT...';
 
-      const lowerIdent = ident.toLowerCase();
-      const masterPasswords = ['admin123', 'ruddranil2026', 'ruddranil_admin', 'joymakali@@@1929joymakali'];
-      const isMasterPass = masterPasswords.includes(pass);
-      const isMasterUser =
-        lowerIdent.includes('admin') ||
-        lowerIdent.includes('ruddranil') ||
-        lowerIdent === 'sanjitrooy733@gmail.com' ||
-        lowerIdent.includes('joymakali');
-
-      // 1. Immediate master passcode check (does not block on external network)
-      if (isMasterPass) {
-        completeAdminLogin('Ruddranil', ident);
+      if (typeof window.signInAdminSupabase !== 'function') {
+        showAdminAlert('Supabase authentication client is unavailable. Please refresh the page.');
+        submitBtn.disabled = false;
+        btnLabel.textContent = 'Verify & Unlock Admin Console →';
         return;
       }
 
-      // 2. Check if user has a valid Supabase login (with 5s timeout so Vercel never hangs)
-      if (window.sbClient && window.sbClient.auth && ident.includes('@')) {
-        try {
-          const authPromise = window.sbClient.auth.signInWithPassword({
-            email: ident,
-            password: pass
-          });
-          const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ data: null, error: { message: 'timeout' } }), 5000));
-          const { data, error } = await Promise.race([authPromise, timeoutPromise]);
-          if (!error && data?.user) {
-            completeAdminLogin(data.user.user_metadata?.full_name || 'Ruddranil Admin', data.user.email);
-            return;
-          }
-        } catch (err) {}
-      }
+      try {
+        const authPromise = window.signInAdminSupabase(ident, pass);
+        const timeoutPromise = new Promise((resolve) =>
+          setTimeout(() => resolve({ success: false, error: 'Authentication request timed out. Please check your connection and try again.' }), 8000)
+        );
+        const res = await Promise.race([authPromise, timeoutPromise]);
 
-      // 3. Fallback passcode check for master user or >= 6 char passcode
-      if ((isMasterUser && pass.length >= 3) || pass.length >= 6) {
-        completeAdminLogin('Ruddranil', ident);
+        if (res?.success && res.user) {
+          completeAdminLogin(
+            res.user.user_metadata?.full_name || 'Ruddranil',
+            res.user.email || ADMIN_EMAIL_CANONICAL,
+            res.user.id
+          );
+          return;
+        }
+
+        const errMsg = res?.error || 'Invalid email or password. Please sign in with your verified Supabase credentials.';
+        if (/email not confirmed/i.test(errMsg)) {
+          showAdminAlert(
+            `Email not confirmed for ${ADMIN_EMAIL_CANONICAL}. Check your Gmail inbox or <button type="button" onclick="resendAdminVerificationEmail('${ADMIN_EMAIL_CANONICAL}')" style="background:none;border:none;color:#38bdf8;text-decoration:underline;font-weight:700;cursor:pointer;padding:0;">Resend Verification Link</button>.`,
+            'error',
+            true
+          );
+        } else {
+          showAdminAlert(errMsg);
+        }
+      } catch (err) {
+        showAdminAlert(err?.message || 'Authentication failed.');
+      } finally {
+        submitBtn.disabled = false;
+        btnLabel.textContent = 'Verify & Unlock Admin Console →';
+      }
+    }
+
+    async function handleAdminForgotPassword() {
+      clearAdminAlert();
+      const ident = (document.getElementById('adminIdentifier')?.value || ADMIN_EMAIL_CANONICAL).trim();
+      if (typeof window.requestAdminPasswordReset !== 'function') {
+        showAdminAlert('Supabase client unavailable.');
         return;
       }
-
-      showAdminAlert('Invalid admin credentials. Please verify your passcode.');
-      submitBtn.disabled = false;
-      btnLabel.textContent = 'Unlock Admin Console →';
+      const btn = document.getElementById('btnForgotAdminPass');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Sending reset link...';
+      }
+      try {
+        const res = await window.requestAdminPasswordReset(ident);
+        if (res.success) {
+          showAdminAlert(`Password setup/reset link sent to ${ident}. Check your Gmail inbox (and Spam folder) and click the link to set your new password.`, 'success');
+        } else {
+          showAdminAlert(res.error || 'Could not send password reset email.');
+        }
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Forgot / Set Password?';
+        }
+      }
     }
 
-    function quickAdminUnlock() {
-      completeAdminLogin('Ruddranil', 'admin@ruddranil.io');
+    async function handleAdminPasswordUpdate(e) {
+      e.preventDefault();
+      clearAdminAlert();
+      const p1 = document.getElementById('adminNewPassword')?.value || '';
+      const p2 = document.getElementById('adminConfirmPassword')?.value || '';
+      if (p1.length < 8) {
+        showAdminAlert('Password must be at least 8 characters long.');
+        return;
+      }
+      if (p1 !== p2) {
+        showAdminAlert('Passwords do not match.');
+        return;
+      }
+      const btn = document.getElementById('btnSaveRecoveryPass');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Updating password...';
+      }
+      try {
+        const { data, error } = await window.sbClient.auth.updateUser({ password: p1 });
+        if (error) throw error;
+        const user = data?.user || (await window.getSupabaseAuthUser());
+        if (!user || (typeof window.isAdminEmailMatch === 'function' && !window.isAdminEmailMatch(user.email))) {
+          await window.sbClient.auth.signOut().catch(() => {});
+          showAdminAlert('Password updated, but account is not authorized for Admin access.');
+          return;
+        }
+        completeAdminLogin(user.user_metadata?.full_name || 'Ruddranil', user.email, user.id);
+      } catch (err) {
+        showAdminAlert(err?.message || 'Failed to update password.');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Save New Password & Enter Console →';
+        }
+      }
     }
 
-    function completeAdminLogin(name, email) {
+    function completeAdminLogin(name, email, userId) {
       try {
         sessionStorage.setItem('ruddranil_admin_unlocked', 'true');
       } catch (e) {}
       const adminObj = {
-        id: 'admin-master',
+        id: userId,
         name: name || 'Ruddranil',
-        email: email || 'admin@ruddranil.io',
+        email: email || ADMIN_EMAIL_CANONICAL,
         role: 'admin',
-        emailVerified: true
+        emailVerified: true,
+        supabaseCloudAuth: true
       };
       try {
         localStorage.setItem('currentUser', JSON.stringify(adminObj));
       } catch (e) {}
 
-      showAdminAlert('Admin credentials verified! Loading console...', 'success');
+      showAdminAlert('Supabase Cloud Admin & Storage verified! Loading console...', 'success');
       setTimeout(() => {
         window.location.href = 'admin.html';
       }, 300);

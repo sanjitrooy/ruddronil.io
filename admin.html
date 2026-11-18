@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ruddranil.io - Dedicated Admin Control Center</title>
   <meta name="robots" content="noindex, nofollow, noarchive">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="style.css">
   <script>
     (function() {
@@ -78,43 +79,52 @@
 
       <form onsubmit="verifyAdminPasscode(event)">
         <div class="form-group" style="text-align: left;">
-          <label class="form-label" for="adminPassInput">Admin Passcode / Password</label>
-          <input type="password" id="adminPassInput" class="form-input" placeholder="Enter admin password (default: admin123)" value="admin123" required>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px; flex-wrap: wrap;">
+            <label class="form-label" for="adminPassInput" style="margin-bottom: 0;">Supabase Admin Password</label>
+            <span style="font-size: 11px; color: var(--accent-cyan);">sanjitrooy733@gmail.com</span>
+          </div>
+          <input type="password" id="adminPassInput" class="form-input" placeholder="Enter your Supabase password" value="" required autocomplete="current-password">
+          <div style="text-align: right; margin-top: 6px;">
+            <button type="button" id="btnLockForgotPass" onclick="handleLockForgotPassword()" style="background: none; border: none; color: var(--accent-cyan); font-size: 11.5px; font-weight: 600; cursor: pointer; padding: 0;">
+              Forgot / Set Password?
+            </button>
+          </div>
         </div>
 
-        <button type="submit" class="btn btn-primary btn-block btn-lg" style="margin-bottom: 12px;">
-          Unlock Admin Console
-        </button>
-
-        <button type="button" onclick="bypassAdminUnlock()" class="btn btn-secondary btn-block btn-sm" style="margin-bottom: 18px;">
-          ⚡ 1-Click Fast Unlock (Ruddranil)
+        <button type="submit" id="btnLockUnlock" class="btn btn-primary btn-block btn-lg" style="margin-bottom: 12px;">
+          Verify &amp; Unlock Admin Console
         </button>
       </form>
 
-      <div style="border-top: 1px solid var(--border-color); padding-top: 16px;">
-        <a href="customer-dashboard.html" style="font-size: 13px; color: var(--primary-blue-light); font-weight: 600;">
-          ← Switch to Customer Portal
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 16px; gap: 10px; flex-wrap: wrap;">
+        <a href="admin-login.html" style="font-size: 12.5px; color: var(--accent-cyan); font-weight: 600;">
+          Full Admin Login / Reset Password →
+        </a>
+        <a href="customer-dashboard.html" style="font-size: 12.5px; color: var(--text-gray); font-weight: 600;">
+          ← Customer Portal
         </a>
       </div>
     </div>
   </div>
 
-  <!-- Admin Main Dashboard Container -->
-  <main id="adminMainArea" style="padding: 34px 0 80px;">
+  <!-- Admin Main Dashboard Container (hidden until verified Supabase Admin JWT) -->
+  <main id="adminMainArea" style="display: none; padding: 34px 0 80px;">
     <div class="container">
 
       <!-- Admin Top Banner with Quick Actions -->
       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 26px; flex-wrap: wrap; gap: 16px; border-bottom: 1px solid #1a263d; padding-bottom: 20px;">
         <div>
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
             <span class="badge-status badge-in-progress" style="font-size: 11px;">
               ● System Online
             </span>
-            <span style="font-size: 12px; color: var(--text-dark-gray);">Master Database Active</span>
+            <span id="adminCloudStatusPill" style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; background: rgba(245, 158, 11, 0.14); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); cursor: pointer;" onclick="openCloudAuthModal()" title="Click to connect or verify Supabase Storage Center (sanjitrooy733@gmail.com)">
+              🟡 Checking Storage Center...
+            </span>
           </div>
           <h1 style="font-size: 26px; font-weight: 800; color: #fff;">Orders &amp; Service Control Center</h1>
           <p style="font-size: 14px; color: var(--text-gray);">
-            Manage multi-tier service pricing, custom coupons, and live client project orders.
+            Manage multi-tier service pricing, custom coupons, portfolio media, and live client project orders.
           </p>
         </div>
 
@@ -158,19 +168,22 @@
       <!-- Admin Sub-Navigation Tabs -->
       <div class="admin-subnav" role="tablist">
         <button id="subnavOrdersBtn" class="admin-subnav-btn active" onclick="switchAdminTab('orders')">
-          📦 Orders Pipeline (<span id="tabOrderCount">4</span>)
+          📦 Orders Pipeline (<span id="tabOrderCount">0</span>)
         </button>
         <button id="subnavServicesBtn" class="admin-subnav-btn" onclick="switchAdminTab('services')">
-          🏷️ Services &amp; Packages (5)
+          🏷️ Services &amp; Packages (<span id="tabServicesCount">24</span>)
         </button>
         <button id="subnavCouponsBtn" class="admin-subnav-btn" onclick="switchAdminTab('coupons')">
-          🎟️ Discounts &amp; Coupons (<span id="tabCouponCount">3</span>)
+          🎟️ Discounts &amp; Coupons (<span id="tabCouponCount">0</span>)
         </button>
         <button id="subnavReviewsBtn" class="admin-subnav-btn" onclick="switchAdminTab('reviews')">
-          ⭐ Reviews Moderation (<span id="tabReviewsCount">3</span>)
+          ⭐ Reviews Moderation (<span id="tabReviewsCount">0</span>)
         </button>
         <button id="subnavProjectsBtn" class="admin-subnav-btn" onclick="switchAdminTab('projects')">
-          🖼️ Portfolio &amp; Projects (<span id="tabProjectsCount">3</span>)
+          🖼️ Portfolio &amp; Projects (<span id="tabProjectsCount">0</span>)
+        </button>
+        <button id="subnavMessagesBtn" class="admin-subnav-btn" onclick="switchAdminTab('messages')">
+          📩 Contact Inquiries (<span id="tabMessagesCount">0</span>)
         </button>
       </div>
 
@@ -205,7 +218,9 @@
               <option value="Accepted">Accepted</option>
               <option value="In Progress">In Progress</option>
               <option value="Review">Review</option>
+              <option value="In Revision">⚠️ In Revision</option>
               <option value="Delivered">Delivered</option>
+              <option value="Completed">✓ Completed</option>
               <option value="Cancelled">Cancelled</option>
             </select>
           </div>
@@ -303,22 +318,22 @@
           <!-- Category Filter Tabs in Admin Panel -->
           <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
             <button type="button" class="btn btn-sm btn-primary admin-service-filter-btn" data-cat="all" onclick="filterAdminServices('all')">
-              All Services (24)
+              All Services (<span id="adminCatCountAll">24</span>)
             </button>
             <button type="button" class="btn btn-sm btn-secondary admin-service-filter-btn" data-cat="digital-marketing" onclick="filterAdminServices('digital-marketing')">
-              📱 Digital Marketing (5)
+              📱 Digital Marketing (<span id="adminCatCountMarketing">5</span>)
             </button>
             <button type="button" class="btn btn-sm btn-secondary admin-service-filter-btn" data-cat="youtube" onclick="filterAdminServices('youtube')">
-              ▶️ YouTube Services (6)
+              ▶️ YouTube Services (<span id="adminCatCountYoutube">6</span>)
             </button>
             <button type="button" class="btn btn-sm btn-secondary admin-service-filter-btn" data-cat="graphic-design" onclick="filterAdminServices('graphic-design')">
-              🎨 Graphic Design (5)
+              🎨 Graphic Design (<span id="adminCatCountDesign">5</span>)
             </button>
             <button type="button" class="btn btn-sm btn-secondary admin-service-filter-btn" data-cat="data-entry" onclick="filterAdminServices('data-entry')">
-              📊 Data Entry &amp; VA (5)
+              📊 Data Entry &amp; VA (<span id="adminCatCountData">5</span>)
             </button>
             <button type="button" class="btn btn-sm btn-secondary admin-service-filter-btn" data-cat="automation" onclick="filterAdminServices('automation')">
-              ⚡ Automation Services (3)
+              ⚡ Automation Services (<span id="adminCatCountAutomation">3</span>)
             </button>
           </div>
 
@@ -479,6 +494,43 @@
         </div>
       </section>
 
+      <!-- TAB 6: CUSTOMER CONTACT INQUIRIES & MESSAGES -->
+      <section id="adminTabMessages" style="display: none;">
+        <div class="card" style="padding: 24px; margin-bottom: 36px; border-color: #243554;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 14px;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                <span class="badge-status badge-in-progress" style="font-size: 11px;">PUBLIC CONTACT INBOX</span>
+                <span style="font-size: 12px; color: var(--accent-cyan); font-weight: 700;">Supabase Cloud Inbox</span>
+              </div>
+              <h3 class="modal-header-title" style="font-size: 20px; font-weight: 800; color: #fff;">
+                Client Inquiries &amp; Contact Messages
+              </h3>
+              <p style="font-size: 13px; color: var(--text-gray); margin-top: 2px;">
+                Review messages submitted through the public Contact form, mark inquiries as replied, or archive/delete them.
+              </p>
+            </div>
+            <button type="button" onclick="syncAdminContactMessages(true)" class="btn btn-secondary btn-sm">
+              ↻ Sync Messages
+            </button>
+          </div>
+
+          <div style="display: flex; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; align-items: center;">
+            <input type="text" id="adminMessageSearch" class="form-input" placeholder="Search by sender name, email, service, or message..." style="flex: 2; min-width: 220px;" oninput="renderAdminContactMessages()">
+            <select id="adminMessageStatusFilter" class="form-select" style="flex: 1; min-width: 150px;" onchange="renderAdminContactMessages()">
+              <option value="all">All Inquiries</option>
+              <option value="new">New / Unread</option>
+              <option value="replied">Replied</option>
+              <option value="archived">Archived</option>
+            </select>
+          </div>
+
+          <div id="adminMessagesContainer" style="display: flex; flex-direction: column; gap: 12px;">
+            <!-- Rendered via admin.js -->
+          </div>
+        </div>
+      </section>
+
     </div>
   </main>
 
@@ -506,11 +558,11 @@
           <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label" for="newGigCategory">Category Key <span style="color: #ef4444;">*</span></label>
             <select id="newGigCategory" class="form-select" required>
-              <option value="marketing">Digital Marketing</option>
-              <option value="development">Web Development</option>
-              <option value="design">Creative &amp; Graphic Design</option>
-              <option value="seo">Search Engine Optimization (SEO)</option>
-              <option value="video">Video Editing &amp; Animation</option>
+              <option value="digital-marketing">Digital Marketing</option>
+              <option value="youtube">YouTube Services</option>
+              <option value="graphic-design">Graphic Design</option>
+              <option value="data-entry">Data Entry &amp; VA</option>
+              <option value="automation">Automation Services</option>
               <option value="custom">Custom Service</option>
             </select>
           </div>
@@ -529,9 +581,15 @@
 
         <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 18px;">
           <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label" for="newGigCoverImage">Cover Image / Media URL (Image, Video, or Local Path) <span style="color: #ef4444;">*</span></label>
-            <input type="text" id="newGigCoverImage" class="form-input" placeholder="e.g. public/assets/... or https://... or YouTube video URL" value="public/assets/aistudio/file_000000001e5881f5bec7048c347e325c_07632167.png" required>
-            <small class="modal-subtext" style="font-size: 11px; margin-top: 3px; display: block;">Supports any image link, video link, YouTube URL, or local path (e.g. public/assets/...).</small>
+            <label class="form-label" for="newGigCoverImage">Cover Image / Media URL <span style="color: #ef4444;">*</span></label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <input type="text" id="newGigCoverImage" class="form-input" style="flex: 1;" placeholder="e.g. https://... or upload to Supabase Storage" value="/assets/aistudio/file_000000001e5881f5bec7048c347e325c_07632167.png" required>
+              <label class="btn btn-secondary btn-sm" style="cursor: pointer; white-space: nowrap; flex-shrink: 0; border-color: rgba(56, 189, 248, 0.45); color: #38bdf8;" title="Upload cover image/video directly to Supabase Storage (portfolio-media)">
+                📤 Upload
+                <input type="file" accept="image/*,video/*" style="display: none;" onchange="uploadMediaForInputField(this, 'newGigCoverImage', null, 'services')">
+              </label>
+            </div>
+            <small class="modal-subtext" style="font-size: 11px; margin-top: 3px; display: block;">Paste any URL or click Upload to store directly in Supabase Storage (portfolio-media).</small>
           </div>
           <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label" for="newGigBadge">Card Badge (Optional)</label>
@@ -706,7 +764,14 @@
             </div>
             <div>
               <label class="form-label" for="editServiceCategory">Category</label>
-              <input type="text" id="editServiceCategory" class="form-input" required>
+              <select id="editServiceCategory" class="form-select" required>
+                <option value="digital-marketing">Digital Marketing</option>
+                <option value="youtube">YouTube Services</option>
+                <option value="graphic-design">Graphic Design</option>
+                <option value="data-entry">Data Entry &amp; VA</option>
+                <option value="automation">Automation Services</option>
+                <option value="custom">Custom Service</option>
+              </select>
             </div>
           </div>
 
@@ -717,8 +782,14 @@
 
           <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 14px;">
             <div>
-              <label class="form-label" for="editGigCoverImage">Cover Image URL</label>
-              <input type="text" id="editGigCoverImage" class="form-input" placeholder="https://images.unsplash.com/... or public/assets/...">
+              <label class="form-label" for="editGigCoverImage">Cover Image URL / Supabase Storage</label>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="text" id="editGigCoverImage" class="form-input" style="flex: 1;" placeholder="https://... or upload to Supabase Storage">
+                <label class="btn btn-secondary btn-sm" style="cursor: pointer; white-space: nowrap; flex-shrink: 0; border-color: rgba(56, 189, 248, 0.45); color: #38bdf8;">
+                  📤 Upload
+                  <input type="file" accept="image/*,video/*" style="display: none;" onchange="uploadMediaForInputField(this, 'editGigCoverImage', null, 'services')">
+                </label>
+              </div>
             </div>
             <div>
               <label class="form-label" for="editGigBadge">Card Badge</label>
@@ -1093,21 +1164,27 @@
           </div>
         </div>
 
-        <!-- Field 3: Image / Media URL -->
+        <!-- Field 3: Image / Media URL + Supabase Storage Upload -->
         <div class="form-group">
-          <label class="form-label" for="newProjectMediaUrl">
-            Image / Media URL <span style="color: #ef4444;">*</span>
-          </label>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px; flex-wrap: wrap;">
+            <label class="form-label" for="newProjectMediaUrl" style="margin-bottom: 0;">
+              Image / Media URL <span style="color: #ef4444;">*</span>
+            </label>
+            <label class="btn btn-sm" style="cursor: pointer; font-size: 11px; padding: 3px 10px; background: rgba(16, 185, 129, 0.16); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);">
+              📤 Upload to Supabase Storage
+              <input type="file" accept="image/*,video/*" style="display: none;" onchange="uploadMediaForInputField(this, 'newProjectMediaUrl', 'postProjectMediaPreviewBox', 'portfolio')">
+            </label>
+          </div>
           <input 
             type="text" 
             id="newProjectMediaUrl" 
             class="form-input" 
-            placeholder="Image URL / local path (e.g. public/assets/... or https://...) or MP4/YouTube link" 
+            placeholder="Upload file above OR paste Image/Video/YouTube URL" 
             required
             oninput="previewMediaInModal(this.value, 'postProjectMediaPreviewBox')"
           >
           <small class="modal-subtext" style="font-size: 11px; margin-top: 4px; display: block; color: var(--text-dark-gray);">
-            Supports local asset paths (e.g. public/assets/...), external image URLs, direct videos (.mp4), and YouTube links.
+            Uploads save permanently to Supabase Storage bucket <code>portfolio-media</code>. Also supports external URLs &amp; YouTube links.
           </small>
 
           <!-- Live Media Preview Box -->
@@ -1204,8 +1281,14 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="editProjectMediaUrl">Image / Media URL <span style="color: #ef4444;">*</span></label>
-          <input type="text" id="editProjectMediaUrl" class="form-input" placeholder="Image URL / local path (e.g. public/assets/... or https://...) or MP4/YouTube link" required oninput="previewMediaInModal(this.value, 'editProjectMediaPreviewBox')">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px; flex-wrap: wrap;">
+            <label class="form-label" for="editProjectMediaUrl" style="margin-bottom: 0;">Image / Media URL <span style="color: #ef4444;">*</span></label>
+            <label class="btn btn-sm" style="cursor: pointer; font-size: 11px; padding: 3px 10px; background: rgba(16, 185, 129, 0.16); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);">
+              📤 Upload to Supabase Storage
+              <input type="file" accept="image/*,video/*" style="display: none;" onchange="uploadMediaForInputField(this, 'editProjectMediaUrl', 'editProjectMediaPreviewBox', 'portfolio')">
+            </label>
+          </div>
+          <input type="text" id="editProjectMediaUrl" class="form-input" placeholder="Upload file above OR paste Image/Video/YouTube URL" required oninput="previewMediaInModal(this.value, 'editProjectMediaPreviewBox')">
           <div id="editProjectMediaPreviewBox" style="margin-top: 10px; width: 100%; height: 160px; background: #040711; border: 1px dashed var(--border-color); border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; color: var(--text-dark-gray); font-size: 12px;">
             <span>Media Preview</span>
           </div>
@@ -1403,6 +1486,45 @@
     </div>
   </div>
 
+  <!-- MODAL: CONNECT SUPABASE STORAGE CENTER (sanjitrooy733@gmail.com) -->
+  <div id="adminCloudConnectModal" class="modal-overlay" role="dialog" aria-modal="true" style="display: none;" onclick="if(event.target === this) closeCloudAuthModal()">
+    <div class="modal-card fiverr-modal-card" style="max-width: 440px; border-radius: var(--radius-lg);">
+      <button type="button" onclick="closeCloudAuthModal()" class="modal-close-btn" aria-label="Close modal">✕</button>
+      <span class="section-kicker" style="margin-bottom: 4px;">SUPABASE STORAGE CENTER</span>
+      <h3 class="modal-header-title" style="font-size: 20px; font-weight: 800; margin-bottom: 6px; color: #fff;">Connect Cloud Storage Session</h3>
+      <p style="font-size: 13px; color: var(--text-gray); margin-bottom: 16px; line-height: 1.5;">
+        Sign in with your Supabase Auth password for <strong>sanjitrooy733@gmail.com</strong> to enable private delivery &amp; portfolio cloud storage uploads.
+      </p>
+      <form onsubmit="handleInlineCloudAuth(event)">
+        <div class="form-group">
+          <label class="form-label" for="cloudAuthEmail">Admin Email</label>
+          <input type="email" id="cloudAuthEmail" class="form-input" value="sanjitrooy733@gmail.com" required>
+        </div>
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="form-label" for="cloudAuthPassword" style="margin-bottom: 0;">Supabase Auth Password</label>
+            <button type="button" onclick="handleLockForgotPassword()" style="background: none; border: none; color: var(--accent-cyan); font-size: 11px; font-weight: 600; cursor: pointer; padding: 0;">
+              Forgot / Set Password?
+            </button>
+          </div>
+          <input type="password" id="cloudAuthPassword" class="form-input" placeholder="Enter your Supabase account password" required>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap;">
+          <button type="button" onclick="runAdminCloudDiagnostic()" class="btn btn-secondary btn-sm" style="font-size: 12px;">
+            🔍 Check DB &amp; Buckets
+          </button>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" onclick="closeCloudAuthModal()" class="btn btn-secondary">Cancel</button>
+            <button type="submit" id="btnCloudAuthSubmit" class="btn btn-primary" style="background: linear-gradient(135deg, #059669, #10b981);">
+              Connect Storage Cloud
+            </button>
+          </div>
+        </div>
+      </form>
+      <div id="adminCloudDiagnosticResult" style="display: none; margin-top: 14px; padding: 12px; border-radius: 8px; background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(56, 189, 248, 0.25); font-size: 11.5px; line-height: 1.5; max-height: 220px; overflow-y: auto;"></div>
+    </div>
+  </div>
+
   <!-- Admin Footer -->
   <footer class="footer" style="background: #03050a; border-top: 1px solid #1a263d;">
     <div class="container footer-content">
@@ -1428,6 +1550,8 @@
       document.getElementById('adminTabReviews').style.display = tabName === 'reviews' ? 'block' : 'none';
       const projTab = document.getElementById('adminTabProjects');
       if (projTab) projTab.style.display = tabName === 'projects' ? 'block' : 'none';
+      const msgTab = document.getElementById('adminTabMessages');
+      if (msgTab) msgTab.style.display = tabName === 'messages' ? 'block' : 'none';
 
       document.getElementById('subnavOrdersBtn').className = tabName === 'orders' ? 'admin-subnav-btn active' : 'admin-subnav-btn';
       document.getElementById('subnavServicesBtn').className = tabName === 'services' ? 'admin-subnav-btn active' : 'admin-subnav-btn';
@@ -1435,11 +1559,14 @@
       document.getElementById('subnavReviewsBtn').className = tabName === 'reviews' ? 'admin-subnav-btn active' : 'admin-subnav-btn';
       const subnavProj = document.getElementById('subnavProjectsBtn');
       if (subnavProj) subnavProj.className = tabName === 'projects' ? 'admin-subnav-btn active' : 'admin-subnav-btn';
+      const subnavMsg = document.getElementById('subnavMessagesBtn');
+      if (subnavMsg) subnavMsg.className = tabName === 'messages' ? 'admin-subnav-btn active' : 'admin-subnav-btn';
 
       if (tabName === 'services' && typeof renderAdminServicesList === 'function') renderAdminServicesList();
       if (tabName === 'coupons' && typeof renderAdminCouponsTable === 'function') renderAdminCouponsTable();
       if (tabName === 'projects' && typeof renderAdminProjectsList === 'function') renderAdminProjectsList();
       if (tabName === 'reviews' && typeof renderAdminReviews === 'function') renderAdminReviews();
+      if (tabName === 'messages' && typeof syncAdminContactMessages === 'function') syncAdminContactMessages(false);
     }
 
     function safeAdminToast(msg, type = 'success') {
@@ -1451,74 +1578,228 @@
       window.showToast = safeAdminToast;
     }
 
-    // Passcode Security Gate
+    async function refreshAdminStorageStatusPill() {
+      const pill = document.getElementById('adminCloudStatusPill');
+      if (!pill) return;
+      try {
+        const isCloud = typeof window.isCurrentUserAdmin === 'function' ? await window.isCurrentUserAdmin() : false;
+        const u = typeof window.getSupabaseAuthUser === 'function' ? await window.getSupabaseAuthUser() : null;
+        if (isCloud && u) {
+          pill.style.background = 'rgba(16, 185, 129, 0.14)';
+          pill.style.color = '#34d399';
+          pill.style.borderColor = 'rgba(16, 185, 129, 0.35)';
+          pill.innerHTML = `🟢 Storage Cloud Ready (${u.email || 'sanjitrooy733@gmail.com'})`;
+        } else {
+          pill.style.background = 'rgba(245, 158, 11, 0.14)';
+          pill.style.color = '#fbbf24';
+          pill.style.borderColor = 'rgba(245, 158, 11, 0.35)';
+          pill.innerHTML = `🟡 Local Mode — Click to Sign In Storage (sanjitrooy733@gmail.com)`;
+        }
+      } catch (e) {}
+    }
+
+    function openCloudAuthModal() {
+      const m = document.getElementById('adminCloudConnectModal');
+      if (m) m.style.display = 'flex';
+    }
+
+    function closeCloudAuthModal() {
+      const m = document.getElementById('adminCloudConnectModal');
+      if (m) m.style.display = 'none';
+    }
+
+    async function handleInlineCloudAuth(e) {
+      e.preventDefault();
+      const email = document.getElementById('cloudAuthEmail')?.value.trim();
+      const pass = document.getElementById('cloudAuthPassword')?.value;
+      const btn = document.getElementById('btnCloudAuthSubmit');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Connecting...';
+      }
+      try {
+        const res = typeof window.signInAdminSupabase === 'function'
+          ? await window.signInAdminSupabase(email, pass)
+          : { success: false, error: 'Supabase client unavailable' };
+        if (res?.success && res.user) {
+          setAdminSessionState(res.user.email, res.user.id);
+          await refreshAdminStorageStatusPill();
+          closeCloudAuthModal();
+          safeAdminToast(`🟢 Connected to Supabase Storage (${res.user.email})!`);
+          if (typeof loadAuthoritativeDataFromServer === 'function') loadAuthoritativeDataFromServer();
+        } else {
+          safeAdminToast(res?.error || 'Could not authenticate with Supabase.', 'error');
+        }
+      } catch (err) {
+        safeAdminToast(err?.message || 'Auth failed', 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Connect Storage Cloud';
+        }
+      }
+    }
+
+    async function runAdminCloudDiagnostic() {
+      const box = document.getElementById('adminCloudDiagnosticResult');
+      if (!box) return;
+      box.style.display = 'block';
+      box.innerHTML = '<span style="color: #38bdf8;">Checking Supabase tables, RPCs &amp; 5 Storage buckets...</span>';
+
+      try {
+        if (typeof window.runSupabaseHealthCheck !== 'function') {
+          box.innerHTML = '<span style="color: #f87171;">Supabase health check helper unavailable.</span>';
+          return;
+        }
+        const report = await window.runSupabaseHealthCheck();
+        const tableBadges = Object.entries(report.tables || {}).map(([name, st]) =>
+          `<span style="display:inline-block;padding:2px 6px;margin:2px;border-radius:4px;background:${st.ok ? 'rgba(16,185,129,0.18)' : 'rgba(239,68,68,0.18)'};color:${st.ok ? '#34d399' : '#fca5a5'};">${st.ok ? '✓' : '✕'} ${name}</span>`
+        ).join('');
+        const bucketBadges = Object.entries(report.buckets || {}).map(([name, st]) =>
+          `<span style="display:inline-block;padding:2px 6px;margin:2px;border-radius:4px;background:${st.ok ? 'rgba(16,185,129,0.18)' : 'rgba(239,68,68,0.18)'};color:${st.ok ? '#34d399' : '#fca5a5'};">${st.ok ? '✓' : '✕'} ${name}</span>`
+        ).join('');
+
+        const hasMissing = Object.values(report.tables || {}).some(v => !v.ok) || Object.values(report.buckets || {}).some(v => !v.ok);
+
+        box.innerHTML = `
+          <div style="margin-bottom: 6px;"><strong>Session:</strong> ${report.adminUser ? `<span style="color:#34d399;">${report.adminUser.email}</span>` : '<span style="color:#fbbf24;">Not signed in to Supabase Auth</span>'} | <strong>is_admin():</strong> ${report.isAdminRpc ? '<span style="color:#34d399;">true ✓</span>' : '<span style="color:#fbbf24;">false</span>'}</div>
+          <div style="margin-bottom: 6px;"><strong>Tables:</strong><br>${tableBadges}</div>
+          <div style="margin-bottom: 6px;"><strong>Storage Buckets:</strong><br>${bucketBadges}</div>
+          ${hasMissing ? '<div style="color:#fbbf24;margin-top:6px;">⚠️ Missing tables/buckets detected: Run <strong>supabase_migrations.sql</strong> once in Supabase Dashboard → SQL Editor.</div>' : '<div style="color:#34d399;margin-top:6px;">✓ All Supabase tables &amp; all 5 Storage buckets are live!</div>'}
+        `;
+      } catch (err) {
+        box.innerHTML = `<span style="color: #f87171;">Diagnostic error: ${err?.message || err}</span>`;
+      }
+    }
+    window.runAdminCloudDiagnostic = runAdminCloudDiagnostic;
+
+    // Strict Supabase Admin Security Gate (No localStorage/passcode bypass)
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', checkAdminAccess);
     } else {
       checkAdminAccess();
     }
 
-    function checkAdminAccess() {
-      let adminUnlocked = false;
-      try {
-        adminUnlocked = sessionStorage.getItem('ruddranil_admin_unlocked') === 'true';
-      } catch (e) {}
-      let isVerifiedAdmin = adminUnlocked;
+    async function checkAdminAccess() {
+      let isVerifiedAdmin = false;
+      let adminUser = null;
 
-      try {
-        const u = JSON.parse(localStorage.getItem('currentUser') || '{}');
-        if (u && (u.role === 'admin' || (u.email && u.email.toLowerCase().includes('admin')))) {
-          isVerifiedAdmin = true;
-          try { sessionStorage.setItem('ruddranil_admin_unlocked', 'true'); } catch (e) {}
+      if (typeof window.isCurrentUserAdmin === 'function') {
+        try {
+          isVerifiedAdmin = await window.isCurrentUserAdmin();
+          if (isVerifiedAdmin && typeof window.getSupabaseAuthUser === 'function') {
+            adminUser = await window.getSupabaseAuthUser();
+          }
+        } catch (e) {
+          isVerifiedAdmin = false;
         }
-      } catch (e) {}
+      }
 
       const lockScreen = document.getElementById('adminLockScreen');
       const mainArea = document.getElementById('adminMainArea');
 
-      if (!isVerifiedAdmin) {
+      if (!isVerifiedAdmin || !adminUser) {
+        try { sessionStorage.removeItem('ruddranil_admin_unlocked'); } catch (e) {}
+        try {
+          const cu = JSON.parse(localStorage.getItem('currentUser') || 'null');
+          if (cu && cu.role === 'admin') localStorage.removeItem('currentUser');
+        } catch (e) {}
         if (lockScreen) lockScreen.style.display = 'flex';
         if (mainArea) mainArea.style.display = 'none';
         return;
       }
 
+      setAdminSessionState(adminUser.email || 'sanjitrooy733@gmail.com', adminUser.id);
       if (lockScreen) lockScreen.style.display = 'none';
       if (mainArea) mainArea.style.display = 'block';
-      if (typeof renderAdminDashboard === 'function') renderAdminDashboard();
+      refreshAdminStorageStatusPill();
+      if (typeof window.initAdminConsole === 'function') {
+        window.initAdminConsole();
+      } else if (typeof renderAdminDashboard === 'function') {
+        renderAdminDashboard();
+      }
     }
 
-    function setAdminSessionState() {
+    function setAdminSessionState(email = 'sanjitrooy733@gmail.com', userId = null) {
       try { sessionStorage.setItem('ruddranil_admin_unlocked', 'true'); } catch (e) {}
       try {
         localStorage.setItem('currentUser', JSON.stringify({
-          id: 'admin-master',
+          id: userId,
           name: 'Ruddranil',
-          email: 'admin@ruddranil.io',
+          email: email || 'sanjitrooy733@gmail.com',
           role: 'admin',
-          emailVerified: true
+          emailVerified: true,
+          supabaseCloudAuth: true
         }));
       } catch (e) {}
     }
 
-    function verifyAdminPasscode(e) {
-      e.preventDefault();
-      const pass = document.getElementById('adminPassInput').value.trim();
-      if (pass === 'admin123' || pass.length >= 3) {
-        setAdminSessionState();
-        safeAdminToast('Admin Console Unlocked! Welcome Ruddranil.');
-        checkAdminAccess();
-      } else {
-        safeAdminToast('Incorrect passcode. Use: admin123', 'error');
+    async function handleLockForgotPassword() {
+      const btn = document.getElementById('btnLockForgotPass');
+      if (typeof window.requestAdminPasswordReset !== 'function') {
+        safeAdminToast('Supabase client unavailable.', 'error');
+        return;
+      }
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Sending reset link...';
+      }
+      try {
+        const res = await window.requestAdminPasswordReset('sanjitrooy733@gmail.com');
+        if (res?.success) {
+          safeAdminToast('Password reset/setup link sent to sanjitrooy733@gmail.com. Check your Gmail inbox!');
+        } else {
+          safeAdminToast(res?.error || 'Could not send password reset email.', 'error');
+        }
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Forgot / Set Password?';
+        }
       }
     }
 
-    function bypassAdminUnlock() {
-      setAdminSessionState();
-      safeAdminToast('Admin Console Unlocked! Welcome Ruddranil.');
-      checkAdminAccess();
+    async function verifyAdminPasscode(e) {
+      e.preventDefault();
+      const passInput = document.getElementById('adminPassInput');
+      const btn = document.getElementById('btnLockUnlock');
+      const pass = passInput ? passInput.value : '';
+
+      if (!pass) {
+        safeAdminToast('Please enter your Supabase Admin password.', 'error');
+        return;
+      }
+      if (typeof window.signInAdminSupabase !== 'function') {
+        safeAdminToast('Supabase Auth client unavailable.', 'error');
+        return;
+      }
+
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Verifying Supabase JWT...';
+      }
+
+      try {
+        const res = await window.signInAdminSupabase('sanjitrooy733@gmail.com', pass);
+        if (res?.success && res.user) {
+          setAdminSessionState(res.user.email, res.user.id);
+          if (passInput) passInput.value = '';
+          safeAdminToast('Admin & Supabase Storage Verified!');
+          await checkAdminAccess();
+        } else {
+          safeAdminToast(res?.error || 'Incorrect Supabase password for sanjitrooy733@gmail.com.', 'error');
+        }
+      } catch (err) {
+        safeAdminToast(err?.message || 'Authentication failed.', 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Verify & Unlock Admin Console';
+        }
+      }
     }
 
-    function adminLogout() {
+    async function adminLogout() {
       try { sessionStorage.removeItem('ruddranil_admin_unlocked'); } catch (e) {}
       try {
         const u = JSON.parse(localStorage.getItem('currentUser') || '{}');
@@ -1526,6 +1807,9 @@
           localStorage.removeItem('currentUser');
         }
       } catch (e) {}
+      if (window.sbClient && window.sbClient.auth) {
+        try { await window.sbClient.auth.signOut(); } catch (e) {}
+      }
       safeAdminToast('Admin session locked');
       setTimeout(() => {
         window.location.href = 'admin-login.html';
@@ -1560,9 +1844,12 @@
     window.switchAdminTab = switchAdminTab;
     window.checkAdminAccess = checkAdminAccess;
     window.verifyAdminPasscode = verifyAdminPasscode;
-    window.bypassAdminUnlock = bypassAdminUnlock;
     window.adminLogout = adminLogout;
     window.exportDataBackup = exportDataBackup;
+    window.openCloudAuthModal = openCloudAuthModal;
+    window.closeCloudAuthModal = closeCloudAuthModal;
+    window.handleInlineCloudAuth = handleInlineCloudAuth;
+    window.refreshAdminStorageStatusPill = refreshAdminStorageStatusPill;
   </script>
 </body>
 </html>

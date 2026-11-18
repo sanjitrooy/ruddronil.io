@@ -115,6 +115,62 @@ async function startServer() {
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // ==========================================
+  // SUPABASE AUTH & ADMIN VERIFICATION HELPERS
+  // ==========================================
+  const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://kzkqkrxujhqppsvitgqf.supabase.co';
+  const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_lFQxQnei2d1a2gW_PTnTwg_UbluQF6a';
+  const ADMIN_EMAIL = 'sanjitrooy733@gmail.com';
+
+  interface VerifiedUser {
+    id: string;
+    email: string;
+    isAdmin: boolean;
+  }
+
+  const tokenCache = new Map<string, { user: VerifiedUser; expiresAt: number }>();
+
+  async function verifyBearerUser(req: Request): Promise<VerifiedUser | null> {
+    const authHeader = String(req.headers.authorization || '');
+    const match = authHeader.match(/^Bearer\s+(.+)$/i);
+    if (!match || !match[1]) return null;
+    const token = match[1].trim();
+    if (!token) return null;
+
+    const cached = tokenCache.get(token);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.user;
+    }
+
+    try {
+      const resp = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${token}`
+        }
+      });
+      if (!resp.ok) return null;
+      const u: any = await resp.json();
+      if (!u || !u.id) return null;
+      const email = String(u.email || '').trim().toLowerCase();
+      const isAdmin = email === ADMIN_EMAIL || u.app_metadata?.role === 'admin';
+      const verified: VerifiedUser = { id: String(u.id), email, isAdmin };
+      tokenCache.set(token, { user: verified, expiresAt: Date.now() + 30_000 });
+      return verified;
+    } catch {
+      return null;
+    }
+  }
+
+  async function requireAdmin(req: Request, res: Response): Promise<VerifiedUser | null> {
+    const user = await verifyBearerUser(req);
+    if (!user || !user.isAdmin) {
+      res.status(401).json({ error: 'Unauthorized: Verified Supabase admin session required.' });
+      return null;
+    }
+    return user;
+  }
+
+  // ==========================================
   // SERVICES API (Persistent across all devices)
   // ==========================================
   app.get('/api/services', (_req: Request, res: Response) => {
@@ -122,7 +178,8 @@ async function startServer() {
     res.json(services);
   });
 
-  app.post('/api/services', (req: Request, res: Response) => {
+  app.post('/api/services', async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
     try {
       const incoming = req.body;
       let services = readJsonFile<any[]>(SERVICES_FILE, []);
@@ -154,7 +211,8 @@ async function startServer() {
     }
   });
 
-  app.delete('/api/services/:id', (req: Request, res: Response) => {
+  app.delete('/api/services/:id', async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
     try {
       const { id } = req.params;
       let services = readJsonFile<any[]>(SERVICES_FILE, []);
@@ -176,7 +234,8 @@ async function startServer() {
     res.json(projects);
   });
 
-  app.post('/api/projects', (req: Request, res: Response) => {
+  app.post('/api/projects', async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
     try {
       const incoming = req.body;
       let projects = readJsonFile<any[]>(PROJECTS_FILE, []);
@@ -208,7 +267,8 @@ async function startServer() {
     }
   });
 
-  app.delete('/api/projects/:id', (req: Request, res: Response) => {
+  app.delete('/api/projects/:id', async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
     try {
       const { id } = req.params;
       let projects = readJsonFile<any[]>(PROJECTS_FILE, []);
@@ -224,9 +284,20 @@ async function startServer() {
   // ==========================================
   // ORDERS API (Permanent cross-device client & admin synchronization)
   // ==========================================
-  app.get('/api/orders', (_req: Request, res: Response) => {
+  app.get('/api/orders', async (req: Request, res: Response) => {
+    const user = await verifyBearerUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Authentication required to list orders.' });
+    }
     const orders = readJsonFile<any[]>(ORDERS_FILE, DEFAULT_ORDERS);
-    res.json(orders);
+    if (user.isAdmin) {
+      return res.json(orders);
+    }
+    const scoped = orders.filter(o =>
+      (o.customerId && o.customerId === user.id) ||
+      (o.customerEmail && String(o.customerEmail).toLowerCase() === user.email)
+    );
+    res.json(scoped);
   });
 
   app.get('/api/orders/:id', (req: Request, res: Response) => {
@@ -243,12 +314,16 @@ async function startServer() {
     return res.status(404).json({ error: 'Order not found' });
   });
 
-  app.post('/api/orders', (req: Request, res: Response) => {
+  app.post('/api/orders', async (req: Request, res: Response) => {
     try {
       const incoming = req.body;
+      const user = await verifyBearerUser(req);
       let orders = readJsonFile<any[]>(ORDERS_FILE, DEFAULT_ORDERS);
 
       if (Array.isArray(incoming)) {
+        if (!user?.isAdmin) {
+          return res.status(401).json({ error: 'Admin authentication required for bulk order sync.' });
+        }
         incoming.forEach(inc => {
           if (!inc || !inc.id) return;
           const cleanIncId = String(inc.id).replace(/^#/, '').toLowerCase();
@@ -269,42 +344,62 @@ async function startServer() {
           (o.id || '').toLowerCase().replace(/^#/, '') === cleanIncId
         );
         if (idx >= 0) {
-          orders[idx] = { ...orders[idx], ...incoming };
+          const existing = orders[idx];
+          const isOwner = user && (
+            (existing.customerId && existing.customerId === user.id) ||
+            (existing.customerEmail && String(existing.customerEmail).toLowerCase() === user.email)
+          );
+          if (!user?.isAdmin && !isOwner) {
+            return res.status(403).json({ error: 'Cannot overwrite an existing order.' });
+          }
+          orders[idx] = { ...existing, ...incoming };
         } else {
           orders.unshift(incoming);
         }
       }
 
       writeJsonFile(ORDERS_FILE, orders);
-      res.json({ success: true, count: orders.length, orders });
+      res.json({ success: true, count: orders.length });
     } catch (err) {
       console.error('Error saving orders:', err);
       res.status(500).json({ error: 'Failed to save orders' });
     }
   });
 
-  app.patch('/api/orders/:id', (req: Request, res: Response) => {
+  app.patch('/api/orders/:id', async (req: Request, res: Response) => {
     try {
       const rawId = (req.params.id || '').trim();
       const cleanId = rawId.replace(/^#/, '').toLowerCase();
-      const updates = req.body;
+      const updates = req.body || {};
+      const user = await verifyBearerUser(req);
       let orders = readJsonFile<any[]>(ORDERS_FILE, DEFAULT_ORDERS);
       const idx = orders.findIndex(o => 
         (o.id || '').toLowerCase() === cleanId || 
         (o.id || '').toLowerCase().replace(/^#/, '') === cleanId
       );
 
+      // Non-admin callers (tracking portal client acceptance/revision) may only modify tracking/revision fields
+      const safeUpdates = user?.isAdmin ? updates : {
+        ...(updates.status === 'Completed' || updates.status === 'In Revision' ? { status: updates.status } : {}),
+        ...(typeof updates.progress === 'number' && (updates.status === 'Completed' || updates.status === 'In Revision') ? { progress: updates.progress } : {}),
+        ...(Array.isArray(updates.revisions) ? { revisions: updates.revisions } : {}),
+        ...(updates.delivery && typeof updates.delivery === 'object' && updates.delivery.accepted ? { delivery: updates.delivery } : {}),
+        lastUpdated: updates.lastUpdated || 'Just now'
+      };
+
       if (idx >= 0) {
         orders[idx] = {
           ...orders[idx],
-          ...updates,
-          lastUpdated: updates.lastUpdated || 'Just now'
+          ...safeUpdates,
+          lastUpdated: safeUpdates.lastUpdated || 'Just now'
         };
         writeJsonFile(ORDERS_FILE, orders);
         res.json({ success: true, order: orders[idx] });
       } else {
-        // If order not yet in server file, save it with updates
-        const newOrderObj = { id: rawId, ...updates, lastUpdated: 'Just now' };
+        if (!user?.isAdmin) {
+          return res.status(404).json({ error: 'Order not found' });
+        }
+        const newOrderObj = { id: rawId, ...safeUpdates, lastUpdated: 'Just now' };
         orders.unshift(newOrderObj);
         writeJsonFile(ORDERS_FILE, orders);
         res.json({ success: true, order: newOrderObj });
@@ -315,7 +410,8 @@ async function startServer() {
     }
   });
 
-  app.delete('/api/orders/:id', (req: Request, res: Response) => {
+  app.delete('/api/orders/:id', async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
     try {
       const { id } = req.params;
       let orders = readJsonFile<any[]>(ORDERS_FILE, DEFAULT_ORDERS);
@@ -337,12 +433,16 @@ async function startServer() {
     res.json(reviews);
   });
 
-  app.post('/api/reviews', (req: Request, res: Response) => {
+  app.post('/api/reviews', async (req: Request, res: Response) => {
     try {
       const incoming = req.body;
+      const user = await verifyBearerUser(req);
       let reviews = readJsonFile<any[]>(REVIEWS_FILE, []);
 
       if (Array.isArray(incoming)) {
+        if (!user?.isAdmin) {
+          return res.status(401).json({ error: 'Admin authentication required for bulk review sync.' });
+        }
         incoming.forEach(inc => {
           if (!inc || !inc.id) return;
           const idx = reviews.findIndex(r => r.id === inc.id || (inc.orderId && r.orderId === inc.orderId));
@@ -355,6 +455,9 @@ async function startServer() {
       } else if (incoming && incoming.id) {
         const idx = reviews.findIndex(r => r.id === incoming.id || (incoming.orderId && r.orderId === incoming.orderId));
         if (idx >= 0) {
+          if (!user?.isAdmin) {
+            return res.status(403).json({ error: 'Only admin can modify an existing review.' });
+          }
           reviews[idx] = { ...reviews[idx], ...incoming };
         } else {
           reviews.unshift(incoming);
@@ -369,7 +472,8 @@ async function startServer() {
     }
   });
 
-  app.patch('/api/reviews/:id', (req: Request, res: Response) => {
+  app.patch('/api/reviews/:id', async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
     try {
       const { id } = req.params;
       const updates = req.body;
@@ -415,7 +519,8 @@ async function startServer() {
     }
   });
 
-  app.delete('/api/reviews/:id', (req: Request, res: Response) => {
+  app.delete('/api/reviews/:id', async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
     try {
       const { id } = req.params;
       let reviews = readJsonFile<any[]>(REVIEWS_FILE, []);
@@ -429,59 +534,63 @@ async function startServer() {
   });
 
   // ==========================================
-  // TECHNICAL SEO: ROBOTS.TXT & DYNAMIC SITEMAP.XML
+  // TECHNICAL SEO: DYNAMIC ROBOTS.TXT & SITEMAP.XML
   // ==========================================
-  app.get('/robots.txt', (_req: Request, res: Response) => {
-    const robotsPath = path.resolve(__dirname, 'public', 'robots.txt');
-    if (fs.existsSync(robotsPath)) {
-      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-      res.sendFile(robotsPath);
-    } else {
-      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-      res.send(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /customer-dashboard\nDisallow: /login\nDisallow: /work-tracking\nSitemap: /sitemap.xml\n`);
+  function resolveSeoOrigin(req: Request): string {
+    const envUrl = String(process.env.APP_URL || '').trim();
+    if (envUrl && envUrl.startsWith('http') && !envUrl.includes('MY_APP_URL')) {
+      return envUrl.replace(/\/+$/, '');
     }
+    const proto = req.headers['x-forwarded-proto']
+      ? String(req.headers['x-forwarded-proto']).split(',')[0].trim()
+      : req.protocol;
+    return `${proto}://${req.get('host')}`.replace(/\/+$/, '');
+  }
+
+  app.get('/robots.txt', (req: Request, res: Response) => {
+    const origin = resolveSeoOrigin(req);
+    const robotsPath = path.resolve(__dirname, 'public', 'robots.txt');
+    let content = '';
+    if (fs.existsSync(robotsPath)) {
+      content = fs.readFileSync(robotsPath, 'utf8').replace(/^Sitemap:.*$/im, `Sitemap: ${origin}/sitemap.xml`);
+    } else {
+      content = `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /admin-login\nDisallow: /customer-dashboard\nDisallow: /login\nDisallow: /work-tracking\nDisallow: /api/\nSitemap: ${origin}/sitemap.xml\n`;
+    }
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.send(content);
   });
 
   app.get('/sitemap.xml', (req: Request, res: Response) => {
-    const origin = `${req.protocol}://${req.get('host')}`;
+    const origin = resolveSeoOrigin(req);
     const today = new Date().toISOString().split('T')[0];
     const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>${origin}/</loc>
     <lastmod>${today}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>${origin}/#services</loc>
-    <lastmod>${today}</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.95</priority>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>${origin}/assets/aistudio/file_000000001e5881f5bec7048c347e325c_07632167.png</image:loc>
+      <image:title>Ruddranil.io Digital Services &amp; Automation Showcase</image:title>
+    </image:image>
   </url>
   <url>
-    <loc>${origin}/portfolio.html</loc>
+    <loc>${origin}/portfolio</loc>
     <lastmod>${today}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.90</priority>
+    <image:image>
+      <image:loc>${origin}/assets/aistudio/file_000000001e5881f5bec7048c347e325c_07632167.png</image:loc>
+      <image:title>Ruddranil.io Portfolio &amp; Project Showcase</image:title>
+    </image:image>
   </url>
   <url>
-    <loc>${origin}/reviews.html</loc>
+    <loc>${origin}/reviews</loc>
     <lastmod>${today}</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.85</priority>
-  </url>
-  <url>
-    <loc>${origin}/#faq</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.80</priority>
-  </url>
-  <url>
-    <loc>${origin}/#contact</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.80</priority>
   </url>
 </urlset>`;
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');

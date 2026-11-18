@@ -26,8 +26,374 @@ window.supabaseClient = sbClient;
 window.sbClient = sbClient;
 
 // ============================================================================
+// 0. ADMIN & SUPABASE STORAGE CENTER (sanjitrooy733@gmail.com)
+// ============================================================================
+const ADMIN_STORAGE_EMAIL = 'sanjitrooy733@gmail.com';
+window.ADMIN_STORAGE_EMAIL = ADMIN_STORAGE_EMAIL;
+
+function isAdminEmailMatch(email) {
+  return String(email || '').trim().toLowerCase() === ADMIN_STORAGE_EMAIL;
+}
+
+// Fallback Router: If Supabase falls back to root Site URL (/) because a preview Redirect URL
+// is not yet allowlisted in Authentication -> URL Configuration, forward admin recovery to /admin-login.html
+(function setupAdminRecoveryFallbackRouter() {
+  if (typeof window === 'undefined') return;
+  const path = window.location.pathname || '/';
+  if (path.endsWith('/admin-login.html') || path.endsWith('admin-login.html')) return;
+
+  const hash = window.location.hash || '';
+  const search = window.location.search || '';
+  const searchParams = new URLSearchParams(search);
+  const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
+
+  if (hashParams.get('type') === 'recovery' || searchParams.get('type') === 'recovery') {
+    window.location.replace(`/admin-login.html${search}${hash}`);
+    return;
+  }
+
+  if (sbClient && sbClient.auth && typeof sbClient.auth.onAuthStateChange === 'function') {
+    sbClient.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        const userEmail = session?.user?.email;
+        if (!userEmail || isAdminEmailMatch(userEmail)) {
+          window.location.replace('/admin-login.html?type=recovery');
+        }
+      }
+    });
+  }
+})();
+
+async function getSupabaseAuthUser() {
+  if (!sbClient || !sbClient.auth) return null;
+  try {
+    const { data: { session } } = await sbClient.auth.getSession();
+    if (session?.user) return session.user;
+    const { data: { user } } = await sbClient.auth.getUser();
+    return user || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function getSupabaseAccessToken() {
+  if (!sbClient || !sbClient.auth) return null;
+  try {
+    const { data: { session } } = await sbClient.auth.getSession();
+    return session?.access_token || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function getAdminAuthHeaders(extraHeaders = {}) {
+  const headers = { ...extraHeaders };
+  const token = await getSupabaseAccessToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+async function isCurrentUserAdmin() {
+  const user = await getSupabaseAuthUser();
+  if (!user) return false;
+  const emailMatch = isAdminEmailMatch(user.email);
+  const roleMatch = user.app_metadata?.role === 'admin';
+  return emailMatch || roleMatch;
+}
+
+async function signInAdminSupabase(email, password) {
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  if (!cleanEmail || !password) {
+    return { success: false, error: 'Email and password are required.' };
+  }
+  if (!sbClient || !sbClient.auth) {
+    return { success: false, error: 'Supabase Auth client unavailable.' };
+  }
+  try {
+    const { data, error } = await sbClient.auth.signInWithPassword({
+      email: cleanEmail,
+      password
+    });
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    const user = data?.user;
+    if (!user) {
+      return { success: false, error: 'No user returned by Supabase Auth.' };
+    }
+    const allowed = isAdminEmailMatch(user.email) ||
+      user.app_metadata?.role === 'admin';
+
+    if (!allowed) {
+      await sbClient.auth.signOut().catch(() => {});
+      return {
+        success: false,
+        unauthorized: true,
+        error: `Account ${cleanEmail} does not have admin privileges. Please sign in with ${ADMIN_STORAGE_EMAIL}.`
+      };
+    }
+    return { success: true, user, session: data.session };
+  } catch (err) {
+    return { success: false, error: err?.message || 'Admin sign-in failed.' };
+  }
+}
+
+async function requestAdminPasswordReset(email = ADMIN_STORAGE_EMAIL) {
+  const cleanEmail = String(email || ADMIN_STORAGE_EMAIL).trim().toLowerCase();
+  if (!isAdminEmailMatch(cleanEmail)) {
+    return { success: false, error: `Only authorized admin email (${ADMIN_STORAGE_EMAIL}) can reset admin access.` };
+  }
+  if (!sbClient || !sbClient.auth) {
+    return { success: false, error: 'Supabase Auth client unavailable.' };
+  }
+  try {
+    const redirectTo = typeof window !== 'undefined'
+      ? `${window.location.origin}/admin-login.html`
+      : undefined;
+    const { error } = await sbClient.auth.resetPasswordForEmail(cleanEmail, redirectTo ? { redirectTo } : undefined);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err?.message || 'Could not send reset email.' };
+  }
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
+}
+
+function sanitizeStorageFileName(name) {
+  return String(name || 'file')
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/_+/g, '_')
+    .slice(-80);
+}
+
+async function getSignedStorageUrl(bucket, path, expiresIn = 31536000) {
+  if (!sbClient || !sbClient.storage || !bucket || !path) return null;
+  try {
+    const { data, error } = await sbClient.storage
+      .from(bucket)
+      .createSignedUrl(path, expiresIn);
+    if (!error && data?.signedUrl) {
+      return data.signedUrl;
+    }
+  } catch (e) {
+    console.warn('[Supabase Storage] Signed URL notice:', e);
+  }
+  return null;
+}
+
+async function resolveStorageFileUrl(fileObj) {
+  if (!fileObj) return null;
+  if (typeof fileObj === 'string') return fileObj;
+  if (fileObj.storageBucket && fileObj.storagePath && sbClient && sbClient.storage) {
+    if (fileObj.storageBucket === 'portfolio-media' || fileObj.storageBucket === 'profile-avatars' || fileObj.storageBucket === 'review-images') {
+      const { data } = sbClient.storage.from(fileObj.storageBucket).getPublicUrl(fileObj.storagePath);
+      if (data?.publicUrl) return data.publicUrl;
+    } else {
+      const freshSigned = await getSignedStorageUrl(fileObj.storageBucket, fileObj.storagePath, 3600);
+      if (freshSigned) return freshSigned;
+    }
+  }
+  return fileObj.signedUrl || fileObj.url || fileObj.publicUrl || fileObj.dataUrl || null;
+}
+
+async function uploadFileToBucket(bucket, file, pathPrefix = 'uploads', options = {}) {
+  if (!file) throw new Error('No file selected.');
+  const maxMb = options.maxMb || 25;
+  if (file.size > maxMb * 1024 * 1024) {
+    throw new Error(`File "${file.name}" exceeds ${maxMb}MB maximum size.`);
+  }
+
+  const cleanName = sanitizeStorageFileName(file.name);
+  const cleanPrefix = String(pathPrefix || 'uploads').replace(/^\/+|\/+$/g, '');
+  const objectPath = `${cleanPrefix}/${Date.now()}_${cleanName}`;
+  const isPublic = options.isPublic !== false;
+
+  if (sbClient && sbClient.storage) {
+    try {
+      const { data, error } = await sbClient.storage
+        .from(bucket)
+        .upload(objectPath, file, {
+          contentType: file.type || 'application/octet-stream',
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (!error && data) {
+        if (isPublic) {
+          const { data: pubData } = sbClient.storage.from(bucket).getPublicUrl(objectPath);
+          if (pubData?.publicUrl) {
+            return {
+              success: true,
+              cloudStored: true,
+              bucket,
+              path: objectPath,
+              url: pubData.publicUrl,
+              publicUrl: pubData.publicUrl,
+              signedUrl: null,
+              type: file.type || 'application/octet-stream',
+              name: file.name,
+              rawSize: file.size
+            };
+          }
+        } else {
+          // 1 year signed URL so cross-device order tracking downloads work seamlessly
+          const signedUrl = await getSignedStorageUrl(bucket, objectPath, 31536000);
+          return {
+            success: true,
+            cloudStored: true,
+            bucket,
+            path: objectPath,
+            url: signedUrl,
+            signedUrl: signedUrl,
+            publicUrl: null,
+            type: file.type || 'application/octet-stream',
+            name: file.name,
+            rawSize: file.size
+          };
+        }
+      } else if (error) {
+        console.warn(`[Supabase Storage] Upload to "${bucket}" failed:`, error.message);
+      }
+    } catch (uploadErr) {
+      console.warn(`[Supabase Storage] Exception uploading to "${bucket}":`, uploadErr);
+    }
+  }
+
+  // Graceful fallback to Data URL for smaller files if cloud storage is not active yet
+  if (file.size <= 3.5 * 1024 * 1024) {
+    const dataUrl = await readFileAsDataUrl(file);
+    return {
+      success: true,
+      cloudStored: false,
+      bucket,
+      path: null,
+      url: dataUrl,
+      dataUrl,
+      type: file.type || 'application/octet-stream',
+      name: file.name,
+      rawSize: file.size
+    };
+  }
+
+  throw new Error(`Cloud storage upload to "${bucket}" requires active Supabase login for ${ADMIN_STORAGE_EMAIL} and bucket policies configured.`);
+}
+
+async function uploadPortfolioMediaToCloud(file, folder = 'showcase') {
+  return await uploadFileToBucket('portfolio-media', file, folder, { isPublic: true, maxMb: 30 });
+}
+
+async function uploadOrderReferenceToCloud(file, orderId = 'order') {
+  const cleanOrderId = String(orderId || 'order').trim().replace(/^#/, '');
+  const user = await getSupabaseAuthUser();
+  // Prefix with user.id so Storage SELECT RLS (auth.uid() = foldername[1]) allows immediate signed URL creation before order row insert
+  const folder = user?.id ? `${user.id}/${cleanOrderId}` : cleanOrderId;
+  const res = await uploadFileToBucket('order-references', file, folder, { isPublic: false, maxMb: 15 });
+  const sizeLabel = file.size >= 1024 * 1024
+    ? (file.size / (1024 * 1024)).toFixed(2) + ' MB'
+    : Math.max(1, Math.round(file.size / 1024)) + ' KB';
+
+  let previewDataUrl = res.dataUrl || null;
+  if (!res.signedUrl && !res.url && !previewDataUrl && file.type && file.type.startsWith('image/') && file.size <= 1.5 * 1024 * 1024) {
+    try {
+      previewDataUrl = await readFileAsDataUrl(file);
+    } catch (e) {}
+  }
+
+  return {
+    name: file.name,
+    size: sizeLabel,
+    rawSize: file.size,
+    type: file.type || 'application/octet-stream',
+    storageBucket: res.cloudStored ? 'order-references' : null,
+    storagePath: res.path || null,
+    signedUrl: res.signedUrl || null,
+    url: res.url || previewDataUrl || null,
+    dataUrl: res.url || previewDataUrl || null,
+    cloudStored: Boolean(res.cloudStored)
+  };
+}
+
+async function uploadDeliveryFileToCloud(file, orderId, version = 1) {
+  const cleanId = String(orderId || 'order').trim().replace(/^#/, '');
+  const res = await uploadFileToBucket('order-deliveries', file, `${cleanId}/v${version}`, { isPublic: false, maxMb: 50 });
+  const sizeLabel = file.size >= 1024 * 1024
+    ? (file.size / (1024 * 1024)).toFixed(2) + ' MB'
+    : Math.max(1, Math.round(file.size / 1024)) + ' KB';
+
+  return {
+    name: file.name,
+    size: sizeLabel,
+    rawSize: file.size,
+    type: file.type || 'application/octet-stream',
+    storageBucket: res.cloudStored ? 'order-deliveries' : null,
+    storagePath: res.path || null,
+    signedUrl: res.signedUrl || null,
+    url: res.url || null,
+    dataUrl: res.url || res.dataUrl || null,
+    cloudStored: Boolean(res.cloudStored)
+  };
+}
+
+// ============================================================================
 // 1. ORDERS API
 // ============================================================================
+
+function safeSetLocalJson(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (e) {
+    console.warn(`[LocalStorage] Write warning for ${key}:`, e.message || e);
+    return false;
+  }
+}
+
+function mapOrderRowFromCloud(row) {
+  if (!row) return null;
+  const finalTot = Number(row.final_total || row.package_price || 0);
+  return {
+    id: row.id,
+    customerId: row.customer_id || null,
+    customerName: row.customer_name || 'Client',
+    customerEmail: row.customer_email || '',
+    service: row.service || 'Service',
+    serviceSlug: row.service_slug || '',
+    packageTier: row.package_tier || 'basic',
+    packageName: row.package_name || row.service,
+    packagePrice: Number(row.package_price || 0),
+    deliveryDays: Number(row.delivery_days || 3),
+    isExpress: Boolean(row.is_express),
+    expressFee: Number(row.express_fee || 0),
+    selectedAddons: Array.isArray(row.selected_addons) ? row.selected_addons : [],
+    addonsTotal: Number(row.addons_total || 0),
+    couponCode: row.coupon_code || '',
+    discountAmount: Number(row.discount_amount || 0),
+    subtotal: Number(row.subtotal || 0),
+    finalTotal: finalTot,
+    request: row.request || '',
+    referenceFiles: Array.isArray(row.reference_files) ? row.reference_files : [],
+    status: row.status || 'Pending',
+    progress: Number(row.progress || 0),
+    price: row.price || `$${finalTot.toFixed(2)}`,
+    delivery: row.delivery || null,
+    deliveries: Array.isArray(row.deliveries) ? row.deliveries : (row.delivery ? [row.delivery] : []),
+    revisions: Array.isArray(row.revisions) ? row.revisions : [],
+    clientAccepted: Boolean(row.client_accepted),
+    completedAt: row.completed_at || null,
+    orderDate: row.order_date ? new Date(row.order_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recently',
+    lastUpdated: row.last_updated ? new Date(row.last_updated).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'Recently'
+  };
+}
 
 /**
  * Save new order to Supabase orders table with persistent server backup and localStorage
@@ -41,9 +407,9 @@ async function syncOrderToSupabase(order) {
   } else {
     localOrders.unshift(order);
   }
-  localStorage.setItem('ruddranil_orders', JSON.stringify(localOrders));
+  safeSetLocalJson('ruddranil_orders', localOrders);
 
-  // 1. Persist to Backend Server /api/orders immediately (for cross-browser & cross-device reliability)
+  // 1. Persist to Backend Server /api/orders immediately (when Express server is running)
   try {
     await fetch('/api/orders', {
       method: 'POST',
@@ -78,7 +444,7 @@ async function syncOrderToSupabase(order) {
         customer_name: order.customerName,
         customer_email: authEmail || order.customerEmail,
         service: order.service,
-        service_slug: order.serviceSlug || order.service.toLowerCase().replace(/\s+/g, '-'),
+        service_slug: order.serviceSlug || (order.service || 'service').toLowerCase().replace(/\s+/g, '-'),
         package_tier: order.packageTier || 'basic',
         package_name: order.packageName || order.service,
         package_price: Number(order.packagePrice || 30),
@@ -95,23 +461,54 @@ async function syncOrderToSupabase(order) {
         reference_files: order.referenceFiles || [],
         status: order.status || 'Pending',
         progress: Number(order.progress || 0),
-        price: order.price || `$${Number(order.finalTotal || 30).toFixed(2)}`
+        price: order.price || `$${Number(order.finalTotal || 30).toFixed(2)}`,
+        delivery: order.delivery || null,
+        deliveries: Array.isArray(order.deliveries) ? order.deliveries : [],
+        revisions: Array.isArray(order.revisions) ? order.revisions : [],
+        client_accepted: Boolean(order.clientAccepted),
+        completed_at: order.completedAt || null
       };
 
-      const { data, error } = await sbClient.from('orders').upsert([payload], { onConflict: 'id' });
+      let cloudSaved = false;
+      let cloudError = null;
+      const { error } = await sbClient.from('orders').upsert([payload], { onConflict: 'id' });
       if (error) {
-        console.warn('[Supabase Orders] Insert notice:', error.message);
+        // Retry without optional extended columns if migration has not run yet
+        if (error.message && (error.message.includes('delivery') || error.message.includes('revisions') || error.message.includes('client_accepted'))) {
+          delete payload.delivery;
+          delete payload.deliveries;
+          delete payload.revisions;
+          delete payload.client_accepted;
+          delete payload.completed_at;
+          const retry = await sbClient.from('orders').upsert([payload], { onConflict: 'id' });
+          if (!retry.error) {
+            cloudSaved = true;
+            console.log('[Supabase Orders] Order synced to cloud (base schema):', order.id);
+          } else {
+            cloudError = retry.error.message;
+            console.warn('[Supabase Orders] Retry insert notice:', retry.error.message);
+          }
+        } else {
+          cloudError = error.message;
+          console.warn('[Supabase Orders] Insert notice:', error.message);
+        }
       } else {
+        cloudSaved = true;
         console.log('[Supabase Orders] Order synced to cloud:', order.id);
       }
+
+      window.dispatchEvent(new CustomEvent('ruddranil_orders_updated', { detail: order }));
+      return { success: true, cloudSaved, cloudError, order };
     } catch (err) {
       console.warn('[Supabase Orders] Sync exception:', err);
+      window.dispatchEvent(new CustomEvent('ruddranil_orders_updated', { detail: order }));
+      return { success: true, cloudSaved: false, cloudError: err?.message || 'Sync error', order };
     }
   }
 
   // 3. Dispatch cross-component event so Admin Panel or Tracker updates instantly
   window.dispatchEvent(new CustomEvent('ruddranil_orders_updated', { detail: order }));
-  return { success: true, order };
+  return { success: true, cloudSaved: false, cloudError: 'Supabase client unavailable', order };
 }
 
 /**
@@ -148,9 +545,10 @@ async function fetchOrdersFromCloud(targetCustomerId = null, targetEmail = null)
     return false;
   });
 
-  // Query Server API for orders belonging to this customer
+  // Query Server API for orders belonging to this customer (authenticated)
   try {
-    const res = await fetch('/api/orders');
+    const authHeaders = await getAdminAuthHeaders();
+    const res = await fetch('/api/orders', { headers: authHeaders });
     if (res.ok) {
       const serverOrders = await res.json();
       if (Array.isArray(serverOrders)) {
@@ -175,15 +573,15 @@ async function fetchOrdersFromCloud(targetCustomerId = null, targetEmail = null)
   }
 
   try {
-    let query = sbClient.from('orders').select('*').order('created_at', { ascending: false });
+    let query = sbClient.from('orders').select('*').order('order_date', { ascending: false });
 
     // Filter by customer UUID or email
     if (customerId && customerEmail) {
-      query = query.or(`customer_id.eq.${customerId},customer_email.eq.${customerEmail}`);
+      query = query.or(`customer_id.eq.${customerId},customer_email.ilike.${customerEmail}`);
     } else if (customerId) {
       query = query.eq('customer_id', customerId);
     } else if (customerEmail) {
-      query = query.eq('customer_email', customerEmail);
+      query = query.ilike('customer_email', customerEmail);
     }
 
     const { data, error } = await query;
@@ -191,34 +589,7 @@ async function fetchOrdersFromCloud(targetCustomerId = null, targetEmail = null)
       return userOrders;
     }
 
-    // Map Supabase snake_case columns back to application camelCase
-    const cloudOrders = data.map(row => ({
-      id: row.id,
-      customerId: row.customer_id,
-      customerName: row.customer_name || 'Client',
-      customerEmail: row.customer_email || '',
-      service: row.service || 'Service',
-      serviceSlug: row.service_slug || '',
-      packageTier: row.package_tier || 'basic',
-      packageName: row.package_name || row.service,
-      packagePrice: Number(row.package_price || 0),
-      deliveryDays: Number(row.delivery_days || 3),
-      isExpress: Boolean(row.is_express),
-      expressFee: Number(row.express_fee || 0),
-      selectedAddons: row.selected_addons || [],
-      addonsTotal: Number(row.addons_total || 0),
-      couponCode: row.coupon_code || '',
-      discountAmount: Number(row.discount_amount || 0),
-      subtotal: Number(row.subtotal || 0),
-      finalTotal: Number(row.final_total || 0),
-      request: row.request || '',
-      referenceFiles: row.reference_files || [],
-      status: row.status || 'Pending',
-      progress: Number(row.progress || 0),
-      price: row.price || `$${Number(row.final_total || 0).toFixed(2)}`,
-      orderDate: row.order_date ? new Date(row.order_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recently',
-      lastUpdated: row.last_updated ? new Date(row.last_updated).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'Recently'
-    }));
+    const cloudOrders = data.map(mapOrderRowFromCloud).filter(Boolean);
 
     // Merge
     const merged = [...cloudOrders];
@@ -231,8 +602,6 @@ async function fetchOrdersFromCloud(targetCustomerId = null, targetEmail = null)
       }
     });
 
-    // Cache updated merged orders in localStorage and sync with Server API
-    // so work-tracking.html and any other tabs immediately reflect real-time status & progress
     try {
       const allLocal = JSON.parse(localStorage.getItem('ruddranil_orders') || '[]');
       merged.forEach(mo => {
@@ -240,13 +609,7 @@ async function fetchOrdersFromCloud(targetCustomerId = null, targetEmail = null)
         if (idx >= 0) allLocal[idx] = { ...allLocal[idx], ...mo };
         else allLocal.unshift(mo);
       });
-      localStorage.setItem('ruddranil_orders', JSON.stringify(allLocal));
-
-      fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(merged)
-      }).catch(() => {});
+      safeSetLocalJson('ruddranil_orders', allLocal);
     } catch (cacheErr) {}
 
     return merged;
@@ -262,9 +625,10 @@ async function fetchOrdersFromCloud(targetCustomerId = null, targetEmail = null)
 async function fetchAllOrdersForAdmin() {
   let allOrders = [];
 
-  // 1. Fetch from server-side persistent endpoint (/api/orders)
+  // 1. Fetch from server-side persistent endpoint (/api/orders with Admin Bearer JWT)
   try {
-    const res = await fetch('/api/orders');
+    const authHeaders = await getAdminAuthHeaders();
+    const res = await fetch('/api/orders', { headers: authHeaders });
     if (res.ok) {
       const serverOrders = await res.json();
       if (Array.isArray(serverOrders) && serverOrders.length > 0) {
@@ -275,42 +639,16 @@ async function fetchAllOrdersForAdmin() {
     console.warn('[Admin Orders] Server fetch notice:', err);
   }
 
-  // 2. Fetch from Supabase orders table
+  // 2. Fetch from Supabase orders table (authoritative cloud source)
   if (sbClient) {
     try {
       const { data, error } = await sbClient
         .from('orders')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('order_date', { ascending: false });
 
       if (!error && Array.isArray(data) && data.length > 0) {
-        const cloudOrders = data.map(row => ({
-          id: row.id,
-          customerId: row.customer_id,
-          customerName: row.customer_name || 'Client',
-          customerEmail: row.customer_email || '',
-          service: row.service || 'Service',
-          serviceSlug: row.service_slug || '',
-          packageTier: row.package_tier || 'basic',
-          packageName: row.package_name || row.service,
-          packagePrice: Number(row.package_price || 0),
-          deliveryDays: Number(row.delivery_days || 3),
-          isExpress: Boolean(row.is_express),
-          expressFee: Number(row.express_fee || 0),
-          selectedAddons: row.selected_addons || [],
-          addonsTotal: Number(row.addons_total || 0),
-          couponCode: row.coupon_code || '',
-          discountAmount: Number(row.discount_amount || 0),
-          subtotal: Number(row.subtotal || 0),
-          finalTotal: Number(row.final_total || 0),
-          request: row.request || '',
-          referenceFiles: row.reference_files || [],
-          status: row.status || 'Pending',
-          progress: Number(row.progress || 0),
-          price: row.price || `$${Number(row.final_total || 0).toFixed(2)}`,
-          orderDate: row.order_date ? new Date(row.order_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recently',
-          lastUpdated: row.last_updated ? new Date(row.last_updated).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'Recently'
-        }));
+        const cloudOrders = data.map(mapOrderRowFromCloud).filter(Boolean);
 
         cloudOrders.forEach(co => {
           const idx = allOrders.findIndex(o => o.id === co.id);
@@ -337,10 +675,66 @@ async function fetchAllOrdersForAdmin() {
 
   // 4. Update cache
   if (allOrders.length > 0) {
-    localStorage.setItem('ruddranil_orders', JSON.stringify(allOrders));
+    safeSetLocalJson('ruddranil_orders', allOrders);
   }
 
   return allOrders;
+}
+
+/**
+ * Fetch a single order for work-tracking.html safely using RPC get_order_tracking_by_id
+ */
+async function fetchOrderTrackingFromCloud(orderId) {
+  const cleanId = String(orderId || '').trim().replace(/^#/, '');
+  if (!cleanId) return null;
+
+  if (sbClient) {
+    try {
+      // 1. Try secure scoped RPC first (works for anonymous and logged-in visitors)
+      const { data: rpcData, error: rpcErr } = await sbClient.rpc('get_order_tracking_by_id', {
+        p_order_id: cleanId
+      });
+      if (!rpcErr && rpcData) {
+        const mapped = mapOrderRowFromCloud(rpcData);
+        if (mapped) {
+          const localOrders = JSON.parse(localStorage.getItem('ruddranil_orders') || '[]');
+          const idx = localOrders.findIndex(o => (o.id || '').toUpperCase() === mapped.id.toUpperCase());
+          if (idx >= 0) localOrders[idx] = { ...localOrders[idx], ...mapped };
+          else localOrders.unshift(mapped);
+          safeSetLocalJson('ruddranil_orders', localOrders);
+          return mapped;
+        }
+      }
+    } catch (e) {
+      console.warn('[Tracking RPC] Notice:', e);
+    }
+
+    try {
+      // 2. Direct table lookup fallback (for authenticated owner/admin if RPC not yet deployed)
+      const { data, error } = await sbClient
+        .from('orders')
+        .select('*')
+        .ilike('id', cleanId)
+        .maybeSingle();
+      if (!error && data) {
+        const mapped = mapOrderRowFromCloud(data);
+        if (mapped) return mapped;
+      }
+    } catch (e2) {}
+  }
+
+  // 3. Server API single-order lookup fallback
+  try {
+    const res = await fetch(`/api/orders/${encodeURIComponent(cleanId)}`);
+    if (res.ok) {
+      const found = await res.json();
+      if (found && found.id) return found;
+    }
+  } catch (e3) {}
+
+  // 4. localStorage fallback
+  const localOrders = JSON.parse(localStorage.getItem('ruddranil_orders') || '[]');
+  return localOrders.find(o => (o.id || '').replace(/^#/, '').toUpperCase() === cleanId.toUpperCase()) || null;
 }
 
 /**
@@ -349,7 +743,6 @@ async function fetchAllOrdersForAdmin() {
 async function updateOrderStatusInCloud(orderId, newStatus, newProgress) {
   const cleanId = (orderId || '').trim().replace(/^#/, '');
 
-  // Determine standard progress if not provided
   let computedProgress = newProgress !== undefined ? Number(newProgress) : undefined;
   if (computedProgress === undefined) {
     const sLower = (newStatus || '').toLowerCase();
@@ -362,18 +755,18 @@ async function updateOrderStatusInCloud(orderId, newStatus, newProgress) {
 
   // 1. Update local
   const orders = JSON.parse(localStorage.getItem('ruddranil_orders') || '[]');
-  const order = orders.find(o => 
-    (o.id || '').toLowerCase() === cleanId.toLowerCase() || 
+  const order = orders.find(o =>
+    (o.id || '').toLowerCase() === cleanId.toLowerCase() ||
     (o.id || '').toLowerCase().replace(/^#/, '') === cleanId.toLowerCase()
   );
   if (order) {
     order.status = newStatus;
     if (computedProgress !== undefined) order.progress = computedProgress;
     order.lastUpdated = 'Just now';
-    localStorage.setItem('ruddranil_orders', JSON.stringify(orders));
+    safeSetLocalJson('ruddranil_orders', orders);
   }
 
-  // 2. Sync to Backend Server immediately
+  // 2. Sync to Backend Server
   try {
     const updatePayload = {
       status: newStatus,
@@ -419,6 +812,198 @@ async function updateOrderStatusInCloud(orderId, newStatus, newProgress) {
   window.dispatchEvent(new CustomEvent('ruddranil_orders_updated', {
     detail: { orderId: cleanId, newStatus, newProgress: computedProgress }
   }));
+}
+
+/**
+ * Save Admin Work Delivery (with Supabase Storage file metadata & versions) to Cloud
+ */
+async function saveOrderDeliveryToCloud(orderId, deliveryObj, deliveriesArr) {
+  const cleanId = String(orderId || '').trim().replace(/^#/, '');
+  const nowIso = new Date().toISOString();
+
+  // 1. Update localStorage
+  const orders = JSON.parse(localStorage.getItem('ruddranil_orders') || '[]');
+  const order = orders.find(o => (o.id || '').replace(/^#/, '').toUpperCase() === cleanId.toUpperCase());
+  if (order) {
+    order.delivery = deliveryObj;
+    order.deliveries = deliveriesArr || [deliveryObj];
+    order.status = 'Delivered';
+    order.progress = 100;
+    order.lastUpdated = 'Just now';
+    safeSetLocalJson('ruddranil_orders', orders);
+  }
+
+  // 2. Sync to Server API
+  try {
+    await fetch(`/api/orders/${encodeURIComponent(cleanId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: 'Delivered',
+        progress: 100,
+        delivery: deliveryObj,
+        deliveries: deliveriesArr || [deliveryObj],
+        lastUpdated: nowIso
+      })
+    });
+  } catch (e) {}
+
+  // 3. Sync to Supabase Orders Table
+  if (sbClient) {
+    try {
+      const { error } = await sbClient
+        .from('orders')
+        .update({
+          status: 'Delivered',
+          progress: 100,
+          delivery: deliveryObj,
+          deliveries: deliveriesArr || [deliveryObj],
+          last_updated: nowIso
+        })
+        .ilike('id', cleanId);
+
+      if (error && error.message && (error.message.includes('delivery') || error.message.includes('deliveries'))) {
+        await sbClient
+          .from('orders')
+          .update({ status: 'Delivered', progress: 100, last_updated: nowIso })
+          .ilike('id', cleanId);
+      }
+    } catch (sbErr) {
+      console.warn('[Supabase Delivery] Cloud sync notice:', sbErr);
+    }
+  }
+
+  window.dispatchEvent(new CustomEvent('ruddranil_orders_updated', {
+    detail: { orderId: cleanId, newStatus: 'Delivered', newProgress: 100 }
+  }));
+  return { success: true };
+}
+
+/**
+ * Customer Accepts Delivery & Completes Order via Supabase RPC + fallback
+ */
+async function acceptOrderDeliveryInCloud(orderId) {
+  const cleanId = String(orderId || '').trim().replace(/^#/, '');
+  const nowIso = new Date().toISOString();
+
+  const orders = JSON.parse(localStorage.getItem('ruddranil_orders') || '[]');
+  const order = orders.find(o => (o.id || '').replace(/^#/, '').toUpperCase() === cleanId.toUpperCase());
+  if (order) {
+    order.status = 'Completed';
+    order.progress = 100;
+    order.clientAccepted = true;
+    order.completedAt = nowIso;
+    order.lastUpdated = 'Just now';
+    safeSetLocalJson('ruddranil_orders', orders);
+  }
+
+  try {
+    await fetch(`/api/orders/${encodeURIComponent(cleanId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: 'Completed',
+        progress: 100,
+        clientAccepted: true,
+        completedAt: nowIso,
+        lastUpdated: nowIso
+      })
+    });
+  } catch (e) {}
+
+  if (sbClient) {
+    let rpcSuccess = false;
+    try {
+      const { data, error } = await sbClient.rpc('submit_order_tracking_action', {
+        p_order_id: cleanId,
+        p_action: 'accept',
+        p_note: null
+      });
+      if (!error && data?.success) rpcSuccess = true;
+    } catch (e) {}
+
+    if (!rpcSuccess) {
+      try {
+        await sbClient
+          .from('orders')
+          .update({
+            status: 'Completed',
+            progress: 100,
+            client_accepted: true,
+            completed_at: nowIso,
+            last_updated: nowIso
+          })
+          .ilike('id', cleanId);
+      } catch (e2) {}
+    }
+  }
+
+  window.dispatchEvent(new CustomEvent('ruddranil_orders_updated', {
+    detail: { orderId: cleanId, newStatus: 'Completed', newProgress: 100 }
+  }));
+  return { success: true };
+}
+
+/**
+ * Customer Requests Revision on Delivered Work via Supabase RPC + fallback
+ */
+async function requestOrderRevisionInCloud(orderId, note, updatedRevisions = null) {
+  const cleanId = String(orderId || '').trim().replace(/^#/, '');
+  const nowIso = new Date().toISOString();
+
+  const orders = JSON.parse(localStorage.getItem('ruddranil_orders') || '[]');
+  const order = orders.find(o => (o.id || '').replace(/^#/, '').toUpperCase() === cleanId.toUpperCase());
+  if (order) {
+    order.status = 'In Revision';
+    order.progress = 80;
+    if (updatedRevisions) order.revisions = updatedRevisions;
+    order.lastUpdated = 'Just now';
+    safeSetLocalJson('ruddranil_orders', orders);
+  }
+
+  try {
+    await fetch(`/api/orders/${encodeURIComponent(cleanId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: 'In Revision',
+        progress: 80,
+        revisions: updatedRevisions || order?.revisions || [],
+        lastUpdated: nowIso
+      })
+    });
+  } catch (e) {}
+
+  if (sbClient) {
+    let rpcSuccess = false;
+    try {
+      const { data, error } = await sbClient.rpc('submit_order_tracking_action', {
+        p_order_id: cleanId,
+        p_action: 'revision',
+        p_note: note
+      });
+      if (!error && data?.success) rpcSuccess = true;
+    } catch (e) {}
+
+    if (!rpcSuccess) {
+      try {
+        await sbClient
+          .from('orders')
+          .update({
+            status: 'In Revision',
+            progress: 80,
+            revisions: updatedRevisions || order?.revisions || [],
+            last_updated: nowIso
+          })
+          .ilike('id', cleanId);
+      } catch (e2) {}
+    }
+  }
+
+  window.dispatchEvent(new CustomEvent('ruddranil_orders_updated', {
+    detail: { orderId: cleanId, newStatus: 'In Revision', newProgress: 80 }
+  }));
+  return { success: true };
 }
 
 // Safe Toast notification helper across script contexts
@@ -1982,9 +2567,10 @@ async function updateReviewModerationStatus(reviewId, newStatus) {
 
   // 2. Sync to Backend Server /api/reviews/:id
   try {
+    const headers = await getAdminAuthHeaders({ 'Content-Type': 'application/json' });
     await fetch(`/api/reviews/${encodeURIComponent(reviewId)}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ status: newStatus })
     });
   } catch (serverErr) {
@@ -2025,8 +2611,10 @@ async function deleteReviewFromCloud(reviewId) {
 
   // 2. Delete from Backend Server /api/reviews/:id
   try {
+    const headers = await getAdminAuthHeaders();
     await fetch(`/api/reviews/${encodeURIComponent(reviewId)}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers
     });
   } catch (serverErr) {
     console.warn('[Review Delete Server Sync]:', serverErr);
@@ -2083,17 +2671,22 @@ async function fetchServicesFromCloud() {
           const basic = matchingPackages.find(p => p.tier === 'basic') || {};
           const std = matchingPackages.find(p => p.tier === 'standard') || {};
           const prem = matchingPackages.find(p => p.tier === 'premium') || {};
+          const meta = (s.metadata && typeof s.metadata === 'object') ? s.metadata : {};
 
           return {
+            ...meta,
             id: s.id,
             name: s.name,
             slug: s.slug,
             category: s.category,
+            badge: s.badge || meta.badge || '',
+            gigTitle: s.gig_title || meta.gigTitle || s.description || '',
             description: s.description,
             coverImage: s.image_url,
             packages: {
               basic: {
                 name: basic.name || 'Starter Pack',
+                desc: basic.description || '',
                 price: Number(basic.price) || 30,
                 deliveryDays: Number(basic.delivery_days) || 3,
                 expressFee: Number(basic.express_fee) || 15,
@@ -2102,6 +2695,7 @@ async function fetchServicesFromCloud() {
               },
               standard: {
                 name: std.name || 'Standard Growth',
+                desc: std.description || '',
                 price: Number(std.price) || 60,
                 deliveryDays: Number(std.delivery_days) || 5,
                 expressFee: Number(std.express_fee) || 25,
@@ -2110,6 +2704,7 @@ async function fetchServicesFromCloud() {
               },
               premium: {
                 name: prem.name || 'VIP Scale',
+                desc: prem.description || '',
                 price: Number(prem.price) || 120,
                 deliveryDays: Number(prem.delivery_days) || 7,
                 expressFee: Number(prem.express_fee) || 40,
@@ -2141,7 +2736,7 @@ async function fetchServicesFromCloud() {
   }
 
   if (cloudServices && cloudServices.length > 0) {
-    localStorage.setItem('ruddranil_services', JSON.stringify(cloudServices));
+    safeSetLocalJson('ruddranil_services', cloudServices);
     window.dispatchEvent(new CustomEvent('ruddranil_services_updated', { detail: cloudServices }));
     window.dispatchEvent(new CustomEvent('ruddranil_packages_updated', { detail: cloudServices }));
     return cloudServices;
@@ -2167,14 +2762,15 @@ async function saveServiceToCloud(serviceData) {
   } else {
     services.push(serviceData);
   }
-  localStorage.setItem('ruddranil_services', JSON.stringify(services));
+  safeSetLocalJson('ruddranil_services', services);
 
   // 2. Persist to backend server /api/services
   let serverOk = false;
   try {
+    const headers = await getAdminAuthHeaders({ 'Content-Type': 'application/json' });
     const res = await fetch('/api/services', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(services)
     });
     serverOk = res.ok;
@@ -2187,21 +2783,52 @@ async function saveServiceToCloud(serviceData) {
     try {
       const sId = serviceData.id && serviceData.id.length > 20 ? serviceData.id : null;
       const sSlug = serviceData.slug || serviceData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-      
+
+      const richMeta = {
+        badge: serviceData.badge || '',
+        gigTitle: serviceData.gigTitle || '',
+        aboutNotes: serviceData.aboutNotes || '',
+        keyDeliverables: Array.isArray(serviceData.keyDeliverables) ? serviceData.keyDeliverables : [],
+        whyChoose: Array.isArray(serviceData.whyChoose) ? serviceData.whyChoose : [],
+        workProcess: Array.isArray(serviceData.workProcess) ? serviceData.workProcess : [],
+        tools: Array.isArray(serviceData.tools) ? serviceData.tools : [],
+        faqs: Array.isArray(serviceData.faqs) ? serviceData.faqs : [],
+        addons: Array.isArray(serviceData.addons) ? serviceData.addons : [],
+        reviews: Array.isArray(serviceData.reviews) ? serviceData.reviews : [],
+        rating: serviceData.rating || 5.0,
+        reviewsCount: serviceData.reviewsCount || 0,
+        ordersInQueue: serviceData.ordersInQueue || 0
+      };
+
       const sPayload = {
         name: serviceData.name,
         slug: sSlug,
         category: serviceData.category || 'marketing',
+        badge: serviceData.badge || null,
+        gig_title: serviceData.gigTitle || serviceData.description || '',
         description: serviceData.description || serviceData.gigTitle || '',
         image_url: serviceData.coverImage || null,
+        metadata: richMeta,
         is_active: true
       };
       if (sId) sPayload.id = sId;
 
-      const { data: sData, error: sErr } = await sbClient
+      let { data: sData, error: sErr } = await sbClient
         .from('services')
         .upsert([sPayload], { onConflict: 'slug' })
         .select();
+
+      if (sErr && sErr.message && (sErr.message.includes('metadata') || sErr.message.includes('badge') || sErr.message.includes('gig_title'))) {
+        delete sPayload.metadata;
+        delete sPayload.badge;
+        delete sPayload.gig_title;
+        const retryRes = await sbClient
+          .from('services')
+          .upsert([sPayload], { onConflict: 'slug' })
+          .select();
+        sData = retryRes.data;
+        sErr = retryRes.error;
+      }
 
       if (!sErr && sData && sData[0]) {
         const assignedServiceId = sData[0].id;
@@ -2268,10 +2895,11 @@ async function saveServiceToCloud(serviceData) {
 async function deleteServiceFromCloud(serviceId) {
   let services = JSON.parse(localStorage.getItem('ruddranil_services') || '[]');
   services = services.filter(s => s.id !== serviceId && s.slug !== serviceId);
-  localStorage.setItem('ruddranil_services', JSON.stringify(services));
+  safeSetLocalJson('ruddranil_services', services);
 
   try {
-    await fetch(`/api/services/${serviceId}`, { method: 'DELETE' });
+    const headers = await getAdminAuthHeaders();
+    await fetch(`/api/services/${serviceId}`, { method: 'DELETE', headers });
   } catch (e) {}
 
   if (sbClient) {
@@ -2285,10 +2913,452 @@ async function deleteServiceFromCloud(serviceId) {
   return { success: true };
 }
 
+// ============================================================================
+// 9. PORTFOLIO PROJECTS CLOUD PERSISTENCE
+// ============================================================================
+
+function mapPortfolioProjectRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    title: row.title,
+    category: row.category || 'Website Design',
+    categorySlug: row.category_slug || row.categorySlug || 'website',
+    badge: row.badge || 'Project',
+    description: row.description || '',
+    details: row.details || '',
+    author: row.author || 'Ruddranil',
+    mediaUrl: row.media_url || row.mediaUrl || null,
+    mediaType: row.media_type || row.mediaType || 'image',
+    likes: Number(row.likes_count !== undefined ? row.likes_count : (row.likes || 0)),
+    commentsCount: Number(row.comments_count !== undefined ? row.comments_count : (row.commentsCount || 0)),
+    serviceSlug: row.service_slug || row.serviceSlug || 'Website Design',
+    displayOrder: Number(row.display_order || 0)
+  };
+}
+
+async function fetchPortfolioProjectsFromCloud() {
+  let cloudProjects = null;
+
+  if (sbClient) {
+    try {
+      const { data, error } = await sbClient
+        .from('portfolio_projects')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true })
+        .order('created_at', { ascending: false });
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        cloudProjects = data.map(mapPortfolioProjectRow).filter(Boolean);
+      }
+    } catch (e) {
+      console.warn('[Supabase Portfolio] Fetch notice:', e);
+    }
+  }
+
+  if (!cloudProjects || cloudProjects.length === 0) {
+    try {
+      const res = await fetch('/api/projects');
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json) && json.length > 0) {
+          cloudProjects = json;
+        }
+      }
+    } catch (e2) {}
+  }
+
+  if (cloudProjects && cloudProjects.length > 0) {
+    safeSetLocalJson('ruddranil_portfolio_projects', cloudProjects);
+    window.dispatchEvent(new CustomEvent('ruddranil_projects_updated', { detail: cloudProjects }));
+    return cloudProjects;
+  }
+
+  return JSON.parse(localStorage.getItem('ruddranil_portfolio_projects') || '[]');
+}
+
+async function savePortfolioProjectToCloud(project) {
+  if (!project || !project.title) {
+    throw new Error('Project title is required.');
+  }
+  const cleanProject = {
+    ...project,
+    id: project.id || ('proj-' + Date.now()),
+    categorySlug: project.categorySlug || (project.category || 'website').toLowerCase().split(' ')[0],
+    mediaUrl: project.mediaUrl || null,
+    mediaType: project.mediaType || 'image',
+    author: project.author || 'Ruddranil',
+    serviceSlug: project.serviceSlug || project.category || 'Website Design'
+  };
+
+  let projects = JSON.parse(localStorage.getItem('ruddranil_portfolio_projects') || '[]');
+  const idx = projects.findIndex(p => p.id === cleanProject.id);
+  if (idx >= 0) projects[idx] = { ...projects[idx], ...cleanProject };
+  else projects.unshift(cleanProject);
+  safeSetLocalJson('ruddranil_portfolio_projects', projects);
+
+  try {
+    const headers = await getAdminAuthHeaders({ 'Content-Type': 'application/json' });
+    await fetch('/api/projects', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(projects)
+    });
+  } catch (e) {}
+
+  if (sbClient) {
+    try {
+      await sbClient.from('portfolio_projects').upsert([{
+        id: cleanProject.id,
+        title: cleanProject.title,
+        category: cleanProject.category || 'Website Design',
+        category_slug: cleanProject.categorySlug,
+        badge: cleanProject.badge || 'Project',
+        description: cleanProject.description || '',
+        details: cleanProject.details || '',
+        author: cleanProject.author,
+        media_url: cleanProject.mediaUrl,
+        media_type: cleanProject.mediaType,
+        likes_count: Number(cleanProject.likes || 0),
+        comments_count: Number(cleanProject.commentsCount || 0),
+        service_slug: cleanProject.serviceSlug,
+        display_order: Number(cleanProject.displayOrder || 0),
+        is_active: true,
+        updated_at: new Date().toISOString()
+      }], { onConflict: 'id' });
+    } catch (sbErr) {
+      console.warn('[Supabase Portfolio] Upsert notice:', sbErr);
+    }
+  }
+
+  window.dispatchEvent(new CustomEvent('ruddranil_projects_updated', { detail: projects }));
+  return { success: true, project: cleanProject };
+}
+
+async function saveAllPortfolioProjectsToCloud(projects) {
+  if (!Array.isArray(projects)) return { success: false };
+  safeSetLocalJson('ruddranil_portfolio_projects', projects);
+
+  try {
+    const headers = await getAdminAuthHeaders({ 'Content-Type': 'application/json' });
+    await fetch('/api/projects', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(projects)
+    });
+  } catch (e) {}
+
+  if (sbClient && projects.length > 0) {
+    try {
+      const rows = projects.map((p, index) => ({
+        id: p.id || ('proj-' + Date.now() + '-' + index),
+        title: p.title,
+        category: p.category || 'Website Design',
+        category_slug: p.categorySlug || 'website',
+        badge: p.badge || 'Project',
+        description: p.description || '',
+        details: p.details || '',
+        author: p.author || 'Ruddranil',
+        media_url: p.mediaUrl || null,
+        media_type: p.mediaType || 'image',
+        likes_count: Number(p.likes || 0),
+        comments_count: Number(p.commentsCount || 0),
+        service_slug: p.serviceSlug || p.category || 'Website Design',
+        display_order: index,
+        is_active: true,
+        updated_at: new Date().toISOString()
+      }));
+      await sbClient.from('portfolio_projects').upsert(rows, { onConflict: 'id' });
+    } catch (sbErr) {
+      console.warn('[Supabase Portfolio] Bulk sync notice:', sbErr);
+    }
+  }
+
+  window.dispatchEvent(new CustomEvent('ruddranil_projects_updated', { detail: projects }));
+  return { success: true };
+}
+
+async function deletePortfolioProjectFromCloud(projectId) {
+  let projects = JSON.parse(localStorage.getItem('ruddranil_portfolio_projects') || '[]');
+  projects = projects.filter(p => p.id !== projectId);
+  safeSetLocalJson('ruddranil_portfolio_projects', projects);
+
+  try {
+    const headers = await getAdminAuthHeaders({ 'Content-Type': 'application/json' });
+    await fetch('/api/projects', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(projects)
+    });
+  } catch (e) {}
+
+  if (sbClient) {
+    try {
+      await sbClient.from('portfolio_projects').delete().eq('id', projectId);
+    } catch (sbErr) {
+      console.warn('[Supabase Portfolio] Delete notice:', sbErr);
+    }
+  }
+
+  window.dispatchEvent(new CustomEvent('ruddranil_projects_updated', { detail: projects }));
+  return { success: true };
+}
+
+// ============================================================================
+// 10. COUPONS CLOUD MANAGEMENT & RPC CHECKOUT VALIDATION
+// ============================================================================
+
+async function fetchCouponsFromCloud() {
+  let coupons = null;
+  if (sbClient) {
+    try {
+      const { data, error } = await sbClient
+        .from('coupons')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        coupons = data.map(c => ({
+          id: c.id,
+          code: String(c.code || '').toUpperCase(),
+          type: c.discount_type || 'percentage',
+          value: Number(c.discount_value || 0),
+          minOrder: Number(c.min_order_amount || 0),
+          maxDiscount: c.max_discount_amount ? Number(c.max_discount_amount) : null,
+          active: c.is_active !== false,
+          timesUsed: Number(c.times_used || 0),
+          expiresAt: c.expires_at || null
+        }));
+      }
+    } catch (e) {
+      console.warn('[Supabase Coupons] Fetch notice:', e);
+    }
+  }
+
+  if (coupons && coupons.length > 0) {
+    safeSetLocalJson('ruddranil_coupons', coupons);
+    return coupons;
+  }
+
+  return JSON.parse(localStorage.getItem('ruddranil_coupons') || '[]');
+}
+
+async function saveCouponToCloud(coupon) {
+  const cleanCode = String(coupon?.code || '').trim().toUpperCase();
+  if (!cleanCode) throw new Error('Coupon code is required.');
+
+  const normalized = {
+    code: cleanCode,
+    type: coupon.type === 'fixed' ? 'fixed' : 'percentage',
+    value: Number(coupon.value || 10),
+    minOrder: Number(coupon.minOrder || 0),
+    maxDiscount: coupon.maxDiscount ? Number(coupon.maxDiscount) : null,
+    active: coupon.active !== false
+  };
+
+  let localCoupons = JSON.parse(localStorage.getItem('ruddranil_coupons') || '[]');
+  const idx = localCoupons.findIndex(c => String(c.code || '').toUpperCase() === cleanCode);
+  if (idx >= 0) localCoupons[idx] = { ...localCoupons[idx], ...normalized };
+  else localCoupons.unshift(normalized);
+  safeSetLocalJson('ruddranil_coupons', localCoupons);
+
+  if (sbClient) {
+    try {
+      await sbClient.from('coupons').upsert([{
+        code: normalized.code,
+        discount_type: normalized.type,
+        discount_value: normalized.value,
+        min_order_amount: normalized.minOrder,
+        max_discount_amount: normalized.maxDiscount,
+        is_active: normalized.active
+      }], { onConflict: 'code' });
+    } catch (e) {
+      console.warn('[Supabase Coupons] Save notice:', e);
+    }
+  }
+
+  return { success: true, coupon: normalized };
+}
+
+async function toggleCouponInCloud(code, isActive) {
+  const cleanCode = String(code || '').trim().toUpperCase();
+  const localCoupons = JSON.parse(localStorage.getItem('ruddranil_coupons') || '[]');
+  const target = localCoupons.find(c => String(c.code || '').toUpperCase() === cleanCode);
+  if (target) {
+    target.active = Boolean(isActive);
+    safeSetLocalJson('ruddranil_coupons', localCoupons);
+  }
+
+  if (sbClient) {
+    try {
+      await sbClient.from('coupons').update({ is_active: Boolean(isActive) }).eq('code', cleanCode);
+    } catch (e) {}
+  }
+  return { success: true };
+}
+
+async function deleteCouponFromCloud(code) {
+  const cleanCode = String(code || '').trim().toUpperCase();
+  let localCoupons = JSON.parse(localStorage.getItem('ruddranil_coupons') || '[]');
+  localCoupons = localCoupons.filter(c => String(c.code || '').toUpperCase() !== cleanCode);
+  safeSetLocalJson('ruddranil_coupons', localCoupons);
+
+  if (sbClient) {
+    try {
+      await sbClient.from('coupons').delete().eq('code', cleanCode);
+    } catch (e) {}
+  }
+  return { success: true };
+}
+
+async function validateCouponFromCloud(code, subtotal = 0) {
+  const cleanCode = String(code || '').trim().toUpperCase();
+  if (!cleanCode) return { valid: false, error: 'Please enter a coupon code.' };
+
+  if (sbClient) {
+    try {
+      const { data, error } = await sbClient.rpc('validate_coupon_code', {
+        p_code: cleanCode,
+        p_subtotal: Number(subtotal || 0)
+      });
+      if (!error && data) {
+        if (data.valid) {
+          // Cache validated coupon locally so synchronous total helpers work immediately
+          const normalized = {
+            code: String(data.code || cleanCode).toUpperCase(),
+            type: data.discount_type || 'percentage',
+            value: Number(data.discount_value || 0),
+            minOrder: Number(data.min_order_amount || 0),
+            maxDiscount: data.max_discount_amount ? Number(data.max_discount_amount) : null,
+            active: true
+          };
+          const localCoupons = JSON.parse(localStorage.getItem('ruddranil_coupons') || '[]');
+          const idx = localCoupons.findIndex(c => String(c.code || '').toUpperCase() === normalized.code);
+          if (idx >= 0) localCoupons[idx] = { ...localCoupons[idx], ...normalized };
+          else localCoupons.push(normalized);
+          safeSetLocalJson('ruddranil_coupons', localCoupons);
+        }
+        return data;
+      }
+    } catch (e) {
+      console.warn('[Coupon RPC] Notice:', e);
+    }
+  }
+
+  // Fallback to localStorage coupons
+  const localCoupons = JSON.parse(localStorage.getItem('ruddranil_coupons') || '[]');
+  const found = localCoupons.find(c => String(c.code || '').toUpperCase() === cleanCode && c.active !== false);
+  if (!found) return { valid: false, error: 'Invalid or expired coupon code.' };
+  if (found.minOrder && subtotal < found.minOrder) {
+    return { valid: false, error: `Minimum order of $${found.minOrder} required for this coupon.` };
+  }
+  return {
+    valid: true,
+    code: found.code,
+    discount_type: found.type,
+    discount_value: found.value,
+    min_order_amount: found.minOrder || 0,
+    max_discount_amount: found.maxDiscount || null
+  };
+}
+
+// ============================================================================
+// 11. CONTACT MESSAGES CLOUD PERSISTENCE
+// ============================================================================
+
+async function submitContactMessageToCloud({ name, email, serviceName, message }) {
+  const payload = {
+    name: String(name || 'Visitor').trim(),
+    email: String(email || '').trim().toLowerCase(),
+    service_name: String(serviceName || 'General Inquiry').trim(),
+    message: String(message || '').trim(),
+    status: 'new'
+  };
+
+  if (sbClient) {
+    try {
+      const { error } = await sbClient.from('contact_messages').insert([payload]);
+      if (!error) return { success: true, cloudSynced: true };
+    } catch (e) {
+      console.warn('[Supabase Contact] Insert notice:', e);
+    }
+  }
+  return { success: true, cloudSynced: false };
+}
+
+async function fetchContactMessagesForAdmin() {
+  if (!sbClient) return { messages: [], tableMissing: false };
+  try {
+    const { data, error } = await sbClient
+      .from('contact_messages')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) {
+      const msg = String(error.message || '').toLowerCase();
+      return {
+        messages: [],
+        tableMissing: msg.includes('does not exist') || msg.includes('schema cache') || msg.includes('404'),
+        error: error.message
+      };
+    }
+    return { messages: Array.isArray(data) ? data : [], tableMissing: false };
+  } catch (e) {
+    return { messages: [], tableMissing: false, error: e.message };
+  }
+}
+
+async function updateContactMessageStatusForAdmin(messageId, status = 'replied') {
+  if (!sbClient || !messageId) return { success: false };
+  try {
+    const { error } = await sbClient
+      .from('contact_messages')
+      .update({ status })
+      .eq('id', messageId);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+async function deleteContactMessageForAdmin(messageId) {
+  if (!sbClient || !messageId) return { success: false };
+  try {
+    const { error } = await sbClient
+      .from('contact_messages')
+      .delete()
+      .eq('id', messageId);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
 // Export to Global Window
+window.isAdminEmailMatch = isAdminEmailMatch;
+window.getSupabaseAuthUser = getSupabaseAuthUser;
+window.getSupabaseAccessToken = getSupabaseAccessToken;
+window.getAdminAuthHeaders = getAdminAuthHeaders;
+window.isCurrentUserAdmin = isCurrentUserAdmin;
+window.signInAdminSupabase = signInAdminSupabase;
+window.requestAdminPasswordReset = requestAdminPasswordReset;
+window.getSignedStorageUrl = getSignedStorageUrl;
+window.resolveStorageFileUrl = resolveStorageFileUrl;
+window.uploadFileToBucket = uploadFileToBucket;
+window.uploadPortfolioMediaToCloud = uploadPortfolioMediaToCloud;
+window.uploadOrderReferenceToCloud = uploadOrderReferenceToCloud;
+window.uploadDeliveryFileToCloud = uploadDeliveryFileToCloud;
+
 window.syncOrderToSupabase = syncOrderToSupabase;
 window.fetchOrdersFromCloud = fetchOrdersFromCloud;
+window.fetchOrderTrackingFromCloud = fetchOrderTrackingFromCloud;
 window.updateOrderStatusInCloud = updateOrderStatusInCloud;
+window.saveOrderDeliveryToCloud = saveOrderDeliveryToCloud;
+window.acceptOrderDeliveryInCloud = acceptOrderDeliveryInCloud;
+window.requestOrderRevisionInCloud = requestOrderRevisionInCloud;
+
 window.handleLikeToggle = handleLikeToggle;
 window.openCommentModal = openCommentModal;
 window.closeCommentModal = closeCommentModal;
@@ -2318,5 +3388,74 @@ window.fetchServicesFromCloud = fetchServicesFromCloud;
 window.saveServiceToCloud = saveServiceToCloud;
 window.deleteServiceFromCloud = deleteServiceFromCloud;
 window.fetchAllOrdersForAdmin = fetchAllOrdersForAdmin;
+window.fetchPortfolioProjectsFromCloud = fetchPortfolioProjectsFromCloud;
+window.savePortfolioProjectToCloud = savePortfolioProjectToCloud;
+window.saveAllPortfolioProjectsToCloud = saveAllPortfolioProjectsToCloud;
+window.deletePortfolioProjectFromCloud = deletePortfolioProjectFromCloud;
+window.fetchCouponsFromCloud = fetchCouponsFromCloud;
+window.saveCouponToCloud = saveCouponToCloud;
+window.toggleCouponInCloud = toggleCouponInCloud;
+window.deleteCouponFromCloud = deleteCouponFromCloud;
+window.validateCouponFromCloud = validateCouponFromCloud;
+window.submitContactMessageToCloud = submitContactMessageToCloud;
+window.fetchContactMessagesForAdmin = fetchContactMessagesForAdmin;
+window.updateContactMessageStatusForAdmin = updateContactMessageStatusForAdmin;
+window.deleteContactMessageForAdmin = deleteContactMessageForAdmin;
+async function runSupabaseHealthCheck() {
+  const report = {
+    connected: Boolean(sbClient),
+    adminUser: null,
+    isAdminRpc: false,
+    tables: {},
+    buckets: {}
+  };
+  if (!sbClient) return report;
+
+  const user = await getSupabaseAuthUser();
+  report.adminUser = user ? { email: user.email, id: user.id } : null;
+
+  try {
+    const { data, error } = await sbClient.rpc('is_admin');
+    report.isAdminRpc = !error && Boolean(data);
+  } catch (e) {}
+
+  const tableChecks = [
+    { name: 'services', select: 'id,badge,metadata' },
+    { name: 'packages', select: 'id' },
+    { name: 'orders', select: 'id,reference_files,delivery' },
+    { name: 'portfolio_projects', select: 'id' },
+    { name: 'coupons', select: 'code' },
+    { name: 'reviews', select: 'id' },
+    { name: 'profiles', select: 'id' },
+    { name: 'contact_messages', select: 'id' }
+  ];
+
+  for (const t of tableChecks) {
+    try {
+      const { error } = await sbClient.from(t.name).select(t.select).limit(1);
+      report.tables[t.name] = error ? { ok: false, error: error.message } : { ok: true };
+    } catch (e) {
+      report.tables[t.name] = { ok: false, error: e.message };
+    }
+  }
+
+  const bucketNames = ['portfolio-media', 'order-references', 'order-deliveries', 'profile-avatars', 'review-images'];
+  for (const b of bucketNames) {
+    try {
+      const { error } = await sbClient.storage.from(b).list('', { limit: 1 });
+      if (error && (String(error.message).toLowerCase().includes('not found') || String(error.message).toLowerCase().includes('bucket'))) {
+        report.buckets[b] = { ok: false, error: error.message };
+      } else {
+        report.buckets[b] = { ok: true };
+      }
+    } catch (e) {
+      report.buckets[b] = { ok: false, error: e.message };
+    }
+  }
+
+  return report;
+}
+
+window.runSupabaseHealthCheck = runSupabaseHealthCheck;
 window.initProjectLikeButtons = initProjectLikeButtons;
 window.updateLikeButtonUI = updateLikeButtonUI;

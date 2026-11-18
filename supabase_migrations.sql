@@ -7,6 +7,26 @@
 -- 1. Enable Required Extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- 1b. Centralized Admin Authorization Helper (Super Admin & Storage Center: sanjitrooy733@gmail.com)
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, auth, pg_temp
+AS $$
+  SELECT (
+    (auth.jwt() ->> 'role') = 'admin'
+    OR (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+    OR (
+      auth.role() = 'authenticated'
+      AND LOWER(COALESCE(auth.jwt() ->> 'email', '')) = 'sanjitrooy733@gmail.com'
+    )
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.is_admin() TO anon, authenticated;
+
 -- 2. Create Services Table
 CREATE TABLE IF NOT EXISTS public.services (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -15,11 +35,19 @@ CREATE TABLE IF NOT EXISTS public.services (
     category TEXT NOT NULL,
     description TEXT NOT NULL,
     image_url TEXT,
+    badge TEXT,
+    gig_title TEXT,
+    metadata JSONB DEFAULT '{}'::jsonb,
     display_order INT DEFAULT 0,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Backward-compatible columns on existing services table
+ALTER TABLE public.services ADD COLUMN IF NOT EXISTS badge TEXT;
+ALTER TABLE public.services ADD COLUMN IF NOT EXISTS gig_title TEXT;
+ALTER TABLE public.services ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
 
 -- Enable RLS on services
 ALTER TABLE public.services ENABLE ROW LEVEL SECURITY;
@@ -28,14 +56,15 @@ ALTER TABLE public.services ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public can view active services" ON public.services;
 CREATE POLICY "Public can view active services" 
     ON public.services FOR SELECT 
-    USING (is_active = true);
+    USING (is_active = true OR public.is_admin());
 
 -- Admins have full access
 DROP POLICY IF EXISTS "Admins have full access to services" ON public.services;
 CREATE POLICY "Admins have full access to services" 
     ON public.services FOR ALL 
     TO authenticated 
-    USING ((auth.jwt() ->> 'role') = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'is_admin') = 'true');
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
 
 -- 3. Create Packages Table (Basic, Standard, Premium)
 CREATE TABLE IF NOT EXISTS public.packages (
@@ -60,13 +89,14 @@ ALTER TABLE public.packages ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public can view active packages" ON public.packages;
 CREATE POLICY "Public can view active packages" 
     ON public.packages FOR SELECT 
-    USING (is_active = true);
+    USING (is_active = true OR public.is_admin());
 
 DROP POLICY IF EXISTS "Admins have full access to packages" ON public.packages;
 CREATE POLICY "Admins have full access to packages" 
     ON public.packages FOR ALL 
     TO authenticated 
-    USING ((auth.jwt() ->> 'role') = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'is_admin') = 'true');
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
 
 -- 4. Create Service Addons Table
 CREATE TABLE IF NOT EXISTS public.service_addons (
@@ -85,13 +115,14 @@ ALTER TABLE public.service_addons ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public can view active addons" ON public.service_addons;
 CREATE POLICY "Public can view active addons" 
     ON public.service_addons FOR SELECT 
-    USING (is_active = true);
+    USING (is_active = true OR public.is_admin());
 
 DROP POLICY IF EXISTS "Admins have full access to addons" ON public.service_addons;
 CREATE POLICY "Admins have full access to addons" 
     ON public.service_addons FOR ALL 
     TO authenticated 
-    USING ((auth.jwt() ->> 'role') = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'is_admin') = 'true');
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
 
 -- 5. Create Coupons / Discounts Table
 CREATE TABLE IF NOT EXISTS public.coupons (
@@ -117,13 +148,75 @@ DROP POLICY IF EXISTS "Authenticated users can read coupons" ON public.coupons;
 CREATE POLICY "Authenticated users can read coupons" 
     ON public.coupons FOR SELECT 
     TO authenticated 
-    USING (is_active = true AND (expires_at IS NULL OR expires_at > NOW()));
+    USING ((is_active = true AND (expires_at IS NULL OR expires_at > NOW())) OR public.is_admin());
 
 DROP POLICY IF EXISTS "Admins have full access to coupons" ON public.coupons;
 CREATE POLICY "Admins have full access to coupons" 
     ON public.coupons FOR ALL 
     TO authenticated 
-    USING ((auth.jwt() ->> 'role') = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'is_admin') = 'true');
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
+
+-- Secure Public Coupon Validation RPC (Safe for checkout without exposing full coupons table to anon)
+CREATE OR REPLACE FUNCTION public.validate_coupon_code(
+    p_code TEXT,
+    p_subtotal NUMERIC DEFAULT 0
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_coupon RECORD;
+    v_discount NUMERIC(10, 2) := 0.00;
+BEGIN
+    IF p_code IS NULL OR length(trim(p_code)) = 0 THEN
+        RETURN jsonb_build_object('valid', false, 'error', 'Coupon code is required.');
+    END IF;
+
+    SELECT * INTO v_coupon
+    FROM public.coupons
+    WHERE UPPER(code) = UPPER(trim(p_code))
+      AND is_active = true
+      AND (starts_at IS NULL OR starts_at <= NOW())
+      AND (expires_at IS NULL OR expires_at > NOW())
+      AND (total_usage_limit IS NULL OR times_used < total_usage_limit);
+
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('valid', false, 'error', 'Invalid or expired coupon code.');
+    END IF;
+
+    IF COALESCE(p_subtotal, 0) > 0 AND p_subtotal < COALESCE(v_coupon.min_order_amount, 0.00) THEN
+        RETURN jsonb_build_object(
+            'valid', false,
+            'error', 'Minimum order of $' || to_char(v_coupon.min_order_amount, 'FM999,990.00') || ' required for this coupon.',
+            'min_order_amount', v_coupon.min_order_amount
+        );
+    END IF;
+
+    IF v_coupon.discount_type = 'percentage' THEN
+        v_discount := ROUND((COALESCE(p_subtotal, 0) * (v_coupon.discount_value / 100.0)), 2);
+        IF v_coupon.max_discount_amount IS NOT NULL AND v_discount > v_coupon.max_discount_amount THEN
+            v_discount := v_coupon.max_discount_amount;
+        END IF;
+    ELSE
+        v_discount := LEAST(v_coupon.discount_value, COALESCE(p_subtotal, v_coupon.discount_value));
+    END IF;
+
+    RETURN jsonb_build_object(
+        'valid', true,
+        'code', v_coupon.code,
+        'discount_type', v_coupon.discount_type,
+        'discount_value', v_coupon.discount_value,
+        'min_order_amount', COALESCE(v_coupon.min_order_amount, 0),
+        'max_discount_amount', v_coupon.max_discount_amount,
+        'calculated_discount', GREATEST(0, v_discount)
+    );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.validate_coupon_code(TEXT, NUMERIC) TO anon, authenticated;
 
 -- Coupon Usage History Table (Tracking per-customer usage)
 CREATE TABLE IF NOT EXISTS public.coupon_usages (
@@ -141,13 +234,19 @@ DROP POLICY IF EXISTS "Customers can view their own coupon usage" ON public.coup
 CREATE POLICY "Customers can view their own coupon usage" 
     ON public.coupon_usages FOR SELECT 
     TO authenticated 
-    USING (customer_id = auth.uid());
+    USING (customer_id = auth.uid() OR public.is_admin());
+
+DROP POLICY IF EXISTS "Admins have full access to coupon usages" ON public.coupon_usages;
+CREATE POLICY "Admins have full access to coupon usages"
+    ON public.coupon_usages FOR ALL
+    TO authenticated
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
 
 -- 6. Backward-Compatible Upgrade for Existing Orders Table
 -- If orders table exists, add new fields without deleting or altering existing columns
 DO $$ 
 BEGIN
-    -- Check if orders table exists, if not create it
     IF NOT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'orders') THEN
         CREATE TABLE public.orders (
             id TEXT PRIMARY KEY,
@@ -166,9 +265,9 @@ BEGIN
     END IF;
 END $$;
 
--- Add new Fiverr-tier columns safely
-ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS service_id UUID REFERENCES public.services(id);
-ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS package_id UUID REFERENCES public.packages(id);
+-- Add new Fiverr-tier & Delivery/Revision columns safely
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS service_id UUID;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS package_id UUID;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS package_tier TEXT DEFAULT 'basic';
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS package_name TEXT;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS package_price NUMERIC(10, 2);
@@ -183,6 +282,12 @@ ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS subtotal NUMERIC(10, 2);
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS final_total NUMERIC(10, 2);
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS reference_files JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS estimated_completion TIMESTAMPTZ;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS delivery JSONB;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS deliveries JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS revisions JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS client_accepted BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 
 -- Enable RLS on orders
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
@@ -192,7 +297,11 @@ DROP POLICY IF EXISTS "Customers can view own orders" ON public.orders;
 CREATE POLICY "Customers can view own orders" 
     ON public.orders FOR SELECT 
     TO authenticated 
-    USING (customer_id = auth.uid() OR customer_email = (auth.jwt() ->> 'email'));
+    USING (
+        customer_id = auth.uid()
+        OR LOWER(customer_email) = LOWER(COALESCE(auth.jwt() ->> 'email', ''))
+        OR public.is_admin()
+    );
 
 -- Customers can insert their own orders
 DROP POLICY IF EXISTS "Customers can insert own orders" ON public.orders;
@@ -200,16 +309,153 @@ CREATE POLICY "Customers can insert own orders"
     ON public.orders FOR INSERT
     TO authenticated
     WITH CHECK (
-        customer_id = auth.uid() OR 
-        customer_email = (auth.jwt() ->> 'email')
+        customer_id = auth.uid()
+        OR LOWER(customer_email) = LOWER(COALESCE(auth.jwt() ->> 'email', ''))
+        OR public.is_admin()
     );
 
--- Admins can view and update all orders
+-- Customers can update own order (for delivery acceptance / revision requests)
+DROP POLICY IF EXISTS "Customers can update own order tracking actions" ON public.orders;
+CREATE POLICY "Customers can update own order tracking actions"
+    ON public.orders FOR UPDATE
+    TO authenticated
+    USING (
+        customer_id = auth.uid()
+        OR LOWER(customer_email) = LOWER(COALESCE(auth.jwt() ->> 'email', ''))
+    )
+    WITH CHECK (
+        customer_id = auth.uid()
+        OR LOWER(customer_email) = LOWER(COALESCE(auth.jwt() ->> 'email', ''))
+    );
+
+-- Admins can view, insert, update, and delete all orders
 DROP POLICY IF EXISTS "Admins have full access to orders" ON public.orders;
 CREATE POLICY "Admins have full access to orders" 
     ON public.orders FOR ALL 
     TO authenticated 
-    USING ((auth.jwt() ->> 'role') = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'is_admin') = 'true');
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
+
+-- Public Order Tracking RPC (Looks up a single order by exact ID for work-tracking.html without exposing full table)
+CREATE OR REPLACE FUNCTION public.get_order_tracking_by_id(p_order_id TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_clean_id TEXT;
+    v_order RECORD;
+BEGIN
+    v_clean_id := regexp_replace(trim(COALESCE(p_order_id, '')), '^#', '');
+    IF length(v_clean_id) < 4 THEN
+        RETURN NULL;
+    END IF;
+
+    SELECT * INTO v_order
+    FROM public.orders
+    WHERE UPPER(id) = UPPER(v_clean_id)
+    LIMIT 1;
+
+    IF NOT FOUND THEN
+        RETURN NULL;
+    END IF;
+
+    RETURN jsonb_build_object(
+        'id', v_order.id,
+        'customer_name', COALESCE(v_order.customer_name, 'Client'),
+        'customer_email', COALESCE(v_order.customer_email, ''),
+        'service', COALESCE(v_order.service, 'Service'),
+        'service_slug', COALESCE(v_order.service_slug, ''),
+        'package_tier', COALESCE(v_order.package_tier, 'basic'),
+        'package_name', COALESCE(v_order.package_name, v_order.service),
+        'package_price', COALESCE(v_order.package_price, 0),
+        'delivery_days', COALESCE(v_order.delivery_days, 3),
+        'is_express', COALESCE(v_order.is_express, false),
+        'express_fee', COALESCE(v_order.express_fee, 0),
+        'selected_addons', COALESCE(v_order.selected_addons, '[]'::jsonb),
+        'addons_total', COALESCE(v_order.addons_total, 0),
+        'coupon_code', v_order.coupon_code,
+        'discount_amount', COALESCE(v_order.discount_amount, 0),
+        'subtotal', COALESCE(v_order.subtotal, 0),
+        'final_total', COALESCE(v_order.final_total, 0),
+        'request', COALESCE(v_order.request, ''),
+        'reference_files', COALESCE(v_order.reference_files, '[]'::jsonb),
+        'status', COALESCE(v_order.status, 'Pending'),
+        'progress', COALESCE(v_order.progress, 0),
+        'price', COALESCE(v_order.price, '$' || to_char(COALESCE(v_order.final_total, 30), 'FM999,990.00')),
+        'delivery', v_order.delivery,
+        'deliveries', COALESCE(v_order.deliveries, '[]'::jsonb),
+        'revisions', COALESCE(v_order.revisions, '[]'::jsonb),
+        'client_accepted', COALESCE(v_order.client_accepted, false),
+        'completed_at', v_order.completed_at,
+        'order_date', v_order.order_date,
+        'last_updated', v_order.last_updated
+    );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_order_tracking_by_id(TEXT) TO anon, authenticated;
+
+-- Scoped Client Tracking Action RPC (Accept Delivery or Request Revision from work-tracking.html)
+CREATE OR REPLACE FUNCTION public.submit_order_tracking_action(
+    p_order_id TEXT,
+    p_action TEXT,
+    p_note TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_clean_id TEXT;
+    v_order RECORD;
+    v_revisions JSONB;
+    v_new_rev JSONB;
+BEGIN
+    v_clean_id := regexp_replace(trim(COALESCE(p_order_id, '')), '^#', '');
+    SELECT * INTO v_order FROM public.orders WHERE UPPER(id) = UPPER(v_clean_id) LIMIT 1;
+
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Order not found.');
+    END IF;
+
+    IF LOWER(COALESCE(p_action, '')) = 'accept' THEN
+        UPDATE public.orders
+        SET status = 'Completed',
+            progress = 100,
+            client_accepted = true,
+            completed_at = COALESCE(completed_at, NOW()),
+            last_updated = NOW()
+        WHERE id = v_order.id;
+
+        RETURN jsonb_build_object('success', true, 'status', 'Completed', 'progress', 100);
+    ELSIF LOWER(COALESCE(p_action, '')) = 'revision' THEN
+        v_revisions := COALESCE(v_order.revisions, '[]'::jsonb);
+        v_new_rev := jsonb_build_object(
+            'revisionNumber', jsonb_array_length(v_revisions) + 1,
+            'requestedAt', NOW(),
+            'note', COALESCE(NULLIF(trim(p_note), ''), 'Requested adjustments'),
+            'status', 'pending'
+        );
+        v_revisions := v_revisions || jsonb_build_array(v_new_rev);
+
+        UPDATE public.orders
+        SET status = 'In Revision',
+            progress = 80,
+            revisions = v_revisions,
+            last_updated = NOW()
+        WHERE id = v_order.id;
+
+        RETURN jsonb_build_object('success', true, 'status', 'In Revision', 'progress', 80, 'revisions', v_revisions);
+    ELSE
+        RETURN jsonb_build_object('success', false, 'error', 'Invalid action.');
+    END IF;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.submit_order_tracking_action(TEXT, TEXT, TEXT) TO anon, authenticated;
 
 -- 7. Secure Server-Side Atomic Order Creation Function (RPC)
 -- Validates service, package, add-ons, coupon code and usage limits
@@ -289,9 +535,7 @@ BEGIN
           AND (total_usage_limit IS NULL OR times_used < total_usage_limit);
 
         IF FOUND THEN
-            -- Check min order amount
             IF v_subtotal >= COALESCE(v_coupon.min_order_amount, 0.00) THEN
-                -- Check per customer usage limit
                 IF v_customer_id IS NOT NULL THEN
                     SELECT COUNT(*) INTO v_customer_usage_count 
                     FROM public.coupon_usages 
@@ -386,7 +630,6 @@ BEGIN
         END IF;
     END IF;
 
-    -- Return JSON Response
     RETURN jsonb_build_object(
         'success', true,
         'order_id', v_order_id,
@@ -399,32 +642,82 @@ BEGIN
 END;
 $$;
 
--- 8. Storage Bucket Setup for Customer Order References
+-- 8. Storage Bucket Setup for Customer Order References & Admin Order Deliveries
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('order-references', 'order-references', false)
 ON CONFLICT (id) DO NOTHING;
 
--- RLS Policy for storage.objects: Authenticated users can upload to order-references
 DROP POLICY IF EXISTS "Authenticated users can upload order references" ON storage.objects;
 CREATE POLICY "Authenticated users can upload order references"
 ON storage.objects FOR INSERT TO authenticated
 WITH CHECK (
-    bucket_id = 'order-references' AND
-    auth.uid() IS NOT NULL
+    bucket_id = 'order-references'
+    AND (auth.uid() IS NOT NULL OR public.is_admin())
 );
 
--- Users can view their own uploaded files
 DROP POLICY IF EXISTS "Users can view own order references" ON storage.objects;
 CREATE POLICY "Users can view own order references"
 ON storage.objects FOR SELECT TO authenticated
 USING (
-    bucket_id = 'order-references' AND
-    (auth.uid()::text = (storage.foldername(name))[1] OR (auth.jwt() ->> 'role') = 'admin')
+    bucket_id = 'order-references' AND (
+        auth.uid()::text = (storage.foldername(name))[1]
+        OR EXISTS (
+            SELECT 1 FROM public.orders o
+            WHERE (
+                UPPER(o.id) = UPPER((storage.foldername(name))[1])
+                OR UPPER(o.id) = UPPER((storage.foldername(name))[2])
+            )
+              AND (o.customer_id = auth.uid() OR LOWER(o.customer_email) = LOWER(COALESCE(auth.jwt() ->> 'email', '')))
+        )
+        OR public.is_admin()
+    )
+);
+
+DROP POLICY IF EXISTS "Admins can manage order references" ON storage.objects;
+CREATE POLICY "Admins can manage order references"
+ON storage.objects FOR DELETE TO authenticated
+USING (bucket_id = 'order-references' AND public.is_admin());
+
+-- Order Deliveries Storage Bucket (Private: Admin sanjitrooy733@gmail.com uploads, Admin & Order Owner read)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('order-deliveries', 'order-deliveries', false)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "Admins can upload order deliveries" ON storage.objects;
+CREATE POLICY "Admins can upload order deliveries"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (bucket_id = 'order-deliveries' AND public.is_admin());
+
+DROP POLICY IF EXISTS "Admins can update order deliveries" ON storage.objects;
+CREATE POLICY "Admins can update order deliveries"
+ON storage.objects FOR UPDATE TO authenticated
+USING (bucket_id = 'order-deliveries' AND public.is_admin())
+WITH CHECK (bucket_id = 'order-deliveries' AND public.is_admin());
+
+DROP POLICY IF EXISTS "Admins can delete order deliveries" ON storage.objects;
+CREATE POLICY "Admins can delete order deliveries"
+ON storage.objects FOR DELETE TO authenticated
+USING (bucket_id = 'order-deliveries' AND public.is_admin());
+
+DROP POLICY IF EXISTS "Order owner and admin can read order deliveries" ON storage.objects;
+CREATE POLICY "Order owner and admin can read order deliveries"
+ON storage.objects FOR SELECT TO authenticated
+USING (
+    bucket_id = 'order-deliveries' AND (
+        public.is_admin()
+        OR EXISTS (
+            SELECT 1 FROM public.orders o
+            WHERE UPPER(o.id) = UPPER((storage.foldername(name))[1])
+              AND (o.customer_id = auth.uid() OR LOWER(o.customer_email) = LOWER(COALESCE(auth.jwt() ->> 'email', '')))
+        )
+    )
 );
 
 -- ============================================================================
 -- 9. Initial Seed Data (Preserving existing services, tiers and pricing)
 -- ============================================================================
+DO $seed$
+BEGIN
 
 -- 01. Facebook Marketing
 INSERT INTO public.services (id, name, slug, category, description, display_order)
@@ -666,8 +959,13 @@ INSERT INTO public.coupons (code, discount_type, discount_value, min_order_amoun
 VALUES 
     ('WELCOME10', 'percentage', 10.00, 20.00, 50.00, true),
     ('RUDDRA20', 'fixed', 20.00, 60.00, NULL, true),
-    ('FIRSTORDER', 'percentage', 15.00, 25.00, 40.00, true)
+    ('FIRSTORDER', 'percentage', 15.00, 25.00, 40.00, true),
+    ('VIP25', 'percentage', 25.00, 100.00, 75.00, true)
 ON CONFLICT (code) DO NOTHING;
+
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'Seed insert notice (non-fatal): %', SQLERRM;
+END $seed$;
 
 -- ============================================================================
 -- 10. Portfolio Likes Table
@@ -736,54 +1034,76 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 CREATE POLICY "Users can view own profile"
     ON public.profiles FOR SELECT
+    TO authenticated
     USING (
-        email = (auth.jwt() ->> 'email') OR 
-        (auth.uid() IS NOT NULL AND user_id = auth.uid()) OR
-        auth.role() = 'anon'
+        LOWER(email) = LOWER(COALESCE(auth.jwt() ->> 'email', ''))
+        OR (auth.uid() IS NOT NULL AND user_id = auth.uid())
+        OR public.is_admin()
     );
 
--- Allow users to insert their own profile
+-- Allow authenticated users to insert their own profile
 DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 CREATE POLICY "Users can insert own profile"
     ON public.profiles FOR INSERT
-    WITH CHECK (true);
+    TO authenticated
+    WITH CHECK (
+        LOWER(email) = LOWER(COALESCE(auth.jwt() ->> 'email', ''))
+        OR (auth.uid() IS NOT NULL AND user_id = auth.uid())
+        OR public.is_admin()
+    );
 
--- Allow users to update their own profile
+-- Allow authenticated users to update their own profile
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile"
     ON public.profiles FOR UPDATE
-    USING (true)
-    WITH CHECK (true);
+    TO authenticated
+    USING (
+        LOWER(email) = LOWER(COALESCE(auth.jwt() ->> 'email', ''))
+        OR (auth.uid() IS NOT NULL AND user_id = auth.uid())
+        OR public.is_admin()
+    )
+    WITH CHECK (
+        LOWER(email) = LOWER(COALESCE(auth.jwt() ->> 'email', ''))
+        OR (auth.uid() IS NOT NULL AND user_id = auth.uid())
+        OR public.is_admin()
+    );
 
 -- Admins full access to profiles
 DROP POLICY IF EXISTS "Admins have full access to profiles" ON public.profiles;
 CREATE POLICY "Admins have full access to profiles"
     ON public.profiles FOR ALL
     TO authenticated
-    USING ((auth.jwt() ->> 'role') = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'is_admin') = 'true');
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
 
 -- Storage Bucket for Profile Avatars
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('profile-avatars', 'profile-avatars', true)
 ON CONFLICT (id) DO NOTHING;
 
--- RLS Policy: Public read access to avatars
 DROP POLICY IF EXISTS "Public can view profile avatars" ON storage.objects;
 CREATE POLICY "Public can view profile avatars"
     ON storage.objects FOR SELECT
     USING (bucket_id = 'profile-avatars');
 
--- RLS Policy: Users can upload profile avatars
 DROP POLICY IF EXISTS "Users can upload profile avatars" ON storage.objects;
 CREATE POLICY "Users can upload profile avatars"
     ON storage.objects FOR INSERT
-    WITH CHECK (bucket_id = 'profile-avatars');
+    TO authenticated
+    WITH CHECK (bucket_id = 'profile-avatars' AND (auth.uid() IS NOT NULL OR public.is_admin()));
 
--- RLS Policy: Users can update/replace profile avatars
 DROP POLICY IF EXISTS "Users can update profile avatars" ON storage.objects;
 CREATE POLICY "Users can update profile avatars"
     ON storage.objects FOR UPDATE
-    USING (bucket_id = 'profile-avatars');
+    TO authenticated
+    USING (bucket_id = 'profile-avatars' AND (auth.uid() IS NOT NULL OR public.is_admin()))
+    WITH CHECK (bucket_id = 'profile-avatars' AND (auth.uid() IS NOT NULL OR public.is_admin()));
+
+DROP POLICY IF EXISTS "Admins can delete profile avatars" ON storage.objects;
+CREATE POLICY "Admins can delete profile avatars"
+    ON storage.objects FOR DELETE
+    TO authenticated
+    USING (bucket_id = 'profile-avatars' AND public.is_admin());
 
 -- Safe column extensions for customer profile details
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS company_name TEXT;
@@ -811,15 +1131,14 @@ CREATE TABLE IF NOT EXISTS public.reviews (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Safe column additions if table was created in an earlier migration
 ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS customer_avatar TEXT;
 ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS image_url TEXT;
+ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS video_url TEXT;
 ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS project_url TEXT;
 ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'approved';
 ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS helpful_count INT DEFAULT 0;
 ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
--- Ensure unique constraint on order_id (one review per order)
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -829,55 +1148,153 @@ BEGIN
         ALTER TABLE public.reviews ADD CONSTRAINT reviews_order_id_key UNIQUE (order_id);
     END IF;
 EXCEPTION WHEN OTHERS THEN
-    -- Ignore if already present
+    NULL;
 END $$;
 
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
 
--- Public can view approved reviews
 DROP POLICY IF EXISTS "Public can view approved reviews" ON public.reviews;
 DROP POLICY IF EXISTS "Public can view verified reviews" ON public.reviews;
 CREATE POLICY "Public can view approved reviews"
     ON public.reviews FOR SELECT
-    USING (status = 'approved' OR (auth.jwt() ->> 'role') = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'is_admin') = 'true');
+    USING (status = 'approved' OR public.is_admin());
 
--- Authenticated customers can insert reviews
 DROP POLICY IF EXISTS "Customers can insert reviews" ON public.reviews;
 CREATE POLICY "Customers can insert reviews"
     ON public.reviews FOR INSERT
     WITH CHECK (
-        customer_email = (auth.jwt() ->> 'email') OR
-        auth.role() = 'anon' OR
-        auth.role() = 'authenticated'
+        LOWER(customer_email) = LOWER(COALESCE(auth.jwt() ->> 'email', ''))
+        OR auth.role() = 'anon'
+        OR auth.role() = 'authenticated'
     );
 
--- Admins have full access to reviews (approve, reject, delete, edit)
 DROP POLICY IF EXISTS "Admins have full access to reviews" ON public.reviews;
 CREATE POLICY "Admins have full access to reviews"
     ON public.reviews FOR ALL
     TO authenticated
-    USING ((auth.jwt() ->> 'role') = 'admin' OR (auth.jwt() -> 'user_metadata' ->> 'is_admin') = 'true');
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
 
 -- Storage Bucket for Project Review Images
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('review-images', 'review-images', true)
 ON CONFLICT (id) DO NOTHING;
 
--- Storage RLS: Public can view review images
 DROP POLICY IF EXISTS "Public can view review images" ON storage.objects;
 CREATE POLICY "Public can view review images"
     ON storage.objects FOR SELECT
     USING (bucket_id = 'review-images');
 
--- Storage RLS: Users can upload review images
 DROP POLICY IF EXISTS "Users can upload review images" ON storage.objects;
 CREATE POLICY "Users can upload review images"
     ON storage.objects FOR INSERT
     WITH CHECK (bucket_id = 'review-images');
 
--- Storage RLS: Users can update review images
 DROP POLICY IF EXISTS "Users can update review images" ON storage.objects;
 CREATE POLICY "Users can update review images"
     ON storage.objects FOR UPDATE
-    USING (bucket_id = 'review-images');
+    TO authenticated
+    USING (bucket_id = 'review-images' AND public.is_admin());
+
+DROP POLICY IF EXISTS "Admins can delete review images" ON storage.objects;
+CREATE POLICY "Admins can delete review images"
+    ON storage.objects FOR DELETE
+    TO authenticated
+    USING (bucket_id = 'review-images' AND public.is_admin());
+
+-- ============================================================================
+-- 14. Portfolio Showcase Projects Table & Media Storage Bucket (portfolio-media)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.portfolio_projects (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    category TEXT NOT NULL,
+    category_slug TEXT NOT NULL,
+    badge TEXT DEFAULT 'Project',
+    description TEXT NOT NULL,
+    details TEXT,
+    author TEXT DEFAULT 'Ruddranil',
+    media_url TEXT,
+    media_type TEXT DEFAULT 'image',
+    likes_count INT DEFAULT 0,
+    comments_count INT DEFAULT 0,
+    service_slug TEXT DEFAULT 'Website Design',
+    display_order INT DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.portfolio_projects ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public can view active portfolio projects" ON public.portfolio_projects;
+CREATE POLICY "Public can view active portfolio projects"
+    ON public.portfolio_projects FOR SELECT
+    USING (is_active = true OR public.is_admin());
+
+DROP POLICY IF EXISTS "Admins have full access to portfolio projects" ON public.portfolio_projects;
+CREATE POLICY "Admins have full access to portfolio projects"
+    ON public.portfolio_projects FOR ALL
+    TO authenticated
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
+
+-- Public Storage Bucket for Portfolio & Gig Media (Admin sanjitrooy733@gmail.com manages uploads)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('portfolio-media', 'portfolio-media', true)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "Public can view portfolio media" ON storage.objects;
+CREATE POLICY "Public can view portfolio media"
+    ON storage.objects FOR SELECT
+    USING (bucket_id = 'portfolio-media');
+
+DROP POLICY IF EXISTS "Admins can upload portfolio media" ON storage.objects;
+CREATE POLICY "Admins can upload portfolio media"
+    ON storage.objects FOR INSERT
+    TO authenticated
+    WITH CHECK (bucket_id = 'portfolio-media' AND public.is_admin());
+
+DROP POLICY IF EXISTS "Admins can update portfolio media" ON storage.objects;
+CREATE POLICY "Admins can update portfolio media"
+    ON storage.objects FOR UPDATE
+    TO authenticated
+    USING (bucket_id = 'portfolio-media' AND public.is_admin())
+    WITH CHECK (bucket_id = 'portfolio-media' AND public.is_admin());
+
+DROP POLICY IF EXISTS "Admins can delete portfolio media" ON storage.objects;
+CREATE POLICY "Admins can delete portfolio media"
+    ON storage.objects FOR DELETE
+    TO authenticated
+    USING (bucket_id = 'portfolio-media' AND public.is_admin());
+
+-- ============================================================================
+-- 15. Contact Form Inquiries Table
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.contact_messages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    service_name TEXT,
+    message TEXT NOT NULL,
+    status TEXT DEFAULT 'new',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.contact_messages ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public can submit contact messages" ON public.contact_messages;
+CREATE POLICY "Public can submit contact messages"
+    ON public.contact_messages FOR INSERT
+    WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Admins have full access to contact messages" ON public.contact_messages;
+CREATE POLICY "Admins have full access to contact messages"
+    ON public.contact_messages FOR ALL
+    TO authenticated
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
+
+-- Reload PostgREST schema cache immediately so new tables, columns, and RPCs are live
+NOTIFY pgrst, 'reload schema';
 

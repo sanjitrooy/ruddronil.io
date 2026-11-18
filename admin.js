@@ -4,11 +4,19 @@
  */
 
 // Cross-Device Server Persistence Helpers
+async function buildAdminHeaders(extra = {}) {
+  if (typeof window.getAdminAuthHeaders === 'function') {
+    return await window.getAdminAuthHeaders(extra);
+  }
+  return { ...extra };
+}
+
 async function syncServicesToServer(services) {
   try {
+    const headers = await buildAdminHeaders({ 'Content-Type': 'application/json' });
     const res = await fetch('/api/services', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(services)
     });
     return res.ok;
@@ -20,9 +28,10 @@ async function syncServicesToServer(services) {
 
 async function syncProjectsToServer(projects) {
   try {
+    const headers = await buildAdminHeaders({ 'Content-Type': 'application/json' });
     const res = await fetch('/api/projects', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(projects)
     });
     return res.ok;
@@ -41,7 +50,8 @@ async function loadAuthoritativeDataFromServer() {
         renderAdminDashboard();
       }
     } else {
-      const resOrders = await fetch('/api/orders');
+      const headers = await buildAdminHeaders();
+      const resOrders = await fetch('/api/orders', { headers });
       if (resOrders.ok) {
         const serverOrders = await resOrders.json();
         if (Array.isArray(serverOrders) && serverOrders.length > 0) {
@@ -70,118 +80,156 @@ async function loadAuthoritativeDataFromServer() {
       }
     }
 
-    // 3. Fetch authoritative Projects
-    const resProj = await fetch('/api/projects');
-    if (resProj.ok) {
-      const serverProjects = await resProj.json();
-      if (Array.isArray(serverProjects) && serverProjects.length > 0) {
-        localStorage.setItem('ruddranil_portfolio_projects', JSON.stringify(serverProjects));
+    // 3. Fetch authoritative Projects (Supabase first, then /api/projects)
+    if (typeof window.fetchPortfolioProjectsFromCloud === 'function') {
+      const cloudProjects = await window.fetchPortfolioProjectsFromCloud();
+      if (Array.isArray(cloudProjects) && cloudProjects.length > 0) {
         renderAdminProjectsList();
+      }
+    } else {
+      const resProj = await fetch('/api/projects');
+      if (resProj.ok) {
+        const serverProjects = await resProj.json();
+        if (Array.isArray(serverProjects) && serverProjects.length > 0) {
+          localStorage.setItem('ruddranil_portfolio_projects', JSON.stringify(serverProjects));
+          renderAdminProjectsList();
+        }
       }
     }
 
-    // 4. Fetch authoritative Reviews from Supabase & Backend Server
+    // 4. Fetch authoritative Coupons from Supabase
+    if (typeof window.fetchCouponsFromCloud === 'function') {
+      await window.fetchCouponsFromCloud();
+      renderAdminCouponsTable();
+      const tabCouponCount = document.getElementById('tabCouponCount');
+      if (tabCouponCount) {
+        tabCouponCount.textContent = JSON.parse(localStorage.getItem('ruddranil_coupons') || '[]').length.toString();
+      }
+    }
+
+    // 5. Fetch authoritative Reviews from Supabase & Backend Server
     if (typeof syncAdminReviewsFromCloud === 'function') {
       await syncAdminReviewsFromCloud();
+    }
+
+    // 6. Fetch Contact Inquiries from Supabase
+    if (typeof syncAdminContactMessages === 'function') {
+      await syncAdminContactMessages(false);
     }
   } catch (err) {
     console.warn('Cross-device initial fetch fallback:', err);
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  renderAdminDashboard();
-  loadAuthoritativeDataFromServer();
+let adminConsoleInitialized = false;
+let adminPollIntervalId = null;
 
-  // Instant Real-Time Orders Sync: Triggered when any client submits an order or updates status
-  window.addEventListener('ruddranil_orders_updated', () => {
-    renderAdminDashboard();
-  });
+window.initAdminConsole = function() {
+  if (!adminConsoleInitialized) {
+    adminConsoleInitialized = true;
 
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'ruddranil_orders') {
-      renderAdminDashboard();
-    }
-  });
-
-  // Background Auto-Poll every 4 seconds to catch new incoming orders across all client devices
-  setInterval(async () => {
-    if (document.hidden) return;
-    try {
-      if (typeof window.fetchAllOrdersForAdmin === 'function') {
-        const prevCount = JSON.parse(localStorage.getItem('ruddranil_orders') || '[]').length;
-        const fresh = await window.fetchAllOrdersForAdmin();
-        if (fresh && fresh.length !== prevCount) {
-          renderAdminDashboard();
-        }
-      }
-    } catch (e) {}
-  }, 4000);
-
-  // Add new manual order handler
-  const adminOrderForm = document.getElementById('adminNewOrderForm');
-  if (adminOrderForm) {
-    adminOrderForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const customerName = document.getElementById('adminCustName')?.value.trim() || 'Sanjit';
-      const customerEmail = document.getElementById('adminCustEmail')?.value.trim() || 'sanjitrooy733@gmail.com';
-      const serviceName = document.getElementById('adminServiceType')?.value || 'Website Design';
-      const tier = document.getElementById('adminPackageTier')?.value || 'basic';
-      const notes = document.getElementById('adminOrderNotes')?.value.trim() || 'Direct client request';
-
-      const services = JSON.parse(localStorage.getItem('ruddranil_services') || '[]');
-      const service = services.find(s => s.name === serviceName) || services[0];
-      const pkg = service.packages[tier] || service.packages.basic;
-
-      const now = new Date();
-      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
-      const hexRand = Math.random().toString(16).substring(2, 10).toUpperCase();
-      const orderId = `RUD-${dateStr}-${hexRand}`;
-
-      const newOrder = {
-        id: orderId,
-        customerName,
-        customerEmail,
-        service: service.name,
-        serviceSlug: service.slug,
-        packageTier: tier,
-        packageName: pkg.name,
-        packagePrice: pkg.price,
-        subtotal: pkg.price,
-        discountAmount: 0,
-        finalTotal: pkg.price,
-        deliveryDays: pkg.deliveryDays,
-        isExpress: false,
-        expressFee: 0,
-        selectedAddons: [],
-        addonsTotal: 0,
-        couponCode: '',
-        request: notes,
-        referenceFiles: [],
-        status: 'Accepted',
-        progress: 10,
-        price: `$${pkg.price.toFixed(2)}`,
-        orderDate: now.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-        lastUpdated: 'Just now'
-      };
-
-      const orders = JSON.parse(localStorage.getItem('ruddranil_orders') || '[]');
-      orders.unshift(newOrder);
-      localStorage.setItem('ruddranil_orders', JSON.stringify(orders));
-
-      // Sync to Supabase Cloud
-      if (typeof window.syncOrderToSupabase === 'function') {
-        window.syncOrderToSupabase(newOrder);
-      }
-
-      if (typeof showToast === 'function') {
-        showToast(`Order logged successfully: ${orderId}`);
-      }
-      adminOrderForm.reset();
+    window.addEventListener('ruddranil_orders_updated', () => {
       renderAdminDashboard();
     });
+
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'ruddranil_orders') {
+        renderAdminDashboard();
+      }
+    });
+
+    // Background Auto-Poll every 4 seconds to catch new incoming orders across all client devices
+    adminPollIntervalId = setInterval(async () => {
+      if (document.hidden) return;
+      try {
+        if (typeof window.fetchAllOrdersForAdmin === 'function') {
+          const prevCount = JSON.parse(localStorage.getItem('ruddranil_orders') || '[]').length;
+          const fresh = await window.fetchAllOrdersForAdmin();
+          if (fresh && fresh.length !== prevCount) {
+            renderAdminDashboard();
+          }
+        }
+      } catch (e) {}
+    }, 4000);
+
+    // Add new manual order handler
+    const adminOrderForm = document.getElementById('adminNewOrderForm');
+    if (adminOrderForm) {
+      adminOrderForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const customerName = document.getElementById('adminCustName')?.value.trim() || 'Sanjit';
+        const customerEmail = document.getElementById('adminCustEmail')?.value.trim() || 'sanjitrooy733@gmail.com';
+        const serviceName = document.getElementById('adminServiceType')?.value || 'Website Design';
+        const tier = document.getElementById('adminPackageTier')?.value || 'basic';
+        const notes = document.getElementById('adminOrderNotes')?.value.trim() || 'Direct client request';
+
+        let services = JSON.parse(localStorage.getItem('ruddranil_services') || '[]');
+        if (!services.length && Array.isArray(window.DEFAULT_SERVICES)) {
+          services = window.DEFAULT_SERVICES;
+        }
+        const service = services.find(s => s.name === serviceName) || services[0];
+        if (!service) {
+          showToast('No services loaded yet. Please refresh and try again.', 'error');
+          return;
+        }
+        const pkg = (service.packages && (service.packages[tier] || service.packages.basic)) || {
+          name: 'Starter Pack',
+          price: 30,
+          deliveryDays: 3
+        };
+
+        const now = new Date();
+        const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+        const hexRand = Math.random().toString(16).substring(2, 10).toUpperCase();
+        const orderId = `RUD-${dateStr}-${hexRand}`;
+
+        const newOrder = {
+          id: orderId,
+          customerName,
+          customerEmail,
+          service: service.name,
+          serviceSlug: service.slug,
+          packageTier: tier,
+          packageName: pkg.name,
+          packagePrice: pkg.price,
+          subtotal: pkg.price,
+          discountAmount: 0,
+          finalTotal: pkg.price,
+          deliveryDays: pkg.deliveryDays,
+          isExpress: false,
+          expressFee: 0,
+          selectedAddons: [],
+          addonsTotal: 0,
+          couponCode: '',
+          request: notes,
+          referenceFiles: [],
+          status: 'Accepted',
+          progress: 10,
+          price: `$${Number(pkg.price || 30).toFixed(2)}`,
+          orderDate: now.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+          lastUpdated: 'Just now'
+        };
+
+        const orders = JSON.parse(localStorage.getItem('ruddranil_orders') || '[]');
+        orders.unshift(newOrder);
+        localStorage.setItem('ruddranil_orders', JSON.stringify(orders));
+
+        if (typeof window.syncOrderToSupabase === 'function') {
+          window.syncOrderToSupabase(newOrder);
+        }
+
+        if (typeof showToast === 'function') {
+          showToast(`Order logged successfully: ${orderId}`);
+        }
+        adminOrderForm.reset();
+        renderAdminDashboard();
+      });
+    }
   }
-});
+
+  renderAdminDashboard();
+  loadAuthoritativeDataFromServer();
+};
 
 // ============================================================================
 // 1. Render Admin Dashboard & Orders Pipeline
@@ -261,6 +309,11 @@ function filterAdminOrdersTable() {
       <td style="padding: 12px 14px;">
         <div class="admin-table-title">${order.customerName}</div>
         <div style="font-size: 11px; color: var(--text-dark-gray);">${order.customerEmail}</div>
+        ${(Array.isArray(order.referenceFiles) && order.referenceFiles.length > 0) ? `
+          <button type="button" onclick="viewOrderInstructions('${order.id}')" style="margin-top: 5px; display: inline-flex; align-items: center; gap: 4px; background: rgba(56, 189, 248, 0.14); border: 1px solid rgba(56, 189, 248, 0.35); color: #38bdf8; font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; cursor: pointer;">
+            📷 ${order.referenceFiles.length} Client Photo/File(s)
+          </button>
+        ` : ''}
       </td>
       <td style="padding: 12px 14px;">
         <div class="admin-table-title">${order.service}</div>
@@ -362,8 +415,6 @@ window.updateOrderStatus = async function(orderId, newStatus) {
   else if (newStatus === 'In Revision') order.progress = 80;
   else if (newStatus === 'Delivered' || newStatus === 'Completed') order.progress = 100;
   else if (newStatus === 'Cancelled') order.progress = 0;
-  else if (newStatus === 'Delivered') order.progress = 100;
-  else if (newStatus === 'Cancelled') order.progress = 0;
   order.lastUpdated = 'Just now';
 
   localStorage.setItem('ruddranil_orders', JSON.stringify(orders));
@@ -415,7 +466,8 @@ window.deleteOrder = async function(orderId) {
   localStorage.setItem('ruddranil_orders', JSON.stringify(orders));
 
   try {
-    await fetch(`/api/orders/${encodeURIComponent(orderId)}`, { method: 'DELETE' });
+    const headers = await buildAdminHeaders();
+    await fetch(`/api/orders/${encodeURIComponent(orderId)}`, { method: 'DELETE', headers });
   } catch (e) {}
 
   if (window.sbClient) {
@@ -426,6 +478,13 @@ window.deleteOrder = async function(orderId) {
 
   showToast(`Order ${orderId} removed`);
   renderAdminDashboard();
+};
+
+window.isAdminOrderImageFile = function(fileObj) {
+  if (!fileObj) return false;
+  const t = String(fileObj.type || '').toLowerCase();
+  const n = String(fileObj.name || fileObj.url || '').toLowerCase();
+  return t.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|svg)(\?|#|$)/i.test(n);
 };
 
 window.viewOrderInstructions = function(orderId) {
@@ -471,21 +530,110 @@ window.viewOrderInstructions = function(orderId) {
 
       ${files.length > 0 ? `
         <div>
-          <div style="font-size: 12px; font-weight: 700; color: #10b981; margin-bottom: 8px; text-transform: uppercase;">Attached Client Reference Files (${files.length}):</div>
-          <div style="display: flex; flex-direction: column; gap: 6px;">
-            ${files.map(f => `
-              <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(0, 0, 0, 0.25); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.05);">
-                <span style="font-size: 12.5px; color: #fff; font-weight: 600;">📎 ${escapeHtmlText(f.name || 'File')}</span>
-                ${f.dataUrl ? `<a href="${f.dataUrl}" download="${escapeHtmlText(f.name)}" class="btn btn-sm" style="font-size: 11px; padding: 2px 8px; background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4);">Download</a>` : ''}
-              </div>
-            `).join('')}
+          <div style="font-size: 12px; font-weight: 700; color: #10b981; margin-bottom: 10px; text-transform: uppercase;">Attached Client Photos &amp; Reference Files (${files.length}):</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px;">
+            ${files.map((f, fIdx) => {
+              const fileHref = f.signedUrl || f.url || f.publicUrl || f.dataUrl || '';
+              const isImg = isAdminOrderImageFile(f);
+              return `
+                <div style="background: rgba(0, 0, 0, 0.3); padding: 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08); display: flex; flex-direction: column; gap: 8px;">
+                  ${isImg ? `
+                    <a id="adminRefLink-${fIdx}" href="${escapeHtmlText(fileHref || '#')}" target="_blank" rel="noopener noreferrer" style="display: block; border-radius: 6px; overflow: hidden; background: #050a14; border: 1px solid rgba(56, 189, 248, 0.25);">
+                      <img id="adminRefImg-${fIdx}" src="${escapeHtmlText(fileHref)}" alt="${escapeHtmlText(f.name || 'Client photo')}" style="width: 100%; height: 140px; object-fit: cover; display: ${fileHref ? 'block' : 'none'};" onerror="this.style.display='none'">
+                    </a>
+                  ` : ''}
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <div style="min-width: 0;">
+                      <div style="font-size: 12px; color: #fff; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${isImg ? '📷' : '📎'} ${escapeHtmlText(f.name || 'File')}</div>
+                      <div style="font-size: 10.5px; color: var(--text-dark-gray);">${escapeHtmlText(f.size || '')} ${f.cloudStored ? '• ☁️ Storage' : ''}</div>
+                    </div>
+                    ${(fileHref || f.storagePath) ? `<button type="button" onclick="downloadAdminOrderFile('${escapeHtmlText(f.storageBucket || '')}', '${escapeHtmlText(f.storagePath || '')}', '${escapeHtmlText(fileHref)}', '${escapeHtmlText(f.name || 'reference-file')}')" class="btn btn-sm" style="font-size: 11px; padding: 4px 8px; background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); cursor: pointer; flex-shrink: 0;">Download</button>` : ''}
+                  </div>
+                </div>
+              `;
+            }).join('')}
           </div>
         </div>
-      ` : ''}
+      ` : '<div style="font-size: 12px; color: var(--text-dark-gray);">No photos or reference files attached to this order.</div>'}
     `;
+
+    // Asynchronously refresh signed Storage URLs for image previews if needed
+    if (files.length > 0 && typeof window.resolveStorageFileUrl === 'function') {
+      files.forEach(async (f, fIdx) => {
+        if (f.storageBucket && f.storagePath) {
+          try {
+            const freshUrl = await window.resolveStorageFileUrl(f);
+            if (freshUrl) {
+              const imgEl = document.getElementById(`adminRefImg-${fIdx}`);
+              const linkEl = document.getElementById(`adminRefLink-${fIdx}`);
+              if (imgEl) {
+                imgEl.src = freshUrl;
+                imgEl.style.display = 'block';
+              }
+              if (linkEl) linkEl.href = freshUrl;
+            }
+          } catch (e) {}
+        }
+      });
+    }
   }
 
   if (modal) modal.style.display = 'flex';
+};
+
+window.downloadAdminOrderFile = async function(bucket, path, fallbackUrl, fileName) {
+  let targetUrl = fallbackUrl || '';
+  if (bucket && path && typeof window.resolveStorageFileUrl === 'function') {
+    try {
+      const resolved = await window.resolveStorageFileUrl({ storageBucket: bucket, storagePath: path, url: fallbackUrl });
+      if (resolved) targetUrl = resolved;
+    } catch (e) {}
+  }
+  if (!targetUrl) {
+    showToast('File URL not available', 'error');
+    return;
+  }
+  const a = document.createElement('a');
+  a.href = targetUrl;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  a.download = fileName || 'download';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+};
+
+window.uploadMediaForInputField = async function(fileInput, targetInputId, previewBoxId = null, folder = 'portfolio') {
+  const file = fileInput?.files?.[0];
+  if (!file) return;
+  const targetInput = document.getElementById(targetInputId);
+  if (!targetInput) return;
+
+  const prevVal = targetInput.value;
+  targetInput.value = 'Uploading to Supabase Storage...';
+  targetInput.disabled = true;
+
+  try {
+    let uploadedUrl = '';
+    if (typeof window.uploadPortfolioMediaToCloud === 'function') {
+      const res = await window.uploadPortfolioMediaToCloud(file, folder);
+      uploadedUrl = res?.url || res?.publicUrl || res?.dataUrl || '';
+    }
+    if (!uploadedUrl) {
+      throw new Error('Could not resolve uploaded media URL.');
+    }
+    targetInput.value = uploadedUrl;
+    if (previewBoxId && typeof window.previewMediaInModal === 'function') {
+      window.previewMediaInModal(uploadedUrl, previewBoxId);
+    }
+    showToast('Media uploaded to Supabase Storage (portfolio-media)!');
+  } catch (err) {
+    targetInput.value = prevVal;
+    showToast(err?.message || 'Upload failed. Connect Supabase Storage as sanjitrooy733@gmail.com first.', 'error');
+  } finally {
+    targetInput.disabled = false;
+    fileInput.value = '';
+  }
 };
 
 window.closeViewInstructionsModal = function() {
@@ -497,6 +645,13 @@ window.closeViewInstructionsModal = function() {
 // 2. Services & Multi-Tier Package Management (Fiverr Gig System)
 // ============================================================================
 let currentAdminServiceCategory = 'all';
+
+function normalizeAdminServiceCategory(rawCat) {
+  const c = String(rawCat || 'custom').trim().toLowerCase();
+  if (c === 'marketing') return 'digital-marketing';
+  if (c === 'design') return 'graphic-design';
+  return c;
+}
 
 window.filterAdminServices = function(category) {
   currentAdminServiceCategory = category || 'all';
@@ -514,7 +669,7 @@ window.filterAdminServices = function(category) {
   // Filter service cards
   const cards = document.querySelectorAll('#adminServicesListContainer .admin-service-card');
   cards.forEach(card => {
-    const cardCat = card.getAttribute('data-category');
+    const cardCat = normalizeAdminServiceCategory(card.getAttribute('data-category'));
     if (currentAdminServiceCategory === 'all' || cardCat === currentAdminServiceCategory) {
       card.style.display = 'block';
     } else {
@@ -534,13 +689,43 @@ function renderAdminServicesList() {
     }
   }
 
+  // Update dynamic service & category tab counts
+  const catCounts = {
+    all: services.length,
+    'digital-marketing': 0,
+    youtube: 0,
+    'graphic-design': 0,
+    'data-entry': 0,
+    automation: 0
+  };
+  services.forEach(sv => {
+    const nc = normalizeAdminServiceCategory(sv.category);
+    if (catCounts[nc] !== undefined) catCounts[nc] += 1;
+  });
+
+  const countMap = {
+    tabServicesCount: catCounts.all,
+    adminCatCountAll: catCounts.all,
+    adminCatCountMarketing: catCounts['digital-marketing'],
+    adminCatCountYoutube: catCounts.youtube,
+    adminCatCountDesign: catCounts['graphic-design'],
+    adminCatCountData: catCounts['data-entry'],
+    adminCatCountAutomation: catCounts.automation
+  };
+  Object.entries(countMap).forEach(([elId, val]) => {
+    const el = document.getElementById(elId);
+    if (el) el.textContent = String(val);
+  });
+
+  const builtInIds = new Set((window.DEFAULT_SERVICES || []).map(ds => ds.id));
+
   container.innerHTML = services.map(s => {
     const b = s.packages?.basic || { name: 'Basic', price: 30, deliveryDays: 3 };
     const std = s.packages?.standard || { name: 'Standard', price: 60, deliveryDays: 5 };
     const p = s.packages?.premium || { name: 'Premium', price: 120, deliveryDays: 7 };
     const cover = s.coverImage || 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1000&q=80';
-    const isCustom = !['srv-fb-1', 'srv-yt-2', 'srv-seo-3', 'srv-web-4', 'srv-gd-5'].includes(s.id);
-    const catSlug = (s.category || 'other').toLowerCase();
+    const isCustom = !builtInIds.has(s.id) || String(s.id || '').startsWith('srv-custom-');
+    const catSlug = normalizeAdminServiceCategory(s.category || 'other');
 
     return `
       <div class="card admin-service-card" data-category="${catSlug}" style="margin-bottom: 22px; padding: 22px;">
@@ -678,9 +863,9 @@ window.handleCreateNewGigSubmit = async function(e) {
     const category = document.getElementById('newGigCategory')?.value.trim() || 'custom';
     const gigTitle = document.getElementById('newGigTitle')?.value.trim() || `I will do ${serviceName} solutions for your business`;
     const description = document.getElementById('newGigDesc')?.value.trim() || '';
-    let coverImage = document.getElementById('newGigCoverImage')?.value.trim() || 'public/assets/aistudio/file_000000001e5881f5bec7048c347e325c_07632167.png';
-    if (coverImage.startsWith('public/')) {
-      coverImage = '/' + coverImage;
+    let coverImage = document.getElementById('newGigCoverImage')?.value.trim() || '/assets/aistudio/file_000000001e5881f5bec7048c347e325c_07632167.png';
+    if (coverImage.startsWith('public/') || coverImage.startsWith('/public/')) {
+      coverImage = coverImage.replace(/^\/?public\//, '/');
     }
     const badge = document.getElementById('newGigBadge')?.value.trim() || 'NEW';
 
@@ -934,7 +1119,18 @@ window.openEditServiceModal = function(serviceId) {
 
   document.getElementById('editServiceId').value = s.id;
   document.getElementById('editServiceName').value = s.name;
-  document.getElementById('editServiceCategory').value = s.category || 'custom';
+  const catSelect = document.getElementById('editServiceCategory');
+  if (catSelect) {
+    const normalizedCat = normalizeAdminServiceCategory(s.category || 'custom');
+    const hasOpt = Array.from(catSelect.options).some(opt => opt.value === normalizedCat);
+    if (!hasOpt && normalizedCat) {
+      const opt = document.createElement('option');
+      opt.value = normalizedCat;
+      opt.textContent = normalizedCat;
+      catSelect.appendChild(opt);
+    }
+    catSelect.value = normalizedCat || 'custom';
+  }
   if (document.getElementById('editGigTitle')) {
     document.getElementById('editGigTitle').value = s.gigTitle || '';
   }
@@ -1276,7 +1472,7 @@ window.closeCreateCouponModal = function() {
   document.getElementById('createCouponModal').style.display = 'none';
 };
 
-window.handleCreateCouponSubmit = function(e) {
+window.handleCreateCouponSubmit = async function(e) {
   e.preventDefault();
   const code = document.getElementById('newCouponCode').value.toUpperCase().trim();
   const type = document.getElementById('newCouponType').value;
@@ -1296,7 +1492,7 @@ window.handleCreateCouponSubmit = function(e) {
     return;
   }
 
-  coupons.unshift({
+  const newCoupon = {
     code,
     type,
     value,
@@ -1304,31 +1500,46 @@ window.handleCreateCouponSubmit = function(e) {
     maxDiscount: maxCap,
     active: true,
     timesUsed: 0
-  });
+  };
 
-  localStorage.setItem('ruddranil_coupons', JSON.stringify(coupons));
+  if (typeof window.saveCouponToCloud === 'function') {
+    await window.saveCouponToCloud(newCoupon);
+  } else {
+    coupons.unshift(newCoupon);
+    localStorage.setItem('ruddranil_coupons', JSON.stringify(coupons));
+  }
+
   closeCreateCouponModal();
-  showToast(`Coupon ${code} activated!`);
+  showToast(`Coupon ${code} activated & saved to cloud!`);
   renderAdminCouponsTable();
 };
 
-window.toggleCouponActive = function(code) {
+window.toggleCouponActive = async function(code) {
   const coupons = JSON.parse(localStorage.getItem('ruddranil_coupons') || '[]');
   const c = coupons.find(item => item.code === code);
   if (!c) return;
 
-  c.active = !c.active;
-  localStorage.setItem('ruddranil_coupons', JSON.stringify(coupons));
-  showToast(`Coupon ${code} is now ${c.active ? 'Active' : 'Inactive'}`);
+  const nextState = !c.active;
+  if (typeof window.toggleCouponInCloud === 'function') {
+    await window.toggleCouponInCloud(code, nextState);
+  } else {
+    c.active = nextState;
+    localStorage.setItem('ruddranil_coupons', JSON.stringify(coupons));
+  }
+  showToast(`Coupon ${code} is now ${nextState ? 'Active' : 'Inactive'}`);
   renderAdminCouponsTable();
 };
 
-window.deleteCoupon = function(code) {
+window.deleteCoupon = async function(code) {
   if (!confirm(`Delete coupon ${code}?`)) return;
 
-  let coupons = JSON.parse(localStorage.getItem('ruddranil_coupons') || '[]');
-  coupons = coupons.filter(c => c.code !== code);
-  localStorage.setItem('ruddranil_coupons', JSON.stringify(coupons));
+  if (typeof window.deleteCouponFromCloud === 'function') {
+    await window.deleteCouponFromCloud(code);
+  } else {
+    let coupons = JSON.parse(localStorage.getItem('ruddranil_coupons') || '[]');
+    coupons = coupons.filter(c => c.code !== code);
+    localStorage.setItem('ruddranil_coupons', JSON.stringify(coupons));
+  }
 
   showToast(`Coupon ${code} deleted`);
   renderAdminCouponsTable();
@@ -1659,9 +1870,13 @@ function getAdminPortfolioProjects() {
 }
 
 async function saveAdminPortfolioProjects(projects) {
-  localStorage.setItem('ruddranil_portfolio_projects', JSON.stringify(projects));
-  await syncProjectsToServer(projects);
-  window.dispatchEvent(new CustomEvent('ruddranil_projects_updated'));
+  if (typeof window.saveAllPortfolioProjectsToCloud === 'function') {
+    await window.saveAllPortfolioProjectsToCloud(projects);
+  } else {
+    localStorage.setItem('ruddranil_portfolio_projects', JSON.stringify(projects));
+    await syncProjectsToServer(projects);
+    window.dispatchEvent(new CustomEvent('ruddranil_projects_updated'));
+  }
 }
 
 window.renderAdminProjectsList = function() {
@@ -1729,7 +1944,8 @@ window.filterAdminProjectsList = function() {
     const safeMedia = p.mediaUrl || '';
 
     // Count live comments & likes
-    let likeCount = typeof window.getProjectLikeCount === 'function' ? window.getProjectLikeCount(pid, p.likesCount || 10) : (p.likesCount || 10);
+    const baseLikes = p.likes !== undefined ? Number(p.likes) : (p.likesCount !== undefined ? Number(p.likesCount) : 10);
+    let likeCount = typeof window.getProjectLikeCount === 'function' ? window.getProjectLikeCount(pid, baseLikes) : baseLikes;
     let commentCount = p.commentsCount || 0;
     try {
       const commStore = JSON.parse(localStorage.getItem('ruddranil_portfolio_comments_v1') || '{}');
@@ -1977,9 +2193,13 @@ window.handlePostProjectSubmit = async function(e) {
     createdAt: new Date().toISOString()
   };
 
-  const projects = getAdminPortfolioProjects();
-  projects.unshift(newProject);
-  await saveAdminPortfolioProjects(projects);
+  if (typeof window.savePortfolioProjectToCloud === 'function') {
+    await window.savePortfolioProjectToCloud(newProject);
+  } else {
+    const projects = getAdminPortfolioProjects();
+    projects.unshift(newProject);
+    await saveAdminPortfolioProjects(projects);
+  }
 
   if (btn) {
     btn.disabled = false;
@@ -1987,7 +2207,7 @@ window.handlePostProjectSubmit = async function(e) {
   }
 
   closePostProjectModal();
-  showToast(`Project "${title}" published to portfolio showcase! 🚀`);
+  showToast(`Project "${title}" published to cloud showcase! 🚀`);
   renderAdminProjectsList();
 };
 
@@ -2081,7 +2301,11 @@ window.handleSaveEditProjectSubmit = async function(e) {
   p.serviceSlug = serviceLink;
   p.updatedAt = new Date().toISOString();
 
-  await saveAdminPortfolioProjects(projects);
+  if (typeof window.savePortfolioProjectToCloud === 'function') {
+    await window.savePortfolioProjectToCloud(p);
+  } else {
+    await saveAdminPortfolioProjects(projects);
+  }
   closeEditProjectModal();
   showToast(`Project "${title}" updated successfully!`);
   renderAdminProjectsList();
@@ -2097,11 +2321,16 @@ window.deletePortfolioProject = async function(projectId) {
     return;
   }
 
-  const updated = projects.filter(item => item.id !== projectId);
-  await saveAdminPortfolioProjects(updated);
-  try {
-    await fetch(`/api/projects/${projectId}`, { method: 'DELETE' });
-  } catch (e) {}
+  if (typeof window.deletePortfolioProjectFromCloud === 'function') {
+    await window.deletePortfolioProjectFromCloud(projectId);
+  } else {
+    const updated = projects.filter(item => item.id !== projectId);
+    await saveAdminPortfolioProjects(updated);
+    try {
+      const headers = await buildAdminHeaders();
+      await fetch(`/api/projects/${projectId}`, { method: 'DELETE', headers });
+    } catch (e) {}
+  }
   showToast(`Project "${title}" removed from showcase`);
   renderAdminProjectsList();
 };
@@ -2196,21 +2425,19 @@ window.closeDeliverWorkModal = function() {
 window.handleDeliveryFilesSelected = function(files) {
   if (!files || files.length === 0) return;
   Array.from(files).forEach(file => {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      stagedDeliveryFiles.push({
-        name: file.name,
-        size: formatFileSizeHuman(file.size),
-        rawSize: file.size,
-        type: file.type || 'application/octet-stream',
-        dataUrl: e.target.result
-      });
-      renderStagedDeliveryFiles();
-    };
-    if (file.size > 25 * 1024 * 1024) {
-      showToast(`Notice: "${file.name}" is large (>25MB). You can also share a Google Drive link below!`, 'info');
+    if (file.size > 50 * 1024 * 1024) {
+      showToast(`Notice: "${file.name}" exceeds 50MB. Consider sharing via Google Drive link below!`, 'info');
+      return;
     }
-    reader.readAsDataURL(file);
+    stagedDeliveryFiles.push({
+      name: file.name,
+      size: formatFileSizeHuman(file.size),
+      rawSize: file.size,
+      type: file.type || 'application/octet-stream',
+      rawFile: file,
+      dataUrl: null
+    });
+    renderStagedDeliveryFiles();
   });
 };
 
@@ -2283,77 +2510,91 @@ window.handleDeliverWorkSubmit = async function(e) {
     return;
   }
 
-  // Collect links
-  const links = [];
-  const rows = document.querySelectorAll('.delivery-link-row');
-  rows.forEach(r => {
-    const t = r.querySelector('.link-title-input')?.value.trim();
-    const u = r.querySelector('.link-url-input')?.value.trim();
-    if (u) {
-      links.push({
-        title: t || 'Project Resource Link',
-        url: u
-      });
-    }
-  });
-
-  const orders = JSON.parse(localStorage.getItem('ruddranil_orders') || '[]');
-  const order = orders.find(o => o.id === orderId);
-  if (!order) {
-    showToast('Order not found', 'error');
-    return;
+  const submitBtn = e.target?.querySelector('button[type="submit"]');
+  const origLabel = submitBtn ? submitBtn.innerHTML : '';
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = 'Uploading &amp; Delivering...';
   }
-
-  const existingDeliveries = Array.isArray(order.deliveries) ? order.deliveries : (order.delivery ? [order.delivery] : []);
-  const ver = existingDeliveries.length + 1;
-
-  let finalFiles = [...stagedDeliveryFiles];
-  if (finalFiles.length === 0 && order.delivery && Array.isArray(order.delivery.files)) {
-    finalFiles = order.delivery.files;
-  }
-
-  const deliveryObj = {
-    version: ver,
-    deliveredAt: new Date().toISOString(),
-    sellerName: 'Ruddranil',
-    message: message,
-    files: finalFiles,
-    links: links
-  };
-
-  const updatedDeliveries = [...existingDeliveries, deliveryObj];
-
-  order.delivery = deliveryObj;
-  order.deliveries = updatedDeliveries;
-  order.status = 'Delivered';
-  order.progress = 100;
-  order.lastUpdated = 'Just now';
-  order.clientAccepted = false;
-
-  localStorage.setItem('ruddranil_orders', JSON.stringify(orders));
 
   try {
-    await fetch(`/api/orders/${encodeURIComponent(orderId)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        status: 'Delivered',
-        progress: 100,
-        delivery: deliveryObj,
-        deliveries: updatedDeliveries,
-        clientAccepted: false,
-        lastUpdated: new Date().toISOString()
-      })
+    // Collect links
+    const links = [];
+    const rows = document.querySelectorAll('.delivery-link-row');
+    rows.forEach(r => {
+      const t = r.querySelector('.link-title-input')?.value.trim();
+      const u = r.querySelector('.link-url-input')?.value.trim();
+      if (u) {
+        links.push({
+          title: t || 'Project Resource Link',
+          url: u
+        });
+      }
     });
-  } catch (err) {}
 
-  if (typeof window.updateOrderStatusInCloud === 'function') {
-    await window.updateOrderStatusInCloud(orderId, 'Delivered', 100);
+    const orders = JSON.parse(localStorage.getItem('ruddranil_orders') || '[]');
+    const order = orders.find(o => o.id === orderId);
+    if (!order) {
+      showToast('Order not found', 'error');
+      return;
+    }
+
+    const existingDeliveries = Array.isArray(order.deliveries) ? order.deliveries : (order.delivery ? [order.delivery] : []);
+    const ver = existingDeliveries.length + 1;
+
+    let uploadedFiles = [];
+    if (stagedDeliveryFiles.length > 0) {
+      for (const f of stagedDeliveryFiles) {
+        if (f.rawFile && typeof window.uploadDeliveryFileToCloud === 'function') {
+          try {
+            const uploadedMeta = await window.uploadDeliveryFileToCloud(f.rawFile, orderId, ver);
+            uploadedFiles.push(uploadedMeta);
+          } catch (upErr) {
+            console.warn('[Delivery Upload Notice]:', upErr);
+            showToast(upErr?.message || `Could not upload ${f.name}`, 'error');
+          }
+        } else {
+          const { rawFile, ...cleanMeta } = f;
+          uploadedFiles.push(cleanMeta);
+        }
+      }
+    } else if (order.delivery && Array.isArray(order.delivery.files)) {
+      uploadedFiles = order.delivery.files;
+    }
+
+    const deliveryObj = {
+      version: ver,
+      deliveredAt: new Date().toISOString(),
+      sellerName: 'Ruddranil',
+      message: message,
+      files: uploadedFiles,
+      links: links
+    };
+
+    const updatedDeliveries = [...existingDeliveries, deliveryObj];
+
+    order.delivery = deliveryObj;
+    order.deliveries = updatedDeliveries;
+    order.status = 'Delivered';
+    order.progress = 100;
+    order.lastUpdated = 'Just now';
+    order.clientAccepted = false;
+
+    if (typeof window.saveOrderDeliveryToCloud === 'function') {
+      await window.saveOrderDeliveryToCloud(orderId, deliveryObj, updatedDeliveries);
+    } else {
+      localStorage.setItem('ruddranil_orders', JSON.stringify(orders));
+    }
+
+    closeDeliverWorkModal();
+    showToast(`🎉 Order #${orderId} delivered to client! (Delivery v${ver})`);
+    renderAdminDashboard();
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = origLabel || '🚀 Deliver Now';
+    }
   }
-
-  closeDeliverWorkModal();
-  showToast(`🎉 Order #${orderId} delivered to client! (Delivery v${ver})`);
-  renderAdminDashboard();
 };
 
 window.viewClientRevision = function(orderId) {
@@ -2402,3 +2643,148 @@ window.closeViewRevisionsModal = function() {
   if (modal) modal.style.display = 'none';
 };
 
+// ============================================================================
+// 6. Contact Inquiries & Public Messages Inbox Controller
+// ============================================================================
+let cachedAdminMessages = [];
+let adminMessagesTableMissing = false;
+
+async function syncAdminContactMessages(showFeedback = false) {
+  if (typeof window.fetchContactMessagesForAdmin !== 'function') return;
+  try {
+    const result = await window.fetchContactMessagesForAdmin();
+    if (Array.isArray(result)) {
+      cachedAdminMessages = result;
+      adminMessagesTableMissing = false;
+    } else if (result && typeof result === 'object') {
+      cachedAdminMessages = Array.isArray(result.messages) ? result.messages : [];
+      adminMessagesTableMissing = Boolean(result.tableMissing);
+    }
+    const countEl = document.getElementById('tabMessagesCount');
+    if (countEl) {
+      const newCount = cachedAdminMessages.filter(m => (m.status || 'new') === 'new').length;
+      countEl.textContent = String(newCount > 0 ? newCount : cachedAdminMessages.length);
+    }
+    renderAdminContactMessages();
+    if (showFeedback && typeof showToast === 'function') {
+      showToast(`Messages synced (${cachedAdminMessages.length} found)`);
+    }
+  } catch (e) {
+    if (showFeedback && typeof showToast === 'function') {
+      showToast('Could not fetch contact inquiries', 'error');
+    }
+  }
+}
+window.syncAdminContactMessages = syncAdminContactMessages;
+
+function renderAdminContactMessages() {
+  const container = document.getElementById('adminMessagesContainer');
+  if (!container) return;
+
+  if (adminMessagesTableMissing) {
+    container.innerHTML = `
+      <div style="padding: 28px; text-align: center; background: rgba(245, 158, 11, 0.08); border: 1px dashed rgba(245, 158, 11, 0.4); border-radius: 12px;">
+        <div style="font-size: 28px; margin-bottom: 8px;">⚠️</div>
+        <h4 style="color: #fbbf24; font-size: 16px; font-weight: 700; margin-bottom: 6px;">Supabase Table "contact_messages" Not Yet Deployed</h4>
+        <p style="font-size: 13px; color: var(--text-gray); max-width: 520px; margin: 0 auto;">
+          Run <strong>supabase_migrations.sql</strong> once in your Supabase Dashboard SQL Editor to activate the Cloud Contact Inbox.
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  const search = (document.getElementById('adminMessageSearch')?.value || '').toLowerCase().trim();
+  const statusFilter = document.getElementById('adminMessageStatusFilter')?.value || 'all';
+
+  const filtered = cachedAdminMessages.filter(m => {
+    const st = (m.status || 'new').toLowerCase();
+    const matchesStatus = statusFilter === 'all' || st === statusFilter;
+    const text = `${m.name || ''} ${m.email || ''} ${m.service_name || ''} ${m.message || ''}`.toLowerCase();
+    const matchesSearch = !search || text.includes(search);
+    return matchesStatus && matchesSearch;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div style="padding: 36px 20px; text-align: center; background: #080d17; border: 1px dashed var(--border-color); border-radius: 12px;">
+        <div style="font-size: 30px; margin-bottom: 8px;">📩</div>
+        <h4 style="font-size: 15.5px; font-weight: 700; color: #fff; margin-bottom: 4px;">No Contact Inquiries Found</h4>
+        <p style="font-size: 13px; color: var(--text-gray); margin: 0;">
+          ${search || statusFilter !== 'all' ? 'No inquiries match your current search or filter.' : 'Messages sent via the public Contact Form will appear here automatically.'}
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = filtered.map(m => {
+    const st = (m.status || 'new').toLowerCase();
+    const badgeStyle = st === 'new'
+      ? 'background: rgba(56, 189, 248, 0.18); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4);'
+      : (st === 'replied'
+        ? 'background: rgba(16, 185, 129, 0.18); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);'
+        : 'background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3);');
+    const createdStr = m.created_at ? new Date(m.created_at).toLocaleString() : 'Recent';
+    return `
+      <div class="card" style="padding: 16px 18px; border-color: rgba(56, 189, 248, 0.2); background: rgba(15, 23, 42, 0.7);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 10px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <strong style="color: #fff; font-size: 15px;">${escapeHtmlText(m.name || 'Visitor')}</strong>
+              <span style="font-size: 12px; color: var(--accent-cyan);">${escapeHtmlText(m.email || '')}</span>
+              <span class="badge-status" style="font-size: 10px; padding: 2px 8px; text-transform: uppercase; ${badgeStyle}">${escapeHtmlText(st)}</span>
+            </div>
+            <div style="font-size: 11.5px; color: var(--text-dark-gray); margin-top: 3px;">
+              Service: <strong style="color: #e2e8f0;">${escapeHtmlText(m.service_name || 'General Inquiry')}</strong> • ${escapeHtmlText(createdStr)}
+            </div>
+          </div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            ${m.email ? `<a href="mailto:${escapeHtmlText(m.email)}?subject=${encodeURIComponent('Re: ' + (m.service_name || 'Your Inquiry at Ruddranil.io'))}" class="btn btn-primary btn-sm" style="font-size: 11px; padding: 4px 10px;">✉️ Reply Email</a>` : ''}
+            ${st !== 'replied' ? `<button type="button" onclick="markContactMessageStatus('${escapeHtmlText(m.id)}', 'replied')" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 4px 10px;">✓ Mark Replied</button>` : ''}
+            ${st !== 'archived' ? `<button type="button" onclick="markContactMessageStatus('${escapeHtmlText(m.id)}', 'archived')" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 4px 10px;">Archive</button>` : ''}
+            <button type="button" onclick="deleteAdminContactMessage('${escapeHtmlText(m.id)}')" class="btn btn-danger btn-sm" style="font-size: 11px; padding: 4px 8px;">✕</button>
+          </div>
+        </div>
+        <div style="font-size: 13.5px; color: #e2e8f0; line-height: 1.6; background: rgba(0, 0, 0, 0.25); padding: 10px 12px; border-radius: 8px; white-space: pre-line;">${escapeHtmlText(m.message || '')}</div>
+      </div>
+    `;
+  }).join('');
+}
+window.renderAdminContactMessages = renderAdminContactMessages;
+
+window.markContactMessageStatus = async function(msgId, status) {
+  if (typeof window.updateContactMessageStatusForAdmin !== 'function') return;
+  const res = await window.updateContactMessageStatusForAdmin(msgId, status);
+  if (res.success) {
+    const item = cachedAdminMessages.find(m => m.id === msgId);
+    if (item) item.status = status;
+    const countEl = document.getElementById('tabMessagesCount');
+    if (countEl) {
+      const newCount = cachedAdminMessages.filter(m => (m.status || 'new') === 'new').length;
+      countEl.textContent = String(newCount > 0 ? newCount : cachedAdminMessages.length);
+    }
+    renderAdminContactMessages();
+    showToast(`Inquiry marked as ${status}`);
+  } else {
+    showToast(res.error || 'Failed to update inquiry', 'error');
+  }
+};
+
+window.deleteAdminContactMessage = async function(msgId) {
+  if (!confirm('Delete this contact inquiry permanently?')) return;
+  if (typeof window.deleteContactMessageForAdmin !== 'function') return;
+  const res = await window.deleteContactMessageForAdmin(msgId);
+  if (res.success) {
+    cachedAdminMessages = cachedAdminMessages.filter(m => m.id !== msgId);
+    const countEl = document.getElementById('tabMessagesCount');
+    if (countEl) {
+      const newCount = cachedAdminMessages.filter(m => (m.status || 'new') === 'new').length;
+      countEl.textContent = String(newCount > 0 ? newCount : cachedAdminMessages.length);
+    }
+    renderAdminContactMessages();
+    showToast('Inquiry deleted');
+  } else {
+    showToast(res.error || 'Failed to delete inquiry', 'error');
+  }
+};

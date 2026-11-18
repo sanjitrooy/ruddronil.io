@@ -4,10 +4,10 @@
 User-agent: *
 Allow: /
 Allow: /portfolio
-Allow: /portfolio.html
 Allow: /reviews
-Allow: /reviews.html
-Allow: /public/
+Allow: /assets/
+Allow: /favicon.svg
+Allow: /site.webmanifest
 Allow: /style.css
 Allow: /script.js
 Allow: /reviews.js
@@ -27,5 +27,4 @@ Disallow: /work-tracking
 Disallow: /work-tracking.html
 Disallow: /api/
 
-# Relative sitemap declaration (recognized by modern search crawlers, or served dynamically)
-Sitemap: /sitemap.xml
+Sitemap: https://ruddronil-io-kdcr.vercel.app/sitemap.xml
