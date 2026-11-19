@@ -6,7 +6,7 @@
   <title>Portfolio &amp; Project Showcase | Ruddranil.io</title>
   <meta name="description" content="Explore Ruddranil.io's 24+ digital projects across Facebook marketing, YouTube SEO, viral video editing, chatbot automation, and graphic design.">
   <meta name="keywords" content="Ruddranil.io portfolio, ruddronil.io, web development projects, Facebook ads case study, YouTube SEO portfolio, chatbot automation showcase, Figma UI/UX designs, B2B lead generation samples">
-  <meta name="author" content="Ruddranil">
+  <meta name="author" content="Ruddranil Roy">
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
   <meta name="theme-color" content="#030712">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -42,23 +42,27 @@
     "@graph": [
       {
         "@type": "CollectionPage",
+        "@id": "https://ruddronil-io-kdcr.vercel.app/portfolio#webpage",
         "name": "Ruddranil.io Portfolio & Project Showcase",
         "url": "https://ruddronil-io-kdcr.vercel.app/portfolio",
         "description": "Showcase of 24 digital projects in Web Development, Digital Marketing, YouTube Video SEO, Graphic Design, and Business Automation by Ruddranil.io.",
+        "inLanguage": "en",
+        "isPartOf": {
+          "@id": "https://ruddronil-io-kdcr.vercel.app/#website"
+        },
+        "about": {
+          "@id": "https://ruddronil-io-kdcr.vercel.app/#service-agency"
+        },
         "creator": {
-          "@type": "Person",
-          "name": "Ruddranil",
-          "alternateName": "Ruddranil.io",
-          "email": "mailto:sanjitrooy733@gmail.com",
-          "sameAs": [
-            "https://www.facebook.com/share/14sLtC5f5kR/",
-            "https://www.youtube.com/@ruddranil",
-            "https://www.linkedin.com/in/sanjitrooy"
-          ]
+          "@id": "https://ruddronil-io-kdcr.vercel.app/#ruddranil"
+        },
+        "breadcrumb": {
+          "@id": "https://ruddronil-io-kdcr.vercel.app/portfolio#breadcrumb"
         }
       },
       {
         "@type": "BreadcrumbList",
+        "@id": "https://ruddronil-io-kdcr.vercel.app/portfolio#breadcrumb",
         "itemListElement": [
           {
             "@type": "ListItem",
@@ -100,18 +104,18 @@
   <!-- Clean Single Responsive Navigation Bar -->
   <header class="navbar">
     <div class="container nav-container">
-      <a href="index.html" class="brand-logo">
+      <a href="/" class="brand-logo">
         Ruddranil<span class="dot">.io</span>
       </a>
 
       <nav class="nav-menu" id="navMenu" aria-label="Main navigation">
-        <a href="index.html" class="nav-link">Home</a>
-        <a href="index.html#about" class="nav-link">About</a>
-        <a href="index.html#services" class="nav-link">Services</a>
-        <a href="portfolio.html" class="nav-link active">Portfolio</a>
-        <a href="work-tracking.html" class="nav-link">Work Tracking</a>
-        <a href="reviews.html" class="nav-link">Reviews</a>
-        <a href="index.html#contact" class="nav-link">Contact</a>
+        <a href="/" class="nav-link">Home</a>
+        <a href="/#about" class="nav-link">About</a>
+        <a href="/#services" class="nav-link">Services</a>
+        <a href="/portfolio" class="nav-link active">Portfolio</a>
+        <a href="/work-tracking" class="nav-link">Work Tracking</a>
+        <a href="/reviews" class="nav-link">Reviews</a>
+        <a href="/#contact" class="nav-link">Contact</a>
         <div class="nav-mobile-auth-wrapper" id="navMobileAuthContainer"></div>
       </nav>
 

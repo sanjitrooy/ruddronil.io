@@ -5,13 +5,13 @@
   'use strict';
 
   const DEFAULT_CANONICAL_ORIGIN = 'https://ruddronil-io-kdcr.vercel.app';
-  const CONFIGURED_PRODUCTION_URL = '';
+  const CONFIGURED_PRODUCTION_URL = 'https://ruddronil-io-kdcr.vercel.app';
 
   function getBaseUrl() {
     if (CONFIGURED_PRODUCTION_URL && CONFIGURED_PRODUCTION_URL.startsWith('http')) {
       return CONFIGURED_PRODUCTION_URL.replace(/\/+$/, '');
     }
-    return window.location.origin || DEFAULT_CANONICAL_ORIGIN;
+    return DEFAULT_CANONICAL_ORIGIN;
   }
 
   function normalizeCleanPath(pathname) {

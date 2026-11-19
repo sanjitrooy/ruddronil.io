@@ -554,7 +554,7 @@ async function startServer() {
     if (fs.existsSync(robotsPath)) {
       content = fs.readFileSync(robotsPath, 'utf8').replace(/^Sitemap:.*$/im, `Sitemap: ${origin}/sitemap.xml`);
     } else {
-      content = `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /admin-login\nDisallow: /customer-dashboard\nDisallow: /login\nDisallow: /work-tracking\nDisallow: /api/\nSitemap: ${origin}/sitemap.xml\n`;
+      content = `User-agent: *\nAllow: /\nDisallow: /api/\nSitemap: ${origin}/sitemap.xml\n`;
     }
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.send(content);
