@@ -159,6 +159,7 @@
   <script>
     const ADMIN_EMAIL_CANONICAL = 'sanjitrooy733@gmail.com';
     let isRecoveryModeActive = false;
+    let pkceExchangeAttemptedCode = null;
 
     function cleanRecoveryUrlBar() {
       try {
@@ -169,7 +170,59 @@
       } catch (e) {}
     }
 
-    function showRecoveryMode() {
+    function clearPendingRecoveryFlag() {
+      try { sessionStorage.removeItem('ruddranil_pending_password_setup'); } catch (e) {}
+    }
+
+    function isAuthorizedAdminEmail(email) {
+      if (typeof window.isAdminEmailMatch === 'function') {
+        return window.isAdminEmailMatch(email);
+      }
+      return String(email || '').trim().toLowerCase() === ADMIN_EMAIL_CANONICAL;
+    }
+
+    async function verifyAdminRecoverySession() {
+      if (!window.sbClient || !window.sbClient.auth) {
+        return { ok: false, reason: 'missing_client', session: null, user: null };
+      }
+      try {
+        const { data, error } = await window.sbClient.auth.getSession();
+        const session = data?.session || null;
+        const user = session?.user || null;
+        if (error || !session || !user) {
+          return { ok: false, reason: 'no_session', session: null, user: null };
+        }
+        if (!isAuthorizedAdminEmail(user.email)) {
+          return { ok: false, reason: 'unauthorized', session, user };
+        }
+        return { ok: true, reason: 'verified', session, user };
+      } catch (err) {
+        return { ok: false, reason: 'error', error: err, session: null, user: null };
+      }
+    }
+
+    function showSignInFormOnly(alertMessage = null, alertType = 'error') {
+      isRecoveryModeActive = false;
+      clearPendingRecoveryFlag();
+      const loginForm = document.getElementById('adminLoginForm');
+      const recForm = document.getElementById('adminRecoveryForm');
+      if (recForm) recForm.style.display = 'none';
+      if (loginForm) loginForm.style.display = 'block';
+      if (alertMessage) {
+        showAdminAlert(alertMessage, alertType);
+      }
+    }
+
+    async function showRecoveryMode() {
+      const check = await verifyAdminRecoverySession();
+      if (!check.ok) {
+        const msg = check.reason === 'unauthorized'
+          ? 'This signed-in account is not authorized for Admin password recovery. Please sign in with your authorized Super Admin account.'
+          : 'Your recovery session is missing or expired. Please sign in normally or request a fresh reset link via "Forgot / Set Password?".';
+        showSignInFormOnly(msg, 'error');
+        return false;
+      }
+
       isRecoveryModeActive = true;
       try {
         sessionStorage.setItem('ruddranil_pending_password_setup', 'true');
@@ -179,18 +232,61 @@
       const recForm = document.getElementById('adminRecoveryForm');
       if (loginForm) loginForm.style.display = 'none';
       if (recForm) recForm.style.display = 'block';
-      showAdminAlert('Recovery link verified. Enter a new password or 6-digit PIN below to complete setup.', 'success');
+      showAdminAlert('Recovery session verified. Enter a new password or 6-digit PIN below to complete setup.', 'success');
+      return true;
     }
 
     function exitRecoveryMode() {
-      isRecoveryModeActive = false;
-      try { sessionStorage.removeItem('ruddranil_pending_password_setup'); } catch (e) {}
-      const loginForm = document.getElementById('adminLoginForm');
-      const recForm = document.getElementById('adminRecoveryForm');
-      if (recForm) recForm.style.display = 'none';
-      if (loginForm) loginForm.style.display = 'block';
+      showSignInFormOnly();
       cleanRecoveryUrlBar();
       clearAdminAlert();
+    }
+
+    async function waitForSupabaseCallbackSession(timeoutMs = 1500) {
+      if (!window.sbClient || !window.sbClient.auth) return null;
+      try {
+        const initial = await window.sbClient.auth.getSession();
+        if (initial?.data?.session) return initial.data.session;
+      } catch (e) {}
+
+      return await new Promise((resolve) => {
+        let settled = false;
+        let subscription = null;
+        let pollTimer = null;
+        const finish = (session) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeoutHandle);
+          if (pollTimer) clearInterval(pollTimer);
+          try { subscription?.unsubscribe(); } catch (e) {}
+          resolve(session || null);
+        };
+
+        const timeoutHandle = setTimeout(async () => {
+          try {
+            const finalRes = await window.sbClient.auth.getSession();
+            finish(finalRes?.data?.session || null);
+          } catch (e) {
+            finish(null);
+          }
+        }, timeoutMs);
+
+        try {
+          const listener = window.sbClient.auth.onAuthStateChange((event, session) => {
+            if (session && (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED')) {
+              finish(session);
+            }
+          });
+          subscription = listener?.data?.subscription || null;
+        } catch (e) {}
+
+        pollTimer = setInterval(async () => {
+          try {
+            const res = await window.sbClient.auth.getSession();
+            if (res?.data?.session) finish(res.data.session);
+          } catch (e) {}
+        }, 150);
+      });
     }
 
     // Dual Theme initialization & Strict Supabase Session Check
@@ -230,67 +326,87 @@
       const isRecoveryHash = hash.includes('type=recovery') || searchParams.get('type') === 'recovery' || hashParams.get('type') === 'recovery';
 
       if (window.sbClient && window.sbClient.auth) {
-        window.sbClient.auth.onAuthStateChange((event) => {
+        window.sbClient.auth.onAuthStateChange(async (event) => {
           if (event === 'PASSWORD_RECOVERY') {
-            showRecoveryMode();
-            cleanRecoveryUrlBar();
+            const shown = await showRecoveryMode();
+            if (shown) {
+              cleanRecoveryUrlBar();
+            }
           }
         });
       }
 
       if (urlError) {
-        showAdminAlert(decodeURIComponent(urlError.replace(/\+/g, ' ')) + ' — You can request a fresh link via "Forgot / Set Password?".');
+        showSignInFormOnly(decodeURIComponent(urlError.replace(/\+/g, ' ')) + ' — You can request a fresh link via "Forgot / Set Password?".');
         cleanRecoveryUrlBar();
+        return;
       }
 
       if (authCode && window.sbClient && window.sbClient.auth) {
-        try {
-          const { data, error } = await window.sbClient.auth.exchangeCodeForSession(authCode);
-          if (!error && (data?.session || isRecoveryHash)) {
-            showRecoveryMode();
-            cleanRecoveryUrlBar();
-            return;
-          }
-          if (error) {
-            showAdminAlert(error.message || 'Recovery link expired or invalid. Please request a new reset link.');
-            cleanRecoveryUrlBar();
-          }
-        } catch (err) {
-          showAdminAlert(err?.message || 'Could not verify recovery code.');
-        }
-      }
+        // Wait for Supabase SDK (detectSessionInUrl: true) to process the callback first so we never double-exchange PKCE codes
+        await waitForSupabaseCallbackSession(1400);
+        let check = await verifyAdminRecoverySession();
 
-      if (isRecoveryHash) {
-        // Ensure Supabase JS finishes reading #access_token before scrubbing the long token from URL bar
-        if (window.sbClient && window.sbClient.auth) {
+        if (!check.ok && check.reason === 'no_session' && pkceExchangeAttemptedCode !== authCode) {
+          pkceExchangeAttemptedCode = authCode;
           try {
-            let { data: { session } } = await window.sbClient.auth.getSession();
-            if (!session && hashAccessToken && hashRefreshToken) {
-              const setRes = await window.sbClient.auth.setSession({
-                access_token: hashAccessToken,
-                refresh_token: hashRefreshToken
-              });
-              session = setRes?.data?.session || null;
-            }
-            if (session) {
-              showRecoveryMode();
+            const { error } = await window.sbClient.auth.exchangeCodeForSession(authCode);
+            if (error) {
+              showSignInFormOnly(error.message || 'Recovery link expired, invalid, or already used. Please request a fresh link via "Forgot / Set Password?".');
               cleanRecoveryUrlBar();
               return;
             }
+            check = await verifyAdminRecoverySession();
+          } catch (err) {
+            showSignInFormOnly(err?.message || 'Could not verify recovery link. Please request a fresh link via "Forgot / Set Password?".');
+            cleanRecoveryUrlBar();
+            return;
+          }
+        }
+
+        cleanRecoveryUrlBar();
+        if (check.ok) {
+          await showRecoveryMode();
+          return;
+        }
+        const errMsg = check.reason === 'unauthorized'
+          ? 'This account is not authorized for Admin password recovery. Please sign in with your authorized Super Admin account.'
+          : 'Your recovery session is missing or expired. Please sign in normally or request a fresh link via "Forgot / Set Password?".';
+        showSignInFormOnly(errMsg);
+        return;
+      }
+
+      if (isRecoveryHash) {
+        // Wait for Supabase SDK to finish hydrating #access_token before scrubbing the URL bar
+        await waitForSupabaseCallbackSession(1400);
+        let check = await verifyAdminRecoverySession();
+
+        if (!check.ok && check.reason === 'no_session' && hashAccessToken && hashRefreshToken && window.sbClient && window.sbClient.auth) {
+          try {
+            await window.sbClient.auth.setSession({
+              access_token: hashAccessToken,
+              refresh_token: hashRefreshToken
+            });
+            check = await verifyAdminRecoverySession();
           } catch (err) {
             console.warn('[Admin Recovery] Session hydration notice:', err);
           }
         }
-        try { sessionStorage.removeItem('ruddranil_pending_password_setup'); } catch (e) {}
+
         cleanRecoveryUrlBar();
-        if (!urlError) {
-          showAdminAlert('Recovery link expired or already used. Please request a fresh link via "Forgot / Set Password?".');
+        if (check.ok) {
+          await showRecoveryMode();
+          return;
         }
+        const errMsg = check.reason === 'unauthorized'
+          ? 'This account is not authorized for Admin password recovery. Please sign in with your authorized Super Admin account.'
+          : 'Recovery session is missing or expired. Please sign in normally or request a fresh link via "Forgot / Set Password?".';
+        showSignInFormOnly(errMsg);
         return;
       }
 
-      // If an incomplete OTP recovery session exists (user clicked email link earlier without finishing PIN/Password setup),
-      // force the Set New Password / PIN form and NEVER auto-enter admin.html!
+      // If an incomplete OTP recovery session exists for the verified Super Admin,
+      // show the Set New Password / PIN form only after verifying the real Supabase session.
       let isOtpOnlyRecovery = false;
       if (typeof window.isSupabaseRecoveryOtpOnlySession === 'function') {
         try {
@@ -299,13 +415,10 @@
       }
 
       if (isOtpOnlyRecovery) {
-        const currentUser = typeof window.getSupabaseAuthUser === 'function' ? await window.getSupabaseAuthUser() : null;
-        if (currentUser) {
-          showRecoveryMode();
+        const shown = await showRecoveryMode();
+        if (shown) {
           cleanRecoveryUrlBar();
           return;
-        } else {
-          try { sessionStorage.removeItem('ruddranil_pending_password_setup'); } catch (e) {}
         }
       }
 
@@ -572,21 +685,37 @@
         showAdminAlert('Passwords / PINs do not match.');
         return;
       }
+
       const btn = document.getElementById('btnSaveRecoveryPass');
       if (btn) {
         btn.disabled = true;
-        btn.textContent = 'Saving Password / PIN...';
+        btn.textContent = 'Verifying session...';
       }
+
       try {
-        const { data, error } = await window.sbClient.auth.updateUser({ password: p1 });
-        if (error) throw error;
-        const user = data?.user || (await window.getSupabaseAuthUser());
-        if (!user || (typeof window.isAdminEmailMatch === 'function' && !window.isAdminEmailMatch(user.email))) {
-          await window.sbClient.auth.signOut().catch(() => {});
-          showAdminAlert('Password updated, but account is not authorized for Admin access.');
+        // Strictly verify active Supabase Auth session AND Super Admin identity BEFORE calling updateUser()
+        const sessionCheck = await verifyAdminRecoverySession();
+        if (!sessionCheck.ok) {
+          const msg = sessionCheck.reason === 'unauthorized'
+            ? 'Unauthorized account. Only the authorized Super Admin can update credentials through this form.'
+            : 'Your recovery session is missing or expired. Please sign in normally or request a fresh reset link via "Forgot / Set Password?".';
+          showSignInFormOnly(msg, 'error');
+          cleanRecoveryUrlBar();
           return;
         }
-        try { sessionStorage.removeItem('ruddranil_pending_password_setup'); } catch (err) {}
+
+        if (btn) {
+          btn.textContent = 'Saving Password / PIN...';
+        }
+
+        const { data, error } = await window.sbClient.auth.updateUser({ password: p1 });
+        if (error) throw error;
+        const user = data?.user || sessionCheck.user;
+        if (!user || !isAuthorizedAdminEmail(user.email)) {
+          showSignInFormOnly('Account is not authorized for Admin access.', 'error');
+          return;
+        }
+        clearPendingRecoveryFlag();
         // Re-authenticate with password so JWT amr switches cleanly from 'otp' to 'password'
         if (typeof window.signInAdminSupabase === 'function') {
           const signInRes = await window.signInAdminSupabase(user.email, p1);
@@ -597,7 +726,13 @@
         }
         completeAdminLogin(user.user_metadata?.full_name || 'Ruddranil', user.email, user.id);
       } catch (err) {
-        showAdminAlert(err?.message || 'Failed to update password / PIN. Request a fresh link if your recovery token expired.');
+        const rawErr = String(err?.message || '');
+        if (/auth session missing/i.test(rawErr)) {
+          showSignInFormOnly('Your recovery session is missing or expired. Please sign in normally or request a fresh link via "Forgot / Set Password?".', 'error');
+          cleanRecoveryUrlBar();
+        } else {
+          showAdminAlert(rawErr || 'Failed to update password / PIN. Request a fresh link if your recovery token expired.');
+        }
       } finally {
         if (btn) {
           btn.disabled = false;

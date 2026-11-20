@@ -36,42 +36,39 @@ function isAdminEmailMatch(email) {
 }
 
 // Fallback Router: If Supabase falls back to root Site URL (/) because a preview Redirect URL
-// is not yet allowlisted in Authentication -> URL Configuration, forward admin recovery to /admin-login.html
+// is not yet allowlisted in Authentication -> URL Configuration, forward verified Admin recovery to /admin-login
 (function setupAdminRecoveryFallbackRouter() {
   if (typeof window === 'undefined') return;
   const cleanPath = (window.location.pathname || '/').replace(/\/+$/, '') || '/';
-  const hash = window.location.hash || '';
-  const search = window.location.search || '';
-  const searchParams = new URLSearchParams(search);
-  const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
+  const isAdminLoginRoute = cleanPath.endsWith('/admin-login') || cleanPath.endsWith('/admin-login.html');
+  const isCustomerLoginRoute = cleanPath.endsWith('/login') || cleanPath.endsWith('/login.html');
 
-  const hasRecoveryParam = hashParams.get('type') === 'recovery' || searchParams.get('type') === 'recovery';
-  if (hasRecoveryParam) {
-    try {
-      sessionStorage.setItem('ruddranil_pending_password_setup', 'true');
-      sessionStorage.removeItem('ruddranil_admin_unlocked');
-    } catch (e) {}
-  }
+  // Never intercept dedicated login routes (preserves customer recovery on /login and prevents loops on /admin-login)
+  if (isAdminLoginRoute || isCustomerLoginRoute) return;
 
-  if (cleanPath.endsWith('/admin-login') || cleanPath.endsWith('/admin-login.html')) return;
-
-  if (hasRecoveryParam) {
-    window.location.replace(`/admin-login${search}${hash}`);
-    return;
-  }
+  let hasRedirectedForAdminRecovery = false;
 
   if (sbClient && sbClient.auth && typeof sbClient.auth.onAuthStateChange === 'function') {
-    sbClient.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        const userEmail = session?.user?.email;
-        if (!userEmail || isAdminEmailMatch(userEmail)) {
-          try {
-            sessionStorage.setItem('ruddranil_pending_password_setup', 'true');
-            sessionStorage.removeItem('ruddranil_admin_unlocked');
-          } catch (e) {}
-          window.location.replace('/admin-login?type=recovery');
+    sbClient.auth.onAuthStateChange(async (event, session) => {
+      if (event !== 'PASSWORD_RECOVERY' || hasRedirectedForAdminRecovery) return;
+      try {
+        let activeSession = session || null;
+        if (!activeSession) {
+          const res = await sbClient.auth.getSession();
+          activeSession = res?.data?.session || null;
         }
-      }
+        const userEmail = activeSession?.user?.email;
+        // Require a real verified Supabase session belonging strictly to the authorized Super Admin
+        if (!activeSession || !userEmail || !isAdminEmailMatch(userEmail)) {
+          return;
+        }
+        hasRedirectedForAdminRecovery = true;
+        try {
+          sessionStorage.setItem('ruddranil_pending_password_setup', 'true');
+          sessionStorage.removeItem('ruddranil_admin_unlocked');
+        } catch (e) {}
+        window.location.replace('/admin-login');
+      } catch (e) {}
     });
   }
 })();
@@ -89,23 +86,53 @@ function decodeJwtPayloadUnsafe(token) {
 }
 
 async function isSupabaseRecoveryOtpOnlySession() {
+  const clearStaleRecoveryFlag = () => {
+    try {
+      sessionStorage.removeItem('ruddranil_pending_password_setup');
+    } catch (e) {}
+  };
+
+  if (!sbClient || !sbClient.auth) {
+    clearStaleRecoveryFlag();
+    return false;
+  }
+
   try {
-    if (sessionStorage.getItem('ruddranil_pending_password_setup') === 'true') {
-      return true;
+    const { data: { session }, error } = await sbClient.auth.getSession();
+    // Never treat sessionStorage as proof of an authenticated session
+    if (error || !session || !session.access_token || !session.user) {
+      clearStaleRecoveryFlag();
+      return false;
     }
-  } catch (e) {}
-  if (!sbClient || !sbClient.auth) return false;
-  try {
-    const { data: { session } } = await sbClient.auth.getSession();
-    if (!session?.access_token) return false;
+
+    // Only an authorized Super Admin recovery session qualifies for Admin recovery mode
+    if (!isAdminEmailMatch(session.user.email)) {
+      clearStaleRecoveryFlag();
+      return false;
+    }
+
     const payload = decodeJwtPayloadUnsafe(session.access_token);
     const amr = Array.isArray(payload?.amr) ? payload.amr : [];
     const methods = amr.map(a => String(a?.method || a || '').toLowerCase()).filter(Boolean);
-    if (methods.length > 0 && !methods.includes('password') && (methods.includes('otp') || methods.includes('recovery'))) {
+
+    if (methods.includes('password')) {
+      clearStaleRecoveryFlag();
+      return false;
+    }
+    if (methods.length > 0 && (methods.includes('otp') || methods.includes('recovery'))) {
       return true;
     }
-  } catch (e) {}
-  return false;
+
+    // If JWT omits amr claims, allow pending flag ONLY because a real Super Admin session was already verified above
+    try {
+      return sessionStorage.getItem('ruddranil_pending_password_setup') === 'true';
+    } catch (e) {
+      return false;
+    }
+  } catch (e) {
+    clearStaleRecoveryFlag();
+    return false;
+  }
 }
 window.isSupabaseRecoveryOtpOnlySession = isSupabaseRecoveryOtpOnlySession;
 
