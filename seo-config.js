@@ -15,8 +15,9 @@
   }
 
   function normalizeCleanPath(pathname) {
-    if (!pathname || pathname === '/index.html') return '/';
-    return pathname.replace(/\.html$/i, '') || '/';
+    if (!pathname || pathname === '/' || pathname === '/index.html') return '/';
+    const cleaned = pathname.replace(/\.html$/i, '').replace(/\/+$/, '');
+    return cleaned || '/';
   }
 
   function applySeoMetadata() {
