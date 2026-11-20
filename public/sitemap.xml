@@ -2,32 +2,32 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
-    <loc>https://ruddronil-io-kdcr.vercel.app/</loc>
-    <lastmod>2026-11-19</lastmod>
+    <loc>https://ruddranil-io.vercel.app/</loc>
+    <lastmod>2026-11-20</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <image:image>
-      <image:loc>https://ruddronil-io-kdcr.vercel.app/assets/og-ruddranil-io.jpg</image:loc>
+      <image:loc>https://ruddranil-io.vercel.app/assets/og-ruddranil-io.jpg</image:loc>
       <image:title>Ruddranil.io — Workflow Automation, YouTube SEO &amp; Website Development</image:title>
     </image:image>
     <image:image>
-      <image:loc>https://ruddronil-io-kdcr.vercel.app/assets/ruddranil-roy.jpg</image:loc>
+      <image:loc>https://ruddranil-io.vercel.app/assets/ruddranil-roy.jpg</image:loc>
       <image:title>Ruddranil Roy — Founder of Ruddranil.io</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://ruddronil-io-kdcr.vercel.app/portfolio</loc>
-    <lastmod>2026-11-19</lastmod>
+    <loc>https://ruddranil-io.vercel.app/portfolio</loc>
+    <lastmod>2026-11-20</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.90</priority>
     <image:image>
-      <image:loc>https://ruddronil-io-kdcr.vercel.app/assets/og-ruddranil-io.jpg</image:loc>
+      <image:loc>https://ruddranil-io.vercel.app/assets/og-ruddranil-io.jpg</image:loc>
       <image:title>Ruddranil.io Portfolio &amp; Project Showcase</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://ruddronil-io-kdcr.vercel.app/reviews</loc>
-    <lastmod>2026-11-19</lastmod>
+    <loc>https://ruddranil-io.vercel.app/reviews</loc>
+    <lastmod>2026-11-20</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.85</priority>
   </url>

@@ -4,8 +4,8 @@
 (function () {
   'use strict';
 
-  const DEFAULT_CANONICAL_ORIGIN = 'https://ruddronil-io-kdcr.vercel.app';
-  const CONFIGURED_PRODUCTION_URL = 'https://ruddronil-io-kdcr.vercel.app';
+  const DEFAULT_CANONICAL_ORIGIN = 'https://ruddranil-io.vercel.app';
+  const CONFIGURED_PRODUCTION_URL = 'https://ruddranil-io.vercel.app';
 
   function getBaseUrl() {
     if (CONFIGURED_PRODUCTION_URL && CONFIGURED_PRODUCTION_URL.startsWith('http')) {

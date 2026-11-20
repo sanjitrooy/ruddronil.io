@@ -17,4 +17,4 @@ Allow: /showcase-config.js
 # Private admin, authentication, dashboard, and tracking routes are excluded via noindex meta tags and X-Robots-Tag headers
 Disallow: /api/
 
-Sitemap: https://ruddronil-io-kdcr.vercel.app/sitemap.xml
+Sitemap: https://ruddranil-io.vercel.app/sitemap.xml

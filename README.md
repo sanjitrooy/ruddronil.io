@@ -1,7 +1,7 @@
 # 🌐 Ruddranil.io - Web Developer & Digital Creative Platform
 > **Complete GitHub & Vercel Deployment-Ready Website and Client Management System**
 
-🔗 **Live Website:** [https://ruddronil-io-kdcr.vercel.app/](https://ruddronil-io-kdcr.vercel.app/)
+🔗 **Live Website:** [https://ruddranil-io.vercel.app/](https://ruddranil-io.vercel.app/)
 
 This website is custom-crafted to mirror the exact portfolio, digital services showcase, customer portal, and order tracking platform of **Ruddranil**. Built strictly with clean, modern **HTML5**, **CSS3**, and **Vanilla JavaScript** without heavy framework overhead.
 
