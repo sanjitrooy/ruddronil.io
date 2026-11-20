@@ -572,8 +572,12 @@ async function startServer() {
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <image:image>
-      <image:loc>${origin}/assets/aistudio/file_000000001e5881f5bec7048c347e325c_07632167.png</image:loc>
-      <image:title>Ruddranil.io Digital Services &amp; Automation Showcase</image:title>
+      <image:loc>${origin}/assets/og-ruddranil-io.jpg</image:loc>
+      <image:title>Ruddranil.io — Workflow Automation, YouTube SEO &amp; Website Development</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>${origin}/assets/ruddranil-roy.jpg</image:loc>
+      <image:title>Ruddranil Roy — Founder of Ruddranil.io</image:title>
     </image:image>
   </url>
   <url>
@@ -582,7 +586,7 @@ async function startServer() {
     <changefreq>weekly</changefreq>
     <priority>0.90</priority>
     <image:image>
-      <image:loc>${origin}/assets/aistudio/file_000000001e5881f5bec7048c347e325c_07632167.png</image:loc>
+      <image:loc>${origin}/assets/og-ruddranil-io.jpg</image:loc>
       <image:title>Ruddranil.io Portfolio &amp; Project Showcase</image:title>
     </image:image>
   </url>

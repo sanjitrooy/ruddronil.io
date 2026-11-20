@@ -4508,7 +4508,7 @@ function syncPublicServicesGrid() {
         <div class="service-cover-wrap" style="position: relative;">
           <span class="service-category-badge" style="position: absolute; top: 12px; left: 12px; z-index: 2; font-size: 10px; font-weight: 700; background: rgba(15, 23, 42, 0.88); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35); padding: 3px 8px; border-radius: 4px; text-transform: uppercase;">${catLabel}</span>
           ${badge}
-          <img src="${cover}" alt="${safeName}" class="service-cover-img" loading="lazy">
+          <img src="${cover}" alt="${safeName} — Ruddranil.io Digital Services" class="service-cover-img" width="800" height="500" loading="lazy" decoding="async">
         </div>
         <div class="service-card-body">
           <h3 class="service-name">${safeName}</h3>

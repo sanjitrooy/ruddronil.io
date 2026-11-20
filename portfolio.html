@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Portfolio &amp; Project Showcase | Ruddranil.io</title>
-  <meta name="description" content="Explore Ruddranil.io's 24+ digital projects across Facebook marketing, YouTube SEO, viral video editing, chatbot automation, and graphic design.">
-  <meta name="keywords" content="Ruddranil.io portfolio, ruddronil.io, web development projects, Facebook ads case study, YouTube SEO portfolio, chatbot automation showcase, Figma UI/UX designs, B2B lead generation samples">
+  <title>Portfolio &amp; Projects | Web, SEO &amp; Design — Ruddranil.io</title>
+  <meta name="description" content="Explore Ruddranil.io portfolio work across website development, WhatsApp &amp; Messenger automation, YouTube SEO, digital marketing, and graphic design worldwide.">
   <meta name="author" content="Ruddranil Roy">
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
   <meta name="theme-color" content="#030712">
@@ -17,11 +16,11 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Ruddranil.io">
   <meta property="og:url" content="https://ruddronil-io-kdcr.vercel.app/portfolio">
-  <meta property="og:title" content="Portfolio &amp; Project Showcase | Ruddranil.io">
-  <meta property="og:description" content="Explore Ruddranil.io's 24+ digital projects across Facebook marketing, YouTube SEO, viral video editing, chatbot automation, and graphic design.">
-  <meta property="og:image" content="https://ruddronil-io-kdcr.vercel.app/assets/aistudio/file_000000001e5881f5bec7048c347e325c_07632167.png">
-  <meta property="og:image:secure_url" content="https://ruddronil-io-kdcr.vercel.app/assets/aistudio/file_000000001e5881f5bec7048c347e325c_07632167.png">
-  <meta property="og:image:type" content="image/png">
+  <meta property="og:title" content="Portfolio &amp; Projects | Web, SEO &amp; Design — Ruddranil.io">
+  <meta property="og:description" content="Explore Ruddranil.io portfolio work across website development, WhatsApp &amp; Messenger automation, YouTube SEO, digital marketing, and graphic design worldwide.">
+  <meta property="og:image" content="https://ruddronil-io-kdcr.vercel.app/assets/og-ruddranil-io.jpg">
+  <meta property="og:image:secure_url" content="https://ruddronil-io-kdcr.vercel.app/assets/og-ruddranil-io.jpg">
+  <meta property="og:image:type" content="image/jpeg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="Ruddranil.io Portfolio &amp; Project Showcase">
@@ -30,9 +29,9 @@
   <!-- Twitter / X Cards -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:url" content="https://ruddronil-io-kdcr.vercel.app/portfolio">
-  <meta name="twitter:title" content="Portfolio &amp; Project Showcase | Ruddranil.io">
-  <meta name="twitter:description" content="Explore Ruddranil.io's 24+ digital projects across Facebook marketing, YouTube SEO, viral video editing, chatbot automation, and graphic design.">
-  <meta name="twitter:image" content="https://ruddronil-io-kdcr.vercel.app/assets/aistudio/file_000000001e5881f5bec7048c347e325c_07632167.png">
+  <meta name="twitter:title" content="Portfolio &amp; Projects | Web, SEO &amp; Design — Ruddranil.io">
+  <meta name="twitter:description" content="Explore Ruddranil.io portfolio work across website development, WhatsApp &amp; Messenger automation, YouTube SEO, digital marketing, and graphic design worldwide.">
+  <meta name="twitter:image" content="https://ruddronil-io-kdcr.vercel.app/assets/og-ruddranil-io.jpg">
   <meta name="twitter:image:alt" content="Ruddranil.io Portfolio Showcase">
 
   <!-- Structured Data: CollectionPage & BreadcrumbList -->
@@ -83,7 +82,7 @@
   </script>
 
   <!-- Technical SEO Canonical Resolver -->
-  <script src="seo-config.js"></script>
+  <script src="seo-config.js" defer></script>
 
   <link rel="stylesheet" href="style.css">
   <script>
@@ -157,8 +156,10 @@
       </div>
 
       <!-- Category Filter Tabs -->
+      <h2 class="sr-only">Browse Projects by Service Category</h2>
       <div style="display: flex; gap: 10px; margin-bottom: 34px; flex-wrap: wrap;">
         <button type="button" onclick="filterWorks('all')" class="btn btn-primary btn-sm filter-pill active" data-cat="all">All Projects (24)</button>
+        <button type="button" onclick="filterWorks('web')" class="btn btn-secondary btn-sm filter-pill" data-cat="web">🌐 Web Development</button>
         <button type="button" onclick="filterWorks('marketing')" class="btn btn-secondary btn-sm filter-pill" data-cat="marketing">📱 Digital Marketing (5)</button>
         <button type="button" onclick="filterWorks('youtube')" class="btn btn-secondary btn-sm filter-pill" data-cat="youtube">▶️ YouTube (6)</button>
         <button type="button" onclick="filterWorks('design')" class="btn btn-secondary btn-sm filter-pill" data-cat="design">🎨 Creative Design (5)</button>
@@ -175,15 +176,15 @@
             <div class="work-header">
               <div class="work-avatar">R</div>
               <div class="work-author">
-                <h4>Ruddranil</h4>
+                <div class="work-author-name">Ruddranil</div>
                 <p>Web Development • Project 01</p>
               </div>
             </div>
             <div class="work-preview-box">
-              <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80" alt="Modern Business Website Development by Ruddranil.io" loading="lazy" decoding="async">
+              <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80" alt="Modern Business Website Development by Ruddranil.io" width="800" height="500" loading="lazy" decoding="async">
             </div>
             <h3 class="work-title">Modern Business Website</h3>
-            <p class="work-desc">A modern responsive website designed for a professional business presence with clean UI and high conversion speed.</p>
+            <p class="work-desc">A modern responsive website designed for a professional business presence with clean UI and fast mobile loading.</p>
           </div>
           <div>
             <div class="work-social-bar">
@@ -192,7 +193,7 @@
               <span onclick="sharePost('Modern Business Website', 'proj-1')" role="button" tabindex="0">↗ Share</span>
             </div>
             <div class="work-actions">
-              <button onclick="openModal('Modern Business Website', 'Web Development', 'Built with clean HTML5, modern CSS Grid, and lightweight JavaScript. Optimized for 99+ Google Lighthouse score and mobile devices.', 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80')" class="btn btn-secondary btn-sm">View Project</button>
+              <button onclick="openModal('Modern Business Website', 'Web Development', 'Built with clean HTML5, modern CSS Grid, and lightweight JavaScript. Optimized for fast loading and mobile devices.', 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80')" class="btn btn-secondary btn-sm">View Project</button>
               <button onclick="orderServiceDirect('Website Design')" class="btn btn-primary btn-sm">Order Similar</button>
             </div>
           </div>
@@ -204,15 +205,15 @@
             <div class="work-header">
               <div class="work-avatar">R</div>
               <div class="work-author">
-                <h4>Ruddranil</h4>
+                <div class="work-author-name">Ruddranil</div>
                 <p>Digital Marketing • Project 02</p>
               </div>
             </div>
             <div class="work-preview-box">
-              <img src="https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=800&q=80" alt="Social Media Marketing and Ads Case Study by Ruddranil.io" loading="lazy" decoding="async">
+              <img src="https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=800&q=80" alt="Social Media Marketing and Ads Campaign Showcase by Ruddranil.io" width="800" height="500" loading="lazy" decoding="async">
             </div>
             <h3 class="work-title">Social Media Growth Campaign</h3>
-            <p class="work-desc">Targeted Facebook and YouTube advertising campaigns delivering measurable organic audience reach and high CTR.</p>
+            <p class="work-desc">Targeted Facebook and YouTube advertising campaigns designed for audience reach and campaign engagement.</p>
           </div>
           <div>
             <div class="work-social-bar">
@@ -221,7 +222,7 @@
               <span onclick="sharePost('Social Media Growth Campaign', 'proj-2')" role="button" tabindex="0">↗ Share</span>
             </div>
             <div class="work-actions">
-              <button onclick="openModal('Social Media Growth Campaign', 'Digital Marketing', 'Engineered custom audience funnels, compelling ad copywriting, and high-impact visual banners with full A/B split testing.', 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=800&q=80')" class="btn btn-secondary btn-sm">View Project</button>
+              <button onclick="openModal('Social Media Growth Campaign', 'Digital Marketing', 'Engineered custom audience funnels, compelling ad copywriting, and visual banners with structured A/B testing.', 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=800&q=80')" class="btn btn-secondary btn-sm">View Project</button>
               <button onclick="orderServiceDirect('Facebook Marketing')" class="btn btn-primary btn-sm">Order Similar</button>
             </div>
           </div>
@@ -233,12 +234,12 @@
             <div class="work-header">
               <div class="work-avatar">R</div>
               <div class="work-author">
-                <h4>Ruddranil</h4>
+                <div class="work-author-name">Ruddranil</div>
                 <p>Creative Design • Project 03</p>
               </div>
             </div>
             <div class="work-preview-box">
-              <img src="https://images.unsplash.com/photo-1572044162444-ad60f128bdea?auto=format&fit=crop&w=800&q=80" alt="Creative Graphic Design and Brand Identity by Ruddranil.io" loading="lazy" decoding="async">
+              <img src="https://images.unsplash.com/photo-1572044162444-ad60f128bdea?auto=format&fit=crop&w=800&q=80" alt="Creative Graphic Design and Brand Identity by Ruddranil.io" width="800" height="500" loading="lazy" decoding="async">
             </div>
             <h3 class="work-title">Brand Identity &amp; Digital Graphics</h3>
             <p class="work-desc">Creative visual assets designed for social channels, digital advertising, and high-resolution brand packages.</p>
@@ -312,8 +313,22 @@
   <!-- Footer -->
   <footer class="footer">
     <div class="container footer-content">
-      <h3 class="footer-brand">Ruddranil.io</h3>
-      <p class="footer-sub">Founded by Ruddranil Roy · Bangladesh-Based · Serving Clients Worldwide</p>
+      <div class="footer-header">
+        <h3 class="footer-brand">Ruddranil<span class="footer-brand-accent">.io</span></h3>
+        <p class="footer-sub">Founded by Ruddranil Roy · Bangladesh-Based · Serving Clients Worldwide</p>
+      </div>
+      <div class="footer-links-group footer-quick-links">
+        <p class="footer-quick-title">Quick Links</p>
+        <ul class="footer-links-list">
+          <li><a href="/">Home</a></li>
+          <li><a href="/#about">About</a></li>
+          <li><a href="/#services">Services</a></li>
+          <li><a href="/portfolio">Portfolio</a></li>
+          <li><a href="/work-tracking">Work Tracking</a></li>
+          <li><a href="/reviews">Reviews</a></li>
+          <li><a href="/#contact">Contact</a></li>
+        </ul>
+      </div>
       <div class="footer-copy">
         &copy; 2026 Ruddranil.io. All rights reserved.
       </div>
