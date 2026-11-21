@@ -702,6 +702,7 @@ function renderAdminServicesList() {
   // Update dynamic service & category tab counts
   const catCounts = {
     all: services.length,
+    'web-development': 0,
     'digital-marketing': 0,
     youtube: 0,
     'graphic-design': 0,
@@ -716,6 +717,7 @@ function renderAdminServicesList() {
   const countMap = {
     tabServicesCount: catCounts.all,
     adminCatCountAll: catCounts.all,
+    adminCatCountWeb: catCounts['web-development'],
     adminCatCountMarketing: catCounts['digital-marketing'],
     adminCatCountYoutube: catCounts.youtube,
     adminCatCountDesign: catCounts['graphic-design'],
@@ -731,8 +733,8 @@ function renderAdminServicesList() {
 
   container.innerHTML = services.map(s => {
     const b = s.packages?.basic || { name: 'Basic', price: 30, deliveryDays: 3 };
-    const std = s.packages?.standard || { name: 'Standard', price: 60, deliveryDays: 5 };
-    const p = s.packages?.premium || { name: 'Premium', price: 120, deliveryDays: 7 };
+    const std = s.packages?.standard || null;
+    const p = s.packages?.premium || null;
     const cover = s.coverImage || 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1000&q=80';
     const isCustom = !builtInIds.has(s.id) || String(s.id || '').startsWith('srv-custom-');
     const catSlug = normalizeAdminServiceCategory(s.category || 'other');
@@ -771,25 +773,29 @@ function renderAdminServicesList() {
           </div>
         </div>
 
-        <!-- 3 Tiers Comparison Summary -->
+        <!-- Package Tiers Comparison Summary -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
           <div class="admin-tier-box" style="padding: 12px; border-radius: var(--radius-sm);">
             <span style="font-size: 10px; font-weight: 800; color: var(--accent-cyan); text-transform: uppercase;">BASIC</span>
             <div class="admin-table-title" style="font-size: 14px; margin-top: 2px;">${b.name || 'Basic'}</div>
-            <div class="admin-table-price" style="font-size: 16px; margin-top: 2px;">$${b.price} <span style="font-size: 11px; font-weight: 500; color: var(--text-gray);">(${b.deliveryDays}d delivery)</span></div>
+            <div class="admin-table-price" style="font-size: 16px; margin-top: 2px;">$${b.price} <span style="font-size: 11px; font-weight: 500; color: var(--text-gray);">(${b.deliveryLabel || `${b.deliveryDays}d delivery`})</span></div>
           </div>
 
+          ${std ? `
           <div class="admin-tier-box" style="padding: 12px; border-radius: var(--radius-sm);">
             <span style="font-size: 10px; font-weight: 800; color: #60a5fa; text-transform: uppercase;">STANDARD</span>
             <div class="admin-table-title" style="font-size: 14px; margin-top: 2px;">${std.name || 'Standard'}</div>
-            <div class="admin-table-price" style="font-size: 16px; margin-top: 2px;">$${std.price} <span style="font-size: 11px; font-weight: 500; color: var(--text-gray);">(${std.deliveryDays}d delivery)</span></div>
+            <div class="admin-table-price" style="font-size: 16px; margin-top: 2px;">$${std.price} <span style="font-size: 11px; font-weight: 500; color: var(--text-gray);">(${std.deliveryLabel || `${std.deliveryDays}d delivery`})</span></div>
           </div>
+          ` : ''}
 
+          ${p ? `
           <div class="admin-tier-box" style="padding: 12px; border-radius: var(--radius-sm);">
             <span style="font-size: 10px; font-weight: 800; color: #f59e0b; text-transform: uppercase;">PREMIUM</span>
             <div class="admin-table-title" style="font-size: 14px; margin-top: 2px;">${p.name || 'Premium'}</div>
-            <div class="admin-table-price" style="font-size: 16px; margin-top: 2px;">$${p.price} <span style="font-size: 11px; font-weight: 500; color: var(--text-gray);">(${p.deliveryDays}d delivery)</span></div>
+            <div class="admin-table-price" style="font-size: 16px; margin-top: 2px;">$${p.price} <span style="font-size: 11px; font-weight: 500; color: var(--text-gray);">(${p.deliveryLabel || `${p.deliveryDays}d delivery`})</span></div>
           </div>
+          ` : ''}
         </div>
       </div>
     `;
@@ -1153,37 +1159,37 @@ window.openEditServiceModal = function(serviceId) {
   document.getElementById('editServiceDesc').value = s.description || '';
 
   // Basic Package
-  const b = s.packages?.basic || { name: 'Basic', price: 30, deliveryDays: 3, expressFee: 15, expressDays: 1, features: [] };
-  document.getElementById('editPkgBasicName').value = b.name;
-  document.getElementById('editPkgBasicPrice').value = b.price;
-  document.getElementById('editPkgBasicDays').value = b.deliveryDays;
+  const b = s.packages?.basic || { name: 'Basic', price: 30, deliveryDays: 3, features: [] };
+  document.getElementById('editPkgBasicName').value = b.name || '';
+  document.getElementById('editPkgBasicPrice').value = b.price !== undefined ? b.price : '';
+  document.getElementById('editPkgBasicDays').value = b.deliveryDays !== undefined ? b.deliveryDays : '';
   if (document.getElementById('editPkgBasicExpressDays')) {
-    document.getElementById('editPkgBasicExpressDays').value = b.expressDays || 1;
+    document.getElementById('editPkgBasicExpressDays').value = b.expressDays !== undefined ? b.expressDays : '';
   }
-  document.getElementById('editPkgBasicExpressFee').value = b.expressFee !== undefined ? b.expressFee : 15;
+  document.getElementById('editPkgBasicExpressFee').value = b.expressFee !== undefined ? b.expressFee : '';
   document.getElementById('editPkgBasicFeatures').value = (b.features || []).join(', ');
 
-  // Standard Package
-  const std = s.packages?.standard || { name: 'Standard', price: 60, deliveryDays: 5, expressFee: 25, expressDays: 2, features: [] };
-  document.getElementById('editPkgStdName').value = std.name;
-  document.getElementById('editPkgStdPrice').value = std.price;
-  document.getElementById('editPkgStdDays').value = std.deliveryDays;
+  // Standard Package (leave blank for Basic-only services so fake tiers are never invented)
+  const std = s.packages?.standard || null;
+  document.getElementById('editPkgStdName').value = std ? (std.name || '') : '';
+  document.getElementById('editPkgStdPrice').value = std && std.price !== undefined ? std.price : '';
+  document.getElementById('editPkgStdDays').value = std && std.deliveryDays !== undefined ? std.deliveryDays : '';
   if (document.getElementById('editPkgStdExpressDays')) {
-    document.getElementById('editPkgStdExpressDays').value = std.expressDays || 2;
+    document.getElementById('editPkgStdExpressDays').value = std && std.expressDays !== undefined ? std.expressDays : '';
   }
-  document.getElementById('editPkgStdExpressFee').value = std.expressFee !== undefined ? std.expressFee : 25;
-  document.getElementById('editPkgStdFeatures').value = (std.features || []).join(', ');
+  document.getElementById('editPkgStdExpressFee').value = std && std.expressFee !== undefined ? std.expressFee : '';
+  document.getElementById('editPkgStdFeatures').value = std ? (std.features || []).join(', ') : '';
 
-  // Premium Package
-  const p = s.packages?.premium || { name: 'Premium', price: 120, deliveryDays: 7, expressFee: 40, expressDays: 3, features: [] };
-  document.getElementById('editPkgPremName').value = p.name;
-  document.getElementById('editPkgPremPrice').value = p.price;
-  document.getElementById('editPkgPremDays').value = p.deliveryDays;
+  // Premium Package (leave blank for Basic-only services so fake tiers are never invented)
+  const p = s.packages?.premium || null;
+  document.getElementById('editPkgPremName').value = p ? (p.name || '') : '';
+  document.getElementById('editPkgPremPrice').value = p && p.price !== undefined ? p.price : '';
+  document.getElementById('editPkgPremDays').value = p && p.deliveryDays !== undefined ? p.deliveryDays : '';
   if (document.getElementById('editPkgPremExpressDays')) {
-    document.getElementById('editPkgPremExpressDays').value = p.expressDays || 3;
+    document.getElementById('editPkgPremExpressDays').value = p && p.expressDays !== undefined ? p.expressDays : '';
   }
-  document.getElementById('editPkgPremExpressFee').value = p.expressFee !== undefined ? p.expressFee : 40;
-  document.getElementById('editPkgPremFeatures').value = (p.features || []).join(', ');
+  document.getElementById('editPkgPremExpressFee').value = p && p.expressFee !== undefined ? p.expressFee : '';
+  document.getElementById('editPkgPremFeatures').value = p ? (p.features || []).join(', ') : '';
 
   // Populate Add-ons in Edit Modal
   renderEditGigAddons(s.addons || []);
@@ -1283,51 +1289,72 @@ window.handleSaveServiceSubmit = async function(e) {
     }
     s.description = document.getElementById('editServiceDesc').value.trim();
 
-    // Basic Package
+    // Basic Package (preserve deliveryLabel and optional expressFee cleanly)
+    const prevBasic = s.packages?.basic || {};
     const bDays = Number(document.getElementById('editPkgBasicDays').value) || 3;
-    const bExpDays = Number(document.getElementById('editPkgBasicExpressDays')?.value) || Math.max(1, bDays - 2);
-    const bExpFee = Number(document.getElementById('editPkgBasicExpressFee')?.value) || 15;
+    const rawBExpFee = document.getElementById('editPkgBasicExpressFee')?.value;
+    const rawBExpDays = document.getElementById('editPkgBasicExpressDays')?.value;
+    const bExpFee = rawBExpFee !== '' && rawBExpFee !== undefined ? Number(rawBExpFee) : undefined;
+    const bExpDays = rawBExpDays !== '' && rawBExpDays !== undefined ? Number(rawBExpDays) : undefined;
 
     if (!s.packages) s.packages = {};
     s.packages.basic = {
       name: document.getElementById('editPkgBasicName').value.trim(),
       price: Number(document.getElementById('editPkgBasicPrice').value) || 30,
       deliveryDays: bDays,
-      expressFee: bExpFee,
-      expressDays: bExpDays,
-      desc: document.getElementById('editPkgBasicName').value.trim() + ' core package.',
+      ...(prevBasic.deliveryLabel && bDays === prevBasic.deliveryDays ? { deliveryLabel: prevBasic.deliveryLabel } : {}),
+      ...(typeof bExpFee === 'number' && bExpFee > 0 ? { expressFee: bExpFee, expressDays: bExpDays || Math.max(1, bDays - 2) } : {}),
+      desc: prevBasic.desc || (document.getElementById('editPkgBasicName').value.trim() + ' core package.'),
       features: document.getElementById('editPkgBasicFeatures').value.split(',').map(f => f.trim()).filter(Boolean)
     };
 
-    // Standard Package
-    const stdDays = Number(document.getElementById('editPkgStdDays').value) || 5;
-    const stdExpDays = Number(document.getElementById('editPkgStdExpressDays')?.value) || Math.max(2, stdDays - 2);
-    const stdExpFee = Number(document.getElementById('editPkgStdExpressFee')?.value) || 25;
+    // Standard Package (only save if admin provided a valid price; otherwise preserve Basic-only)
+    const rawStdPrice = document.getElementById('editPkgStdPrice').value;
+    const stdPriceNum = rawStdPrice !== '' ? Number(rawStdPrice) : 0;
+    if (stdPriceNum > 0) {
+      const prevStd = s.packages?.standard || {};
+      const stdDays = Number(document.getElementById('editPkgStdDays').value) || 5;
+      const rawStdExpFee = document.getElementById('editPkgStdExpressFee')?.value;
+      const rawStdExpDays = document.getElementById('editPkgStdExpressDays')?.value;
+      const stdExpFee = rawStdExpFee !== '' && rawStdExpFee !== undefined ? Number(rawStdExpFee) : 0;
+      const stdExpDays = rawStdExpDays !== '' && rawStdExpDays !== undefined ? Number(rawStdExpDays) : Math.max(2, stdDays - 2);
 
-    s.packages.standard = {
-      name: document.getElementById('editPkgStdName').value.trim(),
-      price: Number(document.getElementById('editPkgStdPrice').value) || 60,
-      deliveryDays: stdDays,
-      expressFee: stdExpFee,
-      expressDays: stdExpDays,
-      desc: document.getElementById('editPkgStdName').value.trim() + ' standard project scope.',
-      features: document.getElementById('editPkgStdFeatures').value.split(',').map(f => f.trim()).filter(Boolean)
-    };
+      s.packages.standard = {
+        name: document.getElementById('editPkgStdName').value.trim() || 'Standard',
+        price: stdPriceNum,
+        deliveryDays: stdDays,
+        ...(prevStd.deliveryLabel && stdDays === prevStd.deliveryDays ? { deliveryLabel: prevStd.deliveryLabel } : {}),
+        ...(stdExpFee > 0 ? { expressFee: stdExpFee, expressDays: stdExpDays } : {}),
+        desc: prevStd.desc || ((document.getElementById('editPkgStdName').value.trim() || 'Standard') + ' standard project scope.'),
+        features: document.getElementById('editPkgStdFeatures').value.split(',').map(f => f.trim()).filter(Boolean)
+      };
+    } else {
+      delete s.packages.standard;
+    }
 
-    // Premium Package
-    const premDays = Number(document.getElementById('editPkgPremDays').value) || 7;
-    const premExpDays = Number(document.getElementById('editPkgPremExpressDays')?.value) || Math.max(3, premDays - 3);
-    const premExpFee = Number(document.getElementById('editPkgPremExpressFee')?.value) || 40;
+    // Premium Package (only save if admin provided a valid price; otherwise preserve Basic-only)
+    const rawPremPrice = document.getElementById('editPkgPremPrice').value;
+    const premPriceNum = rawPremPrice !== '' ? Number(rawPremPrice) : 0;
+    if (premPriceNum > 0) {
+      const prevPrem = s.packages?.premium || {};
+      const premDays = Number(document.getElementById('editPkgPremDays').value) || 7;
+      const rawPremExpFee = document.getElementById('editPkgPremExpressFee')?.value;
+      const rawPremExpDays = document.getElementById('editPkgPremExpressDays')?.value;
+      const premExpFee = rawPremExpFee !== '' && rawPremExpFee !== undefined ? Number(rawPremExpFee) : 0;
+      const premExpDays = rawPremExpDays !== '' && rawPremExpDays !== undefined ? Number(rawPremExpDays) : Math.max(3, premDays - 3);
 
-    s.packages.premium = {
-      name: document.getElementById('editPkgPremName').value.trim(),
-      price: Number(document.getElementById('editPkgPremPrice').value) || 120,
-      deliveryDays: premDays,
-      expressFee: premExpFee,
-      expressDays: premExpDays,
-      desc: document.getElementById('editPkgPremName').value.trim() + ' VIP full platform execution.',
-      features: document.getElementById('editPkgPremFeatures').value.split(',').map(f => f.trim()).filter(Boolean)
-    };
+      s.packages.premium = {
+        name: document.getElementById('editPkgPremName').value.trim() || 'Premium',
+        price: premPriceNum,
+        deliveryDays: premDays,
+        ...(prevPrem.deliveryLabel && premDays === prevPrem.deliveryDays ? { deliveryLabel: prevPrem.deliveryLabel } : {}),
+        ...(premExpFee > 0 ? { expressFee: premExpFee, expressDays: premExpDays } : {}),
+        desc: prevPrem.desc || ((document.getElementById('editPkgPremName').value.trim() || 'Premium') + ' VIP full platform execution.'),
+        features: document.getElementById('editPkgPremFeatures').value.split(',').map(f => f.trim()).filter(Boolean)
+      };
+    } else {
+      delete s.packages.premium;
+    }
 
     // Collect Add-ons from Edit Modal
     const editAddonRows = document.querySelectorAll('#editGigAddonsContainer .edit-gig-addon-row');

@@ -3911,6 +3911,56 @@ function renderMediaHtml(mediaUrl, title, isThumbnail = false) {
 }
 window.renderMediaHtml = renderMediaHtml;
 
+function mergeServicesWithDefaults(incomingServices) {
+  const incoming = Array.isArray(incomingServices) ? incomingServices : [];
+  if (typeof DEFAULT_SERVICES === 'undefined' || !Array.isArray(DEFAULT_SERVICES) || DEFAULT_SERVICES.length === 0) {
+    return incoming;
+  }
+  const mergedDefaults = DEFAULT_SERVICES.map(def => {
+    const match = incoming.find(s =>
+      s && (
+        s.id === def.id ||
+        (s.slug && def.slug && s.slug.toLowerCase() === def.slug.toLowerCase()) ||
+        (s.name && def.name && s.name.toLowerCase() === def.name.toLowerCase())
+      )
+    );
+    if (!match) return def;
+    const mergedPkg = match.packages || def.packages;
+    ['basic', 'standard', 'premium'].forEach(t => {
+      if (mergedPkg?.[t] && !mergedPkg[t].deliveryLabel && def.packages?.[t]?.deliveryLabel) {
+        mergedPkg[t].deliveryLabel = def.packages[t].deliveryLabel;
+      }
+    });
+    return {
+      ...def,
+      ...match,
+      packages: mergedPkg,
+      gigTitle: match.gigTitle || def.gigTitle,
+      description: match.description || def.description,
+      coverImage: match.coverImage || def.coverImage,
+      metaTitle: match.metaTitle || def.metaTitle,
+      metaDescription: match.metaDescription || def.metaDescription,
+      tags: (Array.isArray(match.tags) && match.tags.length > 0) ? match.tags : def.tags,
+      aboutNotes: (Array.isArray(match.aboutNotes) && match.aboutNotes.length > 0) ? match.aboutNotes : def.aboutNotes,
+      keyDeliverables: (Array.isArray(match.keyDeliverables) && match.keyDeliverables.length > 0) ? match.keyDeliverables : def.keyDeliverables,
+      whyChoose: (Array.isArray(match.whyChoose) && match.whyChoose.length > 0) ? match.whyChoose : def.whyChoose,
+      workProcess: (Array.isArray(match.workProcess) && match.workProcess.length > 0) ? match.workProcess : def.workProcess,
+      tools: (Array.isArray(match.tools) && match.tools.length > 0) ? match.tools : def.tools,
+      faqs: (Array.isArray(match.faqs) && match.faqs.length > 0) ? match.faqs : def.faqs,
+      reviews: (Array.isArray(match.reviews) && match.reviews.length > 0) ? match.reviews : def.reviews,
+      addons: (Array.isArray(match.addons) && match.addons.length > 0) ? match.addons : def.addons
+    };
+  });
+  const customServices = incoming.filter(s =>
+    s && !DEFAULT_SERVICES.some(def =>
+      s.id === def.id ||
+      (s.slug && def.slug && s.slug.toLowerCase() === def.slug.toLowerCase()) ||
+      (s.name && def.name && s.name.toLowerCase() === def.name.toLowerCase())
+    )
+  );
+  return [...mergedDefaults, ...customServices];
+}
+
 // Cross-Device Server Fetch & Real-Time Sync
 async function syncStoreWithServer() {
   // 1. Independent Services Sync
@@ -3918,20 +3968,22 @@ async function syncStoreWithServer() {
     if (typeof window.fetchServicesFromCloud === 'function') {
       const cloudServices = await window.fetchServicesFromCloud();
       if (Array.isArray(cloudServices) && cloudServices.length > 0) {
-        localStorage.setItem('ruddranil_services', JSON.stringify(cloudServices));
+        const mergedServices = mergeServicesWithDefaults(cloudServices);
+        localStorage.setItem('ruddranil_services', JSON.stringify(mergedServices));
         if (typeof syncPublicServicesGrid === 'function') syncPublicServicesGrid();
-        window.dispatchEvent(new CustomEvent('ruddranil_services_updated', { detail: cloudServices }));
-        window.dispatchEvent(new CustomEvent('ruddranil_packages_updated', { detail: cloudServices }));
+        window.dispatchEvent(new CustomEvent('ruddranil_services_updated', { detail: mergedServices }));
+        window.dispatchEvent(new CustomEvent('ruddranil_packages_updated', { detail: mergedServices }));
       }
     } else {
       const resServ = await fetch('/api/services?t=' + Date.now());
       if (resServ.ok) {
         const serverServices = await resServ.json();
         if (Array.isArray(serverServices) && serverServices.length > 0) {
-          localStorage.setItem('ruddranil_services', JSON.stringify(serverServices));
+          const mergedServices = mergeServicesWithDefaults(serverServices);
+          localStorage.setItem('ruddranil_services', JSON.stringify(mergedServices));
           if (typeof syncPublicServicesGrid === 'function') syncPublicServicesGrid();
-          window.dispatchEvent(new CustomEvent('ruddranil_services_updated', { detail: serverServices }));
-          window.dispatchEvent(new CustomEvent('ruddranil_packages_updated', { detail: serverServices }));
+          window.dispatchEvent(new CustomEvent('ruddranil_services_updated', { detail: mergedServices }));
+          window.dispatchEvent(new CustomEvent('ruddranil_packages_updated', { detail: mergedServices }));
         }
       }
     }
@@ -4203,6 +4255,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const params = new URLSearchParams(window.location.search);
   const orderTarget = params.get('order');
   const tierTarget = params.get('tier') || 'basic';
+  const contactServiceTarget = params.get('contactService');
+
+  if (contactServiceTarget && isHomePage) {
+    try {
+      const cleanUrl = window.location.pathname + (window.location.hash || '#contact');
+      window.history.replaceState({}, document.title, cleanUrl);
+    } catch (e) {}
+    setTimeout(() => {
+      const serviceDropdown = document.getElementById('contactService');
+      const contactSection = document.getElementById('contact');
+      if (serviceDropdown) {
+        serviceDropdown.value = contactServiceTarget;
+      }
+      if (contactSection) {
+        contactSection.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 150);
+  }
 
   if (orderTarget && isHomePage) {
     // Immediately sanitize URL to eliminate infinite reload/back-button modal loops
@@ -4467,7 +4537,9 @@ window.filterServices = function(category) {
     const target = (category || 'all').toLowerCase();
     let isMatch = target === 'all';
     if (!isMatch) {
-      if (target === 'digital-marketing') {
+      if (target === 'web-development') {
+        isMatch = cardCat.includes('web');
+      } else if (target === 'digital-marketing') {
         isMatch = cardCat.includes('market') || cardCat.includes('seo') || cardCat.includes('digital');
       } else if (target === 'youtube') {
         isMatch = cardCat.includes('youtube');
@@ -4526,7 +4598,7 @@ function syncPublicServicesGrid() {
               </svg>
               <div class="delivery-text-group">
                 <span class="meta-label">DELIVERY</span>
-                <span class="meta-delivery-val">${basic.deliveryDays} Days</span>
+                <span class="meta-delivery-val">${escapeHtmlText(basic.deliveryLabel || `${basic.deliveryDays} Days`)}</span>
               </div>
             </div>
           </div>
@@ -4538,6 +4610,29 @@ function syncPublicServicesGrid() {
       </div>
     `;
   }).join('');
+
+  // Update filter tab counts dynamically to match rendered catalog
+  const filterBtns = document.querySelectorAll('#serviceFilters .service-filter-btn');
+  if (filterBtns.length > 0) {
+    const countByCat = (cat) => {
+      if (cat === 'all') return services.length;
+      return services.filter(s => {
+        const c = (s.category || '').toLowerCase();
+        if (cat === 'web-development') return c.includes('web');
+        if (cat === 'digital-marketing') return c.includes('market') || c.includes('seo') || c.includes('digital');
+        if (cat === 'youtube') return c.includes('youtube');
+        if (cat === 'graphic-design') return c.includes('design') || c.includes('graphic');
+        if (cat === 'data-entry') return c.includes('data') || c.includes('entry') || c.includes('va') || c.includes('assistant');
+        return c === cat || c.includes(cat);
+      }).length;
+    };
+    filterBtns.forEach(btn => {
+      const cat = btn.getAttribute('data-category');
+      if (!cat) return;
+      const n = countByCat(cat);
+      btn.textContent = btn.textContent.replace(/\(\d+\)/, `(${n})`);
+    });
+  }
 
   // Re-apply active category filter
   if (typeof window.filterServices === 'function') {
@@ -4552,8 +4647,8 @@ function syncPublicServicesGrid() {
       <option value="Select a service">Select a service</option>
       ${services.map(s => {
         const bp = s.packages?.basic?.price || 30;
-        const bd = s.packages?.basic?.deliveryDays || 3;
-        return `<option value="${escapeHtmlText(s.name)}" ${s.name === currentVal ? 'selected' : ''}>${escapeHtmlText(s.name)} ($${bp} · ${bd} Days)</option>`;
+        const bd = s.packages?.basic?.deliveryLabel || `${s.packages?.basic?.deliveryDays || 3} Days`;
+        return `<option value="${escapeHtmlText(s.name)}" ${s.name === currentVal ? 'selected' : ''}>${escapeHtmlText(s.name)} ($${bp} · ${escapeHtmlText(bd)})</option>`;
       }).join('')}
     `;
   }
@@ -4702,7 +4797,20 @@ window.addEventListener('storage', (e) => {
 
 // Get Authoritative Service by ID, Name or Slug (Guaranteed rich descriptions and deliverables)
 function getServiceData(nameOrSlugOrId) {
-  const query = (nameOrSlugOrId || '').toLowerCase().trim();
+  const rawQuery = (nameOrSlugOrId || '').toLowerCase().trim();
+  const legacyAliases = {
+    'facebook marketing': 'srv-dm-fb-ads',
+    'youtube seo': 'srv-yt-seo',
+    'youtube marketing': 'srv-yt-growth',
+    'website design': 'srv-web-small-business',
+    'web development': 'srv-web-custom-business',
+    'graphic design': 'srv-gd-logo',
+    't-shirt design': 'srv-gd-tshirt',
+    'tshirt design': 'srv-gd-tshirt'
+  };
+  const resolvedKey = legacyAliases[rawQuery] || nameOrSlugOrId;
+  const query = (resolvedKey || '').toLowerCase().trim();
+
   let services = [];
   try {
     services = JSON.parse(localStorage.getItem('ruddranil_services') || '[]');
@@ -4712,7 +4820,7 @@ function getServiceData(nameOrSlugOrId) {
 
   const foundLocal = Array.isArray(services) ? services.find(s => 
     s && (
-      s.id === nameOrSlugOrId ||
+      s.id === resolvedKey ||
       (s.name && s.name.toLowerCase() === query) ||
       (s.slug && s.slug.toLowerCase() === query)
     )
@@ -4720,7 +4828,7 @@ function getServiceData(nameOrSlugOrId) {
 
   const foundDefault = DEFAULT_SERVICES.find(s => 
     s && (
-      s.id === nameOrSlugOrId ||
+      s.id === resolvedKey ||
       (s.name && s.name.toLowerCase() === query) ||
       (s.slug && s.slug.toLowerCase() === query)
     )
@@ -4812,10 +4920,12 @@ window.openOrderLoginPromptModal = function(serviceIdentifierOrObj, preferredTie
     s = getServiceData(serviceIdentifierOrObj);
   }
   const sName = s?.name || 'Digital Service';
-  const pkgTier = preferredTier || 'basic';
+  const requestedTier = preferredTier || 'basic';
+  const pkgTier = (s?.packages && s.packages[requestedTier]) ? requestedTier : 'basic';
   const currentPkg = s?.packages ? (s.packages[pkgTier] || s.packages.basic) : { price: 30, deliveryDays: 3 };
   const price = currentPkg?.price || 30;
   const deliveryDays = currentPkg?.deliveryDays || 3;
+  const deliveryDisplay = currentPkg?.deliveryLabel || `${deliveryDays} Days`;
 
   let modal = document.getElementById('orderLoginPromptModal');
   if (!modal) {
@@ -4862,7 +4972,7 @@ window.openOrderLoginPromptModal = function(serviceIdentifierOrObj, preferredTie
         <div>
           <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: #0284c7; font-weight: 700;">Selected Service</span>
           <h4 class="order-prompt-service-title" style="font-size: 15px; font-weight: 700; margin-top: 2px; margin-bottom: 2px;">${escapeHtmlText(sName)}</h4>
-          <span class="order-prompt-tier-meta" style="font-size: 12px; color: #0066ff !important; font-weight: 600;">Tier: <strong style="color: #0066ff !important; font-weight: 800;">${pkgTier.toUpperCase()}</strong> • ⏱ ${deliveryDays} Days Delivery</span>
+          <span class="order-prompt-tier-meta" style="font-size: 12px; color: #0066ff !important; font-weight: 600;">Tier: <strong style="color: #0066ff !important; font-weight: 800;">${pkgTier.toUpperCase()}</strong> • ⏱ ${escapeHtmlText(deliveryDisplay)} Delivery</span>
         </div>
         <div style="text-align: right; flex-shrink: 0;">
           <span class="order-prompt-package-tag" style="font-size: 10.5px; color: #0066ff !important; display: block; font-weight: 800; letter-spacing: 0.5px;">PACKAGE</span>
@@ -4903,15 +5013,17 @@ window.openFiverrOrderModal = function(serviceIdentifier, preferredTier = 'basic
   const service = getServiceData(serviceIdentifier);
   if (!service) return;
 
+  const validTier = (service.packages && service.packages[preferredTier]) ? preferredTier : 'basic';
+
   // Authentication Guard: Visitors must log in or sign up before placing an order
   if (!isCustomerLoggedIn()) {
-    openOrderLoginPromptModal(service, preferredTier);
+    openOrderLoginPromptModal(service, validTier);
     return;
   }
 
   currentOrderState = {
     service: service,
-    packageTier: preferredTier,
+    packageTier: validTier,
     isExpress: false,
     selectedAddons: [],
     couponCode: '',
@@ -4973,7 +5085,7 @@ function renderFiverrOrderModalContent() {
         </div>
       </div>
 
-      <!-- Package Selection Tiers (Basic, Standard, Premium) -->
+      <!-- Package Selection Tiers (Basic, plus Standard & Premium when available) -->
       <label class="form-label" style="margin-bottom: 4px;">1. Choose Your Package Tier</label>
       <div class="package-tiers-grid">
         <!-- Basic Tier -->
@@ -4985,15 +5097,16 @@ function renderFiverrOrderModalContent() {
               <span class="currency">$</span>${packages.basic.price}
             </div>
             <div class="package-tier-delivery">
-              <span>⏱ ${packages.basic.deliveryDays} Days Delivery</span>
+              <span>⏱ ${packages.basic.deliveryLabel || `${packages.basic.deliveryDays} Days`} Delivery</span>
             </div>
             <p class="package-tier-desc">${packages.basic.desc}</p>
           </div>
           <ul class="package-features-list">
-            ${packages.basic.features.map(f => `<li><span class="check-icon">✓</span> ${f}</li>`).join('')}
+            ${(packages.basic.features || []).map(f => `<li><span class="check-icon">✓</span> ${f}</li>`).join('')}
           </ul>
         </div>
 
+        ${packages.standard ? `
         <!-- Standard Tier -->
         <div id="orderTierCard-standard" class="package-tier-card ${currentTier === 'standard' ? 'selected' : ''}" onclick="selectPackageTier('standard')">
           <div>
@@ -5003,15 +5116,17 @@ function renderFiverrOrderModalContent() {
               <span class="currency">$</span>${packages.standard.price}
             </div>
             <div class="package-tier-delivery">
-              <span>⏱ ${packages.standard.deliveryDays} Days Delivery</span>
+              <span>⏱ ${packages.standard.deliveryLabel || `${packages.standard.deliveryDays} Days`} Delivery</span>
             </div>
             <p class="package-tier-desc">${packages.standard.desc}</p>
           </div>
           <ul class="package-features-list">
-            ${packages.standard.features.map(f => `<li><span class="check-icon">✓</span> ${f}</li>`).join('')}
+            ${(packages.standard.features || []).map(f => `<li><span class="check-icon">✓</span> ${f}</li>`).join('')}
           </ul>
         </div>
+        ` : ''}
 
+        ${packages.premium ? `
         <!-- Premium Tier -->
         <div id="orderTierCard-premium" class="package-tier-card ${currentTier === 'premium' ? 'selected' : ''}" onclick="selectPackageTier('premium')">
           <div>
@@ -5021,19 +5136,22 @@ function renderFiverrOrderModalContent() {
               <span class="currency">$</span>${packages.premium.price}
             </div>
             <div class="package-tier-delivery">
-              <span>⏱ ${packages.premium.deliveryDays} Days Delivery</span>
+              <span>⏱ ${packages.premium.deliveryLabel || `${packages.premium.deliveryDays} Days`} Delivery</span>
             </div>
             <p class="package-tier-desc">${packages.premium.desc}</p>
           </div>
           <ul class="package-features-list">
-            ${packages.premium.features.map(f => `<li><span class="check-icon">✓</span> ${f}</li>`).join('')}
+            ${(packages.premium.features || []).map(f => `<li><span class="check-icon">✓</span> ${f}</li>`).join('')}
           </ul>
         </div>
+        ` : ''}
       </div>
 
+      ${((typeof currentPkg.expressFee === 'number' && currentPkg.expressFee > 0) || (Array.isArray(s.addons) && s.addons.length > 0)) ? `
       <!-- Express Delivery & Optional Add-ons -->
       <label class="form-label" style="margin-bottom: 4px;">2. Delivery Speed &amp; Optional Add-ons</label>
       <div class="order-addons-wrapper">
+        ${(typeof currentPkg.expressFee === 'number' && currentPkg.expressFee > 0) ? `
         <!-- Express Delivery Toggle -->
         <label class="addon-checkbox-label">
           <div class="addon-info">
@@ -5045,6 +5163,7 @@ function renderFiverrOrderModalContent() {
           </div>
           <span class="addon-price-badge" id="expressPriceBadge">+$${currentPkg.expressFee}</span>
         </label>
+        ` : ''}
 
         <!-- Optional Service Addons -->
         ${(s.addons || []).map(addon => {
@@ -5062,6 +5181,7 @@ function renderFiverrOrderModalContent() {
           `;
         }).join('')}
       </div>
+      ` : ''}
 
       <!-- Discount Coupon Code -->
       <label class="form-label" for="orderCouponInput">3. Have a Discount Code?</label>
@@ -5112,7 +5232,7 @@ function renderFiverrOrderModalContent() {
           <span class="total-amount" id="summaryFinalTotal">$${calculation.finalTotal.toFixed(2)}</span>
         </div>
         <div class="delivery-time-meta" id="summaryDeliveryMeta">
-          Estimated Delivery: <strong>${calculation.deliveryDays} Days</strong>
+          Estimated Delivery: <strong>${calculation.deliveryLabel || `${calculation.deliveryDays} Days`}</strong>
         </div>
       </div>
 
@@ -5206,6 +5326,9 @@ function calculateAuthoritativeTotals() {
 
   const subtotal = packagePrice + expressFee + addonsTotal;
   const deliveryDays = currentOrderState.isExpress ? (pkg.expressDays || 1) : pkg.deliveryDays;
+  const deliveryLabel = currentOrderState.isExpress
+    ? `${pkg.expressDays || 1} Days`
+    : (pkg.deliveryLabel || `${pkg.deliveryDays} Days`);
 
   // Authoritative Coupon Validation
   let discount = 0;
@@ -5237,7 +5360,8 @@ function calculateAuthoritativeTotals() {
     subtotal,
     discount,
     finalTotal,
-    deliveryDays
+    deliveryDays,
+    deliveryLabel
   };
 }
 
@@ -5263,17 +5387,18 @@ function updateOrderCalculationsUI() {
   });
 
   // 2. Update Express Delivery label and fee dynamically for current tier
+  const hasExpress = typeof currentPkg.expressFee === 'number' && currentPkg.expressFee > 0;
   const expressLabelTitle = document.getElementById('expressLabelTitle');
-  if (expressLabelTitle) {
+  if (expressLabelTitle && hasExpress) {
     expressLabelTitle.textContent = `⚡ Express Delivery (${currentPkg.expressDays || 1} Days)`;
   }
   const expressPriceBadge = document.getElementById('expressPriceBadge');
-  if (expressPriceBadge) {
+  if (expressPriceBadge && hasExpress) {
     expressPriceBadge.textContent = `+$${currentPkg.expressFee}`;
   }
   const expressCheckbox = document.getElementById('expressCheckbox');
   if (expressCheckbox) {
-    expressCheckbox.checked = !!currentOrderState.isExpress;
+    expressCheckbox.checked = hasExpress && !!currentOrderState.isExpress;
   }
 
   // 3. Update Order Summary rows in-place
@@ -5333,7 +5458,7 @@ function updateOrderCalculationsUI() {
 
   const summaryDeliveryMeta = document.getElementById('summaryDeliveryMeta');
   if (summaryDeliveryMeta) {
-    summaryDeliveryMeta.innerHTML = `Estimated Delivery: <strong>${calculation.deliveryDays} Days</strong>`;
+    summaryDeliveryMeta.innerHTML = `Estimated Delivery: <strong>${calculation.deliveryLabel || `${calculation.deliveryDays} Days`}</strong>`;
   }
 
   // 4. Update Final Order button text in-place
@@ -5345,12 +5470,19 @@ function updateOrderCalculationsUI() {
 
 // 8. Order Customization Actions (In-Place Updates)
 window.selectPackageTier = function(tier) {
-  currentOrderState.packageTier = tier;
+  const pkgs = currentOrderState.service?.packages || {};
+  currentOrderState.packageTier = pkgs[tier] ? tier : 'basic';
+  const activePkg = pkgs[currentOrderState.packageTier] || pkgs.basic;
+  if (!(typeof activePkg?.expressFee === 'number' && activePkg.expressFee > 0)) {
+    currentOrderState.isExpress = false;
+  }
   updateOrderCalculationsUI();
 };
 
 window.toggleExpressDelivery = function(isChecked) {
-  currentOrderState.isExpress = isChecked;
+  const pkgs = currentOrderState.service?.packages || {};
+  const activePkg = pkgs[currentOrderState.packageTier] || pkgs.basic;
+  currentOrderState.isExpress = Boolean(isChecked) && typeof activePkg?.expressFee === 'number' && activePkg.expressFee > 0;
   updateOrderCalculationsUI();
 };
 
@@ -5698,7 +5830,8 @@ var activeGigTier = 'basic';
 window.openServiceDetails = function(serviceIdentifier, defaultTier) {
   const s = getServiceData(serviceIdentifier);
   activeGigService = s;
-  activeGigTier = defaultTier || 'basic';
+  const requestedTier = defaultTier || 'basic';
+  activeGigTier = (s.packages && s.packages[requestedTier]) ? requestedTier : 'basic';
 
   let modal = document.getElementById('serviceDetailsModal');
   if (!modal) {
@@ -5738,7 +5871,8 @@ window.openServiceDetails = function(serviceIdentifier, defaultTier) {
   document.body.style.overflow = 'hidden';
 };
 
-function renderGigDetailsContent(modal, s, tier) {
+function renderGigDetailsContent(modal, s, requestedTier) {
+  const tier = (s.packages && s.packages[requestedTier]) ? requestedTier : 'basic';
   const currentPkg = (s.packages && s.packages[tier]) ? s.packages[tier] : (s.packages ? s.packages.basic : { price: 30, deliveryDays: 3, desc: '', features: [] });
   const coverImg = s.coverImage || 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=1200&q=80';
 
@@ -5929,8 +6063,14 @@ function renderGigDetailsContent(modal, s, tier) {
             <div class="gig-section-card">
               <h2 class="gig-section-title">Tools &amp; Technologies Used</h2>
               <div class="gig-tools-grid">
-                ${s.tools.map(tool => `<span class="gig-tool-badge">${tool}</span>`).join('')}
+                ${s.tools.map(tool => `<span class="gig-tool-badge">${escapeHtmlText(tool)}</span>`).join('')}
               </div>
+              ${Array.isArray(s.tags) && s.tags.length > 0 ? `
+                <h3 class="gig-subsection-title" style="margin-top: 18px;">Service Tags &amp; Focus Areas</h3>
+                <div class="gig-tools-grid">
+                  ${s.tags.map(tag => `<span class="gig-tool-badge">#${escapeHtmlText(tag)}</span>`).join('')}
+                </div>
+              ` : ''}
             </div>
           ` : ''}
 
@@ -5985,12 +6125,16 @@ function renderGigDetailsContent(modal, s, tier) {
               <button type="button" class="gig-tier-tab ${tier === 'basic' ? 'active' : ''}" onclick="switchGigTier('basic')">
                 Basic
               </button>
+              ${(s.packages && s.packages.standard) ? `
               <button type="button" class="gig-tier-tab ${tier === 'standard' ? 'active' : ''}" onclick="switchGigTier('standard')">
                 Standard
               </button>
+              ` : ''}
+              ${(s.packages && s.packages.premium) ? `
               <button type="button" class="gig-tier-tab ${tier === 'premium' ? 'active' : ''}" onclick="switchGigTier('premium')">
                 Premium
               </button>
+              ` : ''}
             </div>
 
             <!-- Package Details Content -->
@@ -6013,7 +6157,7 @@ function renderGigDetailsContent(modal, s, tier) {
                     <circle cx="12" cy="12" r="10"></circle>
                     <polyline points="12 6 12 12 16 14"></polyline>
                   </svg>
-                  <span><strong>${currentPkg.deliveryDays} Days</strong> Delivery</span>
+                  <span><strong>${currentPkg.deliveryLabel || `${currentPkg.deliveryDays} Days`}</strong> Delivery</span>
                 </div>
                 <div class="tier-meta-item">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -6035,12 +6179,12 @@ function renderGigDetailsContent(modal, s, tier) {
               </ul>
 
               <!-- Direct Order Action Button (Connects to Supabase Checkout) -->
-              <button type="button" onclick="orderFromDetails('${s.name}', '${tier}')" class="btn btn-primary gig-order-cta-btn">
+              <button type="button" onclick="orderFromDetails('${escapeHtmlText(s.id || s.name)}', '${tier}')" class="btn btn-primary gig-order-cta-btn">
                 <span>Continue to Order ($${currentPkg.price})</span>
                 <span style="font-size: 18px;">→</span>
               </button>
 
-              <button type="button" onclick="contactSellerForService('${s.name}')" class="btn btn-secondary gig-contact-cta-btn">
+              <button type="button" onclick="contactSellerForService('${escapeHtmlText(s.name)}')" class="btn btn-secondary gig-contact-cta-btn">
                 <span>💬 Contact Seller / Custom Offer</span>
               </button>
 
@@ -6058,7 +6202,7 @@ function renderGigDetailsContent(modal, s, tier) {
           <span class="mobile-tier-name">${currentPkg.name} (${tier.toUpperCase()})</span>
           <span class="mobile-tier-price">$${currentPkg.price}</span>
         </div>
-        <button type="button" onclick="orderFromDetails('${s.name}', '${tier}')" class="btn btn-primary btn-sm mobile-order-btn">
+        <button type="button" onclick="orderFromDetails('${escapeHtmlText(s.id || s.name)}', '${tier}')" class="btn btn-primary btn-sm mobile-order-btn">
           Order Now ($${currentPkg.price})
         </button>
       </div>
@@ -6067,9 +6211,10 @@ function renderGigDetailsContent(modal, s, tier) {
 }
 
 window.switchGigTier = function(tier) {
-  activeGigTier = tier;
+  if (!activeGigService) return;
+  activeGigTier = (activeGigService.packages && activeGigService.packages[tier]) ? tier : 'basic';
   const modal = document.getElementById('serviceDetailsModal');
-  if (modal && activeGigService) {
+  if (modal) {
     const prevScroll = modal.scrollTop;
     renderGigDetailsContent(modal, activeGigService, activeGigTier);
     modal.scrollTop = prevScroll;
@@ -6119,7 +6264,7 @@ window.orderFromDetails = function(serviceName, tier) {
   }, 120);
 };
 
-// Contact Seller shortcut pre-populates contact form
+// Contact Seller shortcut pre-populates contact form (works on homepage and redirects cleanly from /services)
 window.contactSellerForService = function(serviceName) {
   closeServiceDetails();
   const contactSection = document.getElementById('contact');
@@ -6129,6 +6274,8 @@ window.contactSellerForService = function(serviceName) {
   }
   if (contactSection) {
     contactSection.scrollIntoView({ behavior: 'smooth' });
+  } else {
+    window.location.href = `/index.html?contactService=${encodeURIComponent(serviceName || '')}#contact`;
   }
 };
 

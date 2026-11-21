@@ -2245,6 +2245,178 @@ window.DEFAULT_SERVICES = [
     ]
   },
   {
+    "id": "srv-gd-tshirt",
+    "name": "T-Shirt Design & Apparel Graphics",
+    "slug": "t-shirt-design",
+    "category": "graphic-design",
+    "categoryName": "Graphic Design",
+    "badge": "MERCH READY",
+    "gigTitle": "I will create custom print-ready t-shirt designs, typography art, and streetwear merch graphics.",
+    "coverImage": "https://images.unsplash.com/photo-1576566588028-4147f3842f27?auto=format&fit=crop&w=1000&q=80",
+    "rating": "5.0",
+    "reviewsCount": 44,
+    "ordersInQueue": 3,
+    "metaTitle": "T-Shirt Design & Apparel Graphics | Custom Merch & Print-Ready Artwork — Ruddranil.io",
+    "metaDescription": "Professional custom t-shirt design services for streetwear brands, print-on-demand stores (Printful, Printify, Merch by Amazon), and creators—300 DPI transparent PNG, vector source files, and realistic mockups.",
+    "tags": [
+      "T-Shirt Design",
+      "Streetwear Merch",
+      "Print on Demand",
+      "Typography Art",
+      "300 DPI Print Ready",
+      "Apparel Graphics"
+    ],
+    "description": "Custom print-ready t-shirt designs, bold streetwear graphics, typography merch, and print-on-demand (POD) apparel artwork prepared at 300 DPI with crisp vector source files and realistic mockups.",
+    "aboutNotes": [
+      "Launching a clothing label, creator merch drop, or print-on-demand store on Printful, Printify, Shopify, or Merch by Amazon? I craft original, high-impact t-shirt and apparel designs engineered to stand out and sell.",
+      "Every artwork is created from scratch with balanced composition, intentional typography, and production-ready color handling—ready for DTG (Direct-to-Garment), screen printing, DTF, or sublimation without blurry edges or background artifacts.",
+      "You receive crisp 300 DPI transparent PNG print files (4500×5400 px), realistic garment mockups for your store listings, and editable vector source files on Standard and Premium tiers."
+    ],
+    "keyDeliverables": [
+      "100% Original Custom T-Shirt & Apparel Artwork",
+      "High-Resolution 300 DPI Transparent PNG (4500×5400 px POD Standard)",
+      "Print-Ready Setup for DTG, Screen Printing, DTF & Print-on-Demand",
+      "Realistic Light & Dark Garment Mockups for Store Presentation",
+      "Editable Vector Source Files (AI, EPS, SVG, PDF) on Standard & Premium",
+      "Clean Color Separation & Sharp Edge Alignment",
+      "Full Commercial Merchandising Usage Rights"
+    ],
+    "whyChoose": [
+      "100% Original Commercial-Safe Artwork (Zero Copyright Issues)",
+      "Optimized Dimensions for Printful, Printify, Teespring & Shopify",
+      "Crisp Print Quality Tested on Both Dark and Light Garments",
+      "Fast Turnaround with Direct Designer Communication"
+    ],
+    "workProcess": [
+      {
+        "step": "01",
+        "title": "Niche & Style Brief",
+        "desc": "Reviewing your brand aesthetic, target audience, garment color, and print method (DTG/screen print)."
+      },
+      {
+        "step": "02",
+        "title": "Concept & Composition",
+        "desc": "Sketching typography hierarchy, graphic balance, and focal artwork tailored for chest or back placement."
+      },
+      {
+        "step": "03",
+        "title": "Vector Artwork & Detailing",
+        "desc": "Finalizing crisp vector shapes, textures, color palettes, and testing contrast on garment mockups."
+      },
+      {
+        "step": "04",
+        "title": "Print-Ready Handover",
+        "desc": "Exporting 300 DPI transparent PNGs, realistic mockups, and editable source files ready to upload."
+      }
+    ],
+    "tools": [
+      "Adobe Illustrator",
+      "Adobe Photoshop",
+      "CMYK & DTG Color Profiles",
+      "Vector Pen Tool",
+      "Apparel Mockup Studio"
+    ],
+    "faqs": [
+      {
+        "q": "Are the designs ready to upload directly to Printful, Printify, or Merch by Amazon?",
+        "a": "Yes! Every order includes a 300 DPI transparent PNG formatted at 4500×5400 px (or your custom printer dimensions) so you can upload immediately without resizing."
+      },
+      {
+        "q": "Can I use the t-shirt designs commercially to sell on my store?",
+        "a": "Yes, all packages include commercial use rights and original custom artwork so you can safely sell your merch online or in retail."
+      },
+      {
+        "q": "Do you design both front and back prints or hoodie graphics?",
+        "a": "Absolutely. Standard and Premium packages support front + back layouts, and you can also add a back or sleeve print to Basic using the Optional Add-on."
+      }
+    ],
+    "reviews": [
+      {
+        "name": "Devon Brooks",
+        "country": "United States",
+        "rating": 5,
+        "date": "5 days ago",
+        "comment": "Ordered the Streetwear Concept for our first Shopify merch drop. Uploaded the 300 DPI file straight to Printful and the print came out razor sharp!"
+      },
+      {
+        "name": "Hannah Weber",
+        "country": "Germany",
+        "rating": 5,
+        "date": "2 weeks ago",
+        "comment": "Clean typography, fast revisions, and super professional vector source files. Best apparel designer we have worked with."
+      }
+    ],
+    "packages": {
+      "basic": {
+        "name": "Starter T-Shirt Graphic",
+        "price": 20,
+        "deliveryDays": 2,
+        "deliveryLabel": "2 Days",
+        "expressFee": 10,
+        "expressDays": 1,
+        "desc": "1 custom typography or clean graphic t-shirt design with 300 DPI transparent print PNG, mockup preview, and commercial rights.",
+        "features": [
+          "1 Custom T-Shirt Design (Typography / Minimal Graphic)",
+          "300 DPI Transparent PNG (4500×5400 px)",
+          "1 Realistic T-Shirt Mockup Preview",
+          "Commercial Use License",
+          "2 Revisions"
+        ]
+      },
+      "standard": {
+        "name": "Brand Streetwear Concept",
+        "price": 45,
+        "deliveryDays": 4,
+        "deliveryLabel": "4 Days",
+        "expressFee": 18,
+        "expressDays": 2,
+        "desc": "1 detailed illustrated or streetwear t-shirt design with front + back layout, editable vector source files, and 2 studio mockups.",
+        "features": [
+          "1 Detailed Custom Illustrated / Streetwear Design",
+          "Front & Back (or Chest + Back) Print Layout",
+          "Editable Vector Source Files (AI, EPS, SVG, PDF)",
+          "300 DPI Transparent PNG + DTG/Screen-Print Ready",
+          "2 Realistic Garment Mockups (Light & Dark)",
+          "4 Revisions"
+        ]
+      },
+      "premium": {
+        "name": "Full Merch Drop Collection (3 Designs)",
+        "price": 95,
+        "deliveryDays": 6,
+        "deliveryLabel": "6 Days",
+        "expressFee": 35,
+        "expressDays": 3,
+        "desc": "Complete 3-design apparel capsule for clothing brands & creators with front/back/sleeve artwork, all source files, and lookbook mockups.",
+        "features": [
+          "3 Coordinated Custom T-Shirt / Hoodie Designs",
+          "Front, Back & Sleeve Placement Artwork",
+          "All Editable Source & Print Separation Files (AI, PSD, SVG, PNG)",
+          "Lookbook Mockup Pack (Light & Dark Garments)",
+          "Full Commercial Merchandising Rights",
+          "Unlimited Revisions"
+        ]
+      }
+    },
+    "addons": [
+      {
+        "id": "ad-gd-ts-1",
+        "name": "Back Print / Sleeve Graphic Addition",
+        "price": 15
+      },
+      {
+        "id": "ad-gd-ts-2",
+        "name": "Editable Vector Source File (AI, EPS, SVG)",
+        "price": 12
+      },
+      {
+        "id": "ad-gd-ts-3",
+        "name": "Extra Realistic Apparel Mockup Pack (5 Mockups)",
+        "price": 15
+      }
+    ]
+  },
+  {
     "id": "srv-va-excel",
     "name": "Excel & Google Sheets Data Entry",
     "slug": "excel-google-sheets-data-entry",
@@ -2809,7 +2981,7 @@ window.DEFAULT_SERVICES = [
     "categoryName": "Data Entry & Virtual Assistant",
     "badge": "SALES READY",
     "gigTitle": "I will upload and optimize products with tags and descriptions on Shopify or WooCommerce.",
-    "coverImage": "https://images.unsplash.com/photo-1556742049-0a67c5574f73?auto=format&fit=crop&w=1000&q=80",
+    "coverImage": "https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&w=1000&q=80",
     "rating": "5.0",
     "reviewsCount": 44,
     "ordersInQueue": 3,
@@ -3107,7 +3279,7 @@ window.DEFAULT_SERVICES = [
     "categoryName": "Automation Services",
     "badge": "HOT TREND",
     "gigTitle": "I will build WhatsApp business chatbots, auto-replies, and customer messaging workflows.",
-    "coverImage": "https://images.unsplash.com/photo-1614680376593-902f749f7ffc?auto=format&fit=crop&w=1000&q=80",
+    "coverImage": "https://images.unsplash.com/photo-1611746872915-64382b5c76da?auto=format&fit=crop&w=1000&q=80",
     "rating": "5.0",
     "reviewsCount": 51,
     "ordersInQueue": 4,
@@ -3404,6 +3576,608 @@ window.DEFAULT_SERVICES = [
         "id": "ad-gm-2",
         "name": "Custom Google Apps Script Function Extension",
         "price": 35
+      }
+    ]
+  },
+  {
+    "id": "srv-web-custom-business",
+    "name": "Custom Business Website Development",
+    "slug": "custom-business-website-development",
+    "category": "web-development",
+    "categoryName": "Web Development",
+    "badge": "CUSTOM BUILD",
+    "gigTitle": "Tailored custom website development built with clean HTML, CSS, JavaScript, and responsive architecture for international brands.",
+    "coverImage": "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1000&q=80",
+    "rating": "5.0",
+    "reviewsCount": 46,
+    "ordersInQueue": 3,
+    "metaTitle": "Custom Business Website Development | Ruddranil.io",
+    "metaDescription": "Custom responsive business website development with clean HTML5, CSS3, JavaScript, mobile-first architecture, and search-friendly semantic structure.",
+    "tags": [
+      "Custom Website Development",
+      "Business Website",
+      "HTML5 & CSS3",
+      "JavaScript Frontend",
+      "Responsive Architecture",
+      "SEO-Ready Structure"
+    ],
+    "description": "Tailored custom website development built with clean HTML, CSS, JavaScript, and responsive architecture for international brands.",
+    "aboutNotes": [
+      "Tailored custom website development built with clean HTML, CSS, JavaScript, and responsive architecture for international brands.",
+      "Scoped around your business goals, technical requirements, and target audience with clean semantic code, responsive mobile-first layouts, fast asset loading, accessible navigation, and search-friendly document structure."
+    ],
+    "keyDeliverables": [
+      "Custom responsive website layout built with clean HTML, CSS, and JavaScript",
+      "Mobile-first architecture across phones, tablets, and desktop screens",
+      "Accessible navigation and semantic, search-friendly document structure",
+      "Clean, organized source files ready for deployment"
+    ],
+    "whyChoose": [
+      "Direct communication with Ruddranil Roy from kickoff to handover",
+      "Clean semantic frontend code focused on clarity and usability",
+      "Live milestone tracking through the Ruddranil.io customer portal"
+    ],
+    "workProcess": [
+      {
+        "step": "01",
+        "title": "Scope & Architecture Planning",
+        "desc": "Reviewing your business goals, target audience, page structure, and content requirements."
+      },
+      {
+        "step": "02",
+        "title": "Responsive Layout Design",
+        "desc": "Structuring mobile-first wireframes, accessible navigation, and clear visual hierarchy."
+      },
+      {
+        "step": "03",
+        "title": "Clean Frontend Development",
+        "desc": "Writing semantic HTML5, modular CSS3, and lightweight JavaScript for fast loading."
+      },
+      {
+        "step": "04",
+        "title": "Cross-Device QA & Handover",
+        "desc": "Testing across mobile, tablet, and desktop screens and delivering organized deployment-ready files."
+      }
+    ],
+    "tools": [
+      "HTML5",
+      "CSS3",
+      "JavaScript",
+      "Responsive Design"
+    ],
+    "faqs": [
+      {
+        "q": "Will the website work properly on mobile phones and tablets?",
+        "a": "Yes. Every custom website is built mobile-first and tested across mobile, tablet, and desktop screen sizes."
+      },
+      {
+        "q": "Do I receive the clean source code upon completion?",
+        "a": "Yes. You receive clean, well-organized HTML, CSS, and JavaScript files ready for hosting or deployment."
+      },
+      {
+        "q": "What do you need from me to get started?",
+        "a": "Your business overview, logo or brand colors (if available), page list, and any reference websites you like."
+      }
+    ],
+    "packages": {
+      "basic": {
+        "name": "Starter Business Site",
+        "price": 150,
+        "deliveryDays": 10,
+        "deliveryLabel": "7–10 Days",
+        "expressFee": 45,
+        "expressDays": 5,
+        "desc": "Custom business website development (up to 3 pages) built with clean HTML, CSS, JavaScript, and responsive architecture.",
+        "features": [
+          "Up to 3 Custom Responsive Pages",
+          "Clean HTML, CSS & JavaScript Code",
+          "Responsive Mobile-First Design",
+          "Search-Friendly Semantic Structure",
+          "Contact Form & Clean Source Files",
+          "2 Revisions"
+        ]
+      },
+      "standard": {
+        "name": "Growth Multi-Page Website",
+        "price": 280,
+        "deliveryDays": 14,
+        "deliveryLabel": "10–14 Days",
+        "expressFee": 75,
+        "expressDays": 7,
+        "desc": "Multi-page custom business website (up to 6 pages) with interactive UI components, on-page SEO metadata, and performance optimization.",
+        "features": [
+          "Up to 6 Custom Responsive Pages",
+          "Interactive UI Sections & Smooth Navigation",
+          "On-Page SEO Meta & OpenGraph Tags",
+          "Fast Asset Loading Optimization",
+          "Cross-Browser & Mobile QA Testing",
+          "4 Revisions"
+        ]
+      },
+      "premium": {
+        "name": "Full Brand Web Platform",
+        "price": 450,
+        "deliveryDays": 21,
+        "deliveryLabel": "14–21 Days",
+        "expressFee": 110,
+        "expressDays": 10,
+        "desc": "Complete international brand website (up to 10+ pages) with technical SEO, Schema markup, analytics setup, and deployment handover.",
+        "features": [
+          "Up to 10+ Custom Responsive Pages",
+          "Custom Frontend Architecture & Dark/Light Mode",
+          "Technical SEO, Sitemap & Schema JSON-LD",
+          "Analytics & Lead-Capture Form Integration",
+          "Hosting / Vercel Deployment Handover",
+          "Unlimited Revisions"
+        ]
+      }
+    },
+    "addons": [
+      {
+        "id": "ad-web-cb-1",
+        "name": "Additional Custom Responsive Page",
+        "price": 35
+      },
+      {
+        "id": "ad-web-cb-2",
+        "name": "Technical SEO Meta, Sitemap & Schema Setup",
+        "price": 40
+      },
+      {
+        "id": "ad-web-cb-3",
+        "name": "Custom Domain & Hosting Deployment Setup",
+        "price": 30
+      }
+    ]
+  },
+  {
+    "id": "srv-web-small-business",
+    "name": "Small Business & Responsive Website Design",
+    "slug": "small-business-responsive-website-design",
+    "category": "web-development",
+    "categoryName": "Website Design",
+    "badge": "RESPONSIVE",
+    "gigTitle": "Modern business website design and responsive website design optimized for mobile phones, tablets, and desktop screens.",
+    "coverImage": "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=1000&q=80",
+    "rating": "5.0",
+    "reviewsCount": 52,
+    "ordersInQueue": 4,
+    "metaTitle": "Small Business & Responsive Website Design | Ruddranil.io",
+    "metaDescription": "Modern small business website design optimized for mobile phones, tablets, and desktop screens with clear visual hierarchy and accessible navigation.",
+    "tags": [
+      "Small Business Website",
+      "Responsive Website Design",
+      "Mobile-First Design",
+      "Business Web UI",
+      "Modern Typography",
+      "Accessible Navigation"
+    ],
+    "description": "Modern business website design and responsive website design optimized for mobile phones, tablets, and desktop screens.",
+    "aboutNotes": [
+      "Modern business website design and responsive website design optimized for mobile phones, tablets, and desktop screens.",
+      "Designed for small businesses and growing brands needing clear visual hierarchy, accessible navigation, and consistent presentation across devices."
+    ],
+    "keyDeliverables": [
+      "Responsive small business website design",
+      "Optimized layouts for mobile, tablet, and desktop viewports",
+      "Accessible navigation and clean typography hierarchy",
+      "Search-friendly page markup and organized assets"
+    ],
+    "whyChoose": [
+      "Direct communication with Ruddranil Roy from kickoff to handover",
+      "Responsive layouts built for international small business audiences",
+      "Live milestone tracking through the Ruddranil.io customer portal"
+    ],
+    "workProcess": [
+      {
+        "step": "01",
+        "title": "Business & Audience Brief",
+        "desc": "Clarifying your services, brand tone, and primary calls to action for visitors."
+      },
+      {
+        "step": "02",
+        "title": "Visual Hierarchy & Section Flow",
+        "desc": "Organizing typography, spacing, and navigation for clear readability on every screen."
+      },
+      {
+        "step": "03",
+        "title": "Responsive Build",
+        "desc": "Implementing clean HTML, CSS, and JavaScript tailored for mobile, tablet, and desktop."
+      },
+      {
+        "step": "04",
+        "title": "Review & Final Delivery",
+        "desc": "Verifying usability and links across viewports and delivering ready-to-publish files."
+      }
+    ],
+    "tools": [
+      "HTML5",
+      "CSS3",
+      "JavaScript",
+      "Responsive Design"
+    ],
+    "faqs": [
+      {
+        "q": "Is this suitable for a local or international small business?",
+        "a": "Yes. The layout is designed for clarity, fast loading, and clear contact or inquiry paths for small businesses worldwide."
+      },
+      {
+        "q": "Will the design look consistent on phones and desktops?",
+        "a": "Yes. Responsive breakpoints ensure clean alignment, readable typography, and accessible menus on all screen sizes."
+      },
+      {
+        "q": "Are revisions included before final handover?",
+        "a": "Yes. Every package includes dedicated revision rounds so layout details and copy adjustments are finalized cleanly."
+      }
+    ],
+    "packages": {
+      "basic": {
+        "name": "Small Business Starter",
+        "price": 100,
+        "deliveryDays": 7,
+        "deliveryLabel": "5–7 Days",
+        "expressFee": 30,
+        "expressDays": 3,
+        "desc": "Modern small business website design (up to 3 pages) optimized for mobile phones, tablets, and desktop screens.",
+        "features": [
+          "Up to 3 Responsive Business Pages",
+          "Mobile, Tablet & Desktop Responsiveness",
+          "Clean Navigation & Visual Hierarchy",
+          "Search-Friendly Semantic Markup",
+          "2 Revisions"
+        ]
+      },
+      "standard": {
+        "name": "Complete Business Presence",
+        "price": 190,
+        "deliveryDays": 10,
+        "deliveryLabel": "7–10 Days",
+        "expressFee": 55,
+        "expressDays": 5,
+        "desc": "Complete small business website (up to 5 pages) with services showcase, contact inquiry form, social links, and on-page SEO tags.",
+        "features": [
+          "Up to 5 Responsive Business Pages",
+          "Services & Portfolio Showcase Sections",
+          "Contact Inquiry Form & Social Integration",
+          "On-Page SEO & OpenGraph Metadata",
+          "Speed & Mobile Usability Optimization",
+          "4 Revisions"
+        ]
+      },
+      "premium": {
+        "name": "Pro Growth Business Suite",
+        "price": 320,
+        "deliveryDays": 14,
+        "deliveryLabel": "10–14 Days",
+        "expressFee": 85,
+        "expressDays": 7,
+        "desc": "Full-featured responsive business website (up to 8 pages) with custom brand styling, FAQ & testimonials, SEO schema, and launch handover.",
+        "features": [
+          "Up to 8 Responsive Business Pages",
+          "Custom Brand Visual System & Animations",
+          "Testimonials, FAQ & Lead-Capture Sections",
+          "Structured SEO & Schema Markup",
+          "Live Deployment Support & Handover",
+          "Unlimited Revisions"
+        ]
+      }
+    },
+    "addons": [
+      {
+        "id": "ad-web-sb-1",
+        "name": "Additional Responsive Business Page",
+        "price": 25
+      },
+      {
+        "id": "ad-web-sb-2",
+        "name": "Contact Form & WhatsApp Inquiry Integration",
+        "price": 20
+      },
+      {
+        "id": "ad-web-sb-3",
+        "name": "On-Page SEO & OpenGraph Social Card Setup",
+        "price": 30
+      }
+    ]
+  },
+  {
+    "id": "srv-web-landing-page",
+    "name": "Landing Page Design Services",
+    "slug": "landing-page-design-services",
+    "category": "web-development",
+    "categoryName": "Landing Pages",
+    "badge": "FAST LAUNCH",
+    "gigTitle": "Focused product launches, lead-capture pages, and campaign landing page design services built for clarity and speed.",
+    "coverImage": "https://images.unsplash.com/photo-1522542550221-31fd19575a2d?auto=format&fit=crop&w=1000&q=80",
+    "rating": "5.0",
+    "reviewsCount": 61,
+    "ordersInQueue": 4,
+    "metaTitle": "Landing Page Design Services | Ruddranil.io",
+    "metaDescription": "Conversion-focused landing page design for product launches, lead-capture campaigns, and paid traffic built for clarity, speed, and mobile responsiveness.",
+    "tags": [
+      "Landing Page Design",
+      "Lead Capture Page",
+      "Product Launch Page",
+      "Campaign Landing Page",
+      "Fast Loading UI",
+      "Conversion Layout"
+    ],
+    "description": "Focused product launches, lead-capture pages, and campaign landing page design services built for clarity and speed.",
+    "aboutNotes": [
+      "Focused product launches, lead-capture pages, and campaign landing page design services built for clarity and speed.",
+      "Structured section flow with clear calls to action, lightweight assets, and responsive mobile-first layout."
+    ],
+    "keyDeliverables": [
+      "Focused single landing page design and build",
+      "Clear section hierarchy and call-to-action layout",
+      "Fast-loading responsive HTML and CSS implementation",
+      "Mobile and desktop viewport compatibility"
+    ],
+    "whyChoose": [
+      "Direct communication with Ruddranil Roy from kickoff to handover",
+      "Lightweight, clean structure suited for launches and campaigns",
+      "Live milestone tracking through the Ruddranil.io customer portal"
+    ],
+    "workProcess": [
+      {
+        "step": "01",
+        "title": "Offer & CTA Alignment",
+        "desc": "Defining the single conversion goal, headline structure, and target audience message."
+      },
+      {
+        "step": "02",
+        "title": "Section Flow & Wireframe",
+        "desc": "Arranging hero, value points, proof, and call-to-action sections for clear scanning."
+      },
+      {
+        "step": "03",
+        "title": "Lightweight Frontend Build",
+        "desc": "Coding a fast, responsive landing page with clean HTML, CSS, and interactive states."
+      },
+      {
+        "step": "04",
+        "title": "Speed Check & Handover",
+        "desc": "Checking mobile responsiveness and delivering organized files ready for launch."
+      }
+    ],
+    "tools": [
+      "HTML5",
+      "CSS3",
+      "JavaScript",
+      "Responsive Design"
+    ],
+    "faqs": [
+      {
+        "q": "Can this landing page be used for ad campaigns or product launches?",
+        "a": "Yes. The page is structured with a clear hero message, focused call-to-action sections, and fast loading suited for campaigns."
+      },
+      {
+        "q": "How quickly is a landing page delivered?",
+        "a": "Standard delivery for the Basic package is 2–4 Days (or 2 Days with Express Delivery) from receiving your content and brief."
+      },
+      {
+        "q": "Will the landing page be responsive on mobile devices?",
+        "a": "Yes. All sections, buttons, and forms are tested for clean mobile and desktop usability."
+      }
+    ],
+    "packages": {
+      "basic": {
+        "name": "Single Focused Landing Page",
+        "price": 50,
+        "deliveryDays": 4,
+        "deliveryLabel": "2–4 Days",
+        "expressFee": 20,
+        "expressDays": 2,
+        "desc": "Focused landing page design (up to 4 sections) built for clarity, speed, and responsive cross-device viewing.",
+        "features": [
+          "Single Responsive Landing Page (Up to 4 Sections)",
+          "Clear Call-to-Action Layout",
+          "Fast Asset Loading Structure",
+          "Mobile & Desktop Compatibility",
+          "2 Revisions"
+        ]
+      },
+      "standard": {
+        "name": "Conversion Campaign Landing Page",
+        "price": 95,
+        "deliveryDays": 6,
+        "deliveryLabel": "4–6 Days",
+        "expressFee": 35,
+        "expressDays": 3,
+        "desc": "Full conversion landing page (up to 7 sections) with hero, value pillars, social proof, FAQ, lead-capture form, and on-page SEO meta.",
+        "features": [
+          "Full Long-Form Landing Page (Up to 7 Sections)",
+          "Lead-Capture Form & Interactive FAQ",
+          "Mobile CTA & Sticky Action Optimization",
+          "On-Page SEO Meta & Social Preview Tags",
+          "Lightweight Micro-Animations",
+          "4 Revisions"
+        ]
+      },
+      "premium": {
+        "name": "Complete Funnel & A/B Variant Pack",
+        "price": 170,
+        "deliveryDays": 9,
+        "deliveryLabel": "6–9 Days",
+        "expressFee": 55,
+        "expressDays": 4,
+        "desc": "Complete launch funnel: conversion landing page + Thank-You confirmation page + 1 A/B hero variant + analytics/pixel setup.",
+        "features": [
+          "Full Conversion Landing Page (Unlimited Sections)",
+          "Matching Thank-You / Confirmation Page",
+          "1 A/B Testing Hero Section Variant",
+          "Analytics & Ad Pixel Event Integration",
+          "Speed Tuning & Deployment Handover",
+          "Unlimited Revisions"
+        ]
+      }
+    },
+    "addons": [
+      {
+        "id": "ad-web-lp-1",
+        "name": "Matching Thank-You / Lead Confirmation Page",
+        "price": 25
+      },
+      {
+        "id": "ad-web-lp-2",
+        "name": "Tracking Pixel & Analytics Event Integration",
+        "price": 20
+      },
+      {
+        "id": "ad-web-lp-3",
+        "name": "A/B Testing Hero Section Variant",
+        "price": 30
+      }
+    ]
+  },
+  {
+    "id": "srv-web-redesign",
+    "name": "Website Redesign & Performance Upgrade",
+    "slug": "website-redesign-performance-upgrade",
+    "category": "web-development",
+    "categoryName": "Website Redesign",
+    "badge": "PERFORMANCE",
+    "gigTitle": "Structured website redesign services to modernize outdated layouts, improve mobile usability, and strengthen page hierarchy.",
+    "coverImage": "https://images.unsplash.com/photo-1517292987719-0369a794ec0f?auto=format&fit=crop&w=1000&q=80",
+    "rating": "5.0",
+    "reviewsCount": 39,
+    "ordersInQueue": 3,
+    "metaTitle": "Website Redesign & Performance Upgrade | Ruddranil.io",
+    "metaDescription": "Structured website redesign and frontend performance upgrade to modernize outdated layouts, improve mobile usability, and strengthen page hierarchy.",
+    "tags": [
+      "Website Redesign",
+      "Performance Upgrade",
+      "UI Modernization",
+      "Mobile Usability",
+      "Frontend Cleanup",
+      "Page Speed Optimization"
+    ],
+    "description": "Structured website redesign services to modernize outdated layouts, improve mobile usability, and strengthen page hierarchy.",
+    "aboutNotes": [
+      "Structured website redesign services to modernize outdated layouts, improve mobile usability, and strengthen page hierarchy.",
+      "Focused on refreshing existing websites with cleaner semantic structure, responsive spacing, and smoother asset loading."
+    ],
+    "keyDeliverables": [
+      "Modernized website layout and visual hierarchy",
+      "Improved mobile and tablet usability",
+      "Frontend cleanup for cleaner asset loading",
+      "Updated semantic HTML and CSS structure"
+    ],
+    "whyChoose": [
+      "Direct communication with Ruddranil Roy from kickoff to handover",
+      "Careful modernization while preserving your brand direction",
+      "Live milestone tracking through the Ruddranil.io customer portal"
+    ],
+    "workProcess": [
+      {
+        "step": "01",
+        "title": "Current Site Review",
+        "desc": "Auditing existing layout issues, mobile breakpoints, visual clutter, and slow assets."
+      },
+      {
+        "step": "02",
+        "title": "Modernized UI Restructure",
+        "desc": "Refining typography, spacing, section hierarchy, and navigation while preserving brand identity."
+      },
+      {
+        "step": "03",
+        "title": "Frontend Cleanup & Build",
+        "desc": "Rebuilding outdated markup with cleaner semantic HTML, modern CSS, and leaner assets."
+      },
+      {
+        "step": "04",
+        "title": "Usability Check & Handover",
+        "desc": "Verifying responsive behavior across devices and delivering updated website files."
+      }
+    ],
+    "tools": [
+      "HTML5",
+      "CSS3",
+      "JavaScript",
+      "Responsive Design"
+    ],
+    "faqs": [
+      {
+        "q": "Will my existing brand identity and content be preserved?",
+        "a": "Yes. The redesign modernizes layout clarity, mobile usability, and frontend structure while keeping your brand direction intact."
+      },
+      {
+        "q": "What improvements are included in the redesign packages?",
+        "a": "Updated layout hierarchy, improved mobile and tablet responsiveness, cleaner semantic HTML/CSS, and frontend performance cleanup."
+      },
+      {
+        "q": "How long does the website redesign take?",
+        "a": "The Basic package is delivered within 4–6 Days, Standard in 7–10 Days, and Premium in 10–14 Days, with optional Express Delivery on every tier."
+      }
+    ],
+    "packages": {
+      "basic": {
+        "name": "Homepage & Core UI Refresh",
+        "price": 80,
+        "deliveryDays": 6,
+        "deliveryLabel": "4–6 Days",
+        "expressFee": 25,
+        "expressDays": 3,
+        "desc": "Website redesign for your homepage or 1–2 core pages focused on modernizing layouts, improving mobile usability, and strengthening page hierarchy.",
+        "features": [
+          "Homepage or Up to 2 Pages Redesigned",
+          "Modernized Layout & Typography Hierarchy",
+          "Improved Mobile & Tablet Usability",
+          "Frontend Performance Cleanup",
+          "Clean Semantic HTML & CSS",
+          "2 Revisions"
+        ]
+      },
+      "standard": {
+        "name": "Multi-Page Redesign & Speed Boost",
+        "price": 160,
+        "deliveryDays": 10,
+        "deliveryLabel": "7–10 Days",
+        "expressFee": 50,
+        "expressDays": 5,
+        "desc": "Full visual & responsive redesign of up to 5 pages with asset optimization, refreshed navigation, and preserved SEO URLs/metadata.",
+        "features": [
+          "Up to 5 Pages Fully Redesigned",
+          "Mobile & Tablet UX Overhaul",
+          "Image, CSS & JS Loading Optimization",
+          "Refreshed Header, Footer & Navigation",
+          "On-Page SEO Metadata Preservation",
+          "4 Revisions"
+        ]
+      },
+      "premium": {
+        "name": "Complete Site Modernization & Audit",
+        "price": 290,
+        "deliveryDays": 14,
+        "deliveryLabel": "10–14 Days",
+        "expressFee": 80,
+        "expressDays": 7,
+        "desc": "Complete website overhaul (up to 10 pages) with Core Web Vitals speed pass, accessibility improvements, Schema/meta refresh, and launch handover.",
+        "features": [
+          "Up to 10 Pages Completely Modernized",
+          "Core Web Vitals & Speed Optimization",
+          "Accessibility & Heading Hierarchy Audit",
+          "Technical SEO & Schema Markup Refresh",
+          "Deployment Handover & 14-Day Support",
+          "Unlimited Revisions"
+        ]
+      }
+    },
+    "addons": [
+      {
+        "id": "ad-web-rd-1",
+        "name": "Additional Page Redesign",
+        "price": 25
+      },
+      {
+        "id": "ad-web-rd-2",
+        "name": "Image Compression & Speed Optimization Pass",
+        "price": 35
+      },
+      {
+        "id": "ad-web-rd-3",
+        "name": "Dark / Light Theme Toggle Implementation",
+        "price": 30
       }
     ]
   }

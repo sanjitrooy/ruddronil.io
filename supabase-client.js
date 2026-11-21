@@ -3397,10 +3397,55 @@ async function fetchServicesFromCloud() {
 
         cloudServices = sRows.map(s => {
           const matchingPackages = (pRows || []).filter(p => p.service_id === s.id);
-          const basic = matchingPackages.find(p => p.tier === 'basic') || {};
-          const std = matchingPackages.find(p => p.tier === 'standard') || {};
-          const prem = matchingPackages.find(p => p.tier === 'premium') || {};
+          const basicRow = matchingPackages.find(p => p.tier === 'basic');
+          const stdRow = matchingPackages.find(p => p.tier === 'standard');
+          const premRow = matchingPackages.find(p => p.tier === 'premium');
           const meta = (s.metadata && typeof s.metadata === 'object') ? s.metadata : {};
+
+          const basicPkg = {
+            name: basicRow?.name || 'Starter Pack',
+            desc: basicRow?.description || '',
+            price: Number(basicRow?.price) || 30,
+            deliveryDays: Number(basicRow?.delivery_days) || 3,
+            features: Array.isArray(basicRow?.features) ? basicRow.features : []
+          };
+          if (meta.basicDeliveryLabel) {
+            basicPkg.deliveryLabel = meta.basicDeliveryLabel;
+          }
+          if (Number(basicRow?.express_fee) > 0) {
+            basicPkg.expressFee = Number(basicRow.express_fee);
+            basicPkg.expressDays = Number(basicRow.express_delivery_days) || 1;
+          }
+
+          const mappedPackages = { basic: basicPkg };
+          if (stdRow) {
+            mappedPackages.standard = {
+              name: stdRow.name || 'Standard Growth',
+              desc: stdRow.description || '',
+              price: Number(stdRow.price) || 60,
+              deliveryDays: Number(stdRow.delivery_days) || 5,
+              ...(meta.standardDeliveryLabel ? { deliveryLabel: meta.standardDeliveryLabel } : {}),
+              ...(Number(stdRow.express_fee) > 0 ? {
+                expressFee: Number(stdRow.express_fee),
+                expressDays: Number(stdRow.express_delivery_days) || 2
+              } : {}),
+              features: Array.isArray(stdRow.features) ? stdRow.features : []
+            };
+          }
+          if (premRow) {
+            mappedPackages.premium = {
+              name: premRow.name || 'VIP Scale',
+              desc: premRow.description || '',
+              price: Number(premRow.price) || 120,
+              deliveryDays: Number(premRow.delivery_days) || 7,
+              ...(meta.premiumDeliveryLabel ? { deliveryLabel: meta.premiumDeliveryLabel } : {}),
+              ...(Number(premRow.express_fee) > 0 ? {
+                expressFee: Number(premRow.express_fee),
+                expressDays: Number(premRow.express_delivery_days) || 3
+              } : {}),
+              features: Array.isArray(premRow.features) ? premRow.features : []
+            };
+          }
 
           return {
             ...meta,
@@ -3412,35 +3457,7 @@ async function fetchServicesFromCloud() {
             gigTitle: s.gig_title || meta.gigTitle || s.description || '',
             description: s.description,
             coverImage: s.image_url,
-            packages: {
-              basic: {
-                name: basic.name || 'Starter Pack',
-                desc: basic.description || '',
-                price: Number(basic.price) || 30,
-                deliveryDays: Number(basic.delivery_days) || 3,
-                expressFee: Number(basic.express_fee) || 15,
-                expressDays: Number(basic.express_delivery_days) || 1,
-                features: Array.isArray(basic.features) ? basic.features : []
-              },
-              standard: {
-                name: std.name || 'Standard Growth',
-                desc: std.description || '',
-                price: Number(std.price) || 60,
-                deliveryDays: Number(std.delivery_days) || 5,
-                expressFee: Number(std.express_fee) || 25,
-                expressDays: Number(std.express_delivery_days) || 2,
-                features: Array.isArray(std.features) ? std.features : []
-              },
-              premium: {
-                name: prem.name || 'VIP Scale',
-                desc: prem.description || '',
-                price: Number(prem.price) || 120,
-                deliveryDays: Number(prem.delivery_days) || 7,
-                expressFee: Number(prem.express_fee) || 40,
-                expressDays: Number(prem.express_delivery_days) || 3,
-                features: Array.isArray(prem.features) ? prem.features : []
-              }
-            }
+            packages: mappedPackages
           };
         });
       }
@@ -3465,10 +3482,58 @@ async function fetchServicesFromCloud() {
   }
 
   if (cloudServices && cloudServices.length > 0) {
-    safeSetLocalJson('ruddranil_services', cloudServices);
-    window.dispatchEvent(new CustomEvent('ruddranil_services_updated', { detail: cloudServices }));
-    window.dispatchEvent(new CustomEvent('ruddranil_packages_updated', { detail: cloudServices }));
-    return cloudServices;
+    // Merge with built-in DEFAULT_SERVICES so newly shipped built-in services (e.g., Web Development)
+    // are never dropped if the cloud table has fewer rows, while cloud/admin edits always win.
+    const defaults = Array.isArray(window.DEFAULT_SERVICES) ? window.DEFAULT_SERVICES : [];
+    const mergedServices = defaults.length > 0
+      ? [
+          ...defaults.map(def => {
+            const match = cloudServices.find(c =>
+              c && (
+                c.id === def.id ||
+                (c.slug && def.slug && c.slug.toLowerCase() === def.slug.toLowerCase()) ||
+                (c.name && def.name && c.name.toLowerCase() === def.name.toLowerCase())
+              )
+            );
+            if (!match) return def;
+            const mergedPkg = match.packages || def.packages;
+            ['basic', 'standard', 'premium'].forEach(t => {
+              if (mergedPkg?.[t] && !mergedPkg[t].deliveryLabel && def.packages?.[t]?.deliveryLabel) {
+                mergedPkg[t].deliveryLabel = def.packages[t].deliveryLabel;
+              }
+            });
+            return {
+              ...def,
+              ...match,
+              packages: mergedPkg,
+              gigTitle: match.gigTitle || def.gigTitle,
+              description: match.description || def.description,
+              coverImage: match.coverImage || def.coverImage,
+              metaTitle: match.metaTitle || def.metaTitle,
+              metaDescription: match.metaDescription || def.metaDescription,
+              tags: (Array.isArray(match.tags) && match.tags.length > 0) ? match.tags : def.tags,
+              aboutNotes: (Array.isArray(match.aboutNotes) && match.aboutNotes.length > 0) ? match.aboutNotes : def.aboutNotes,
+              keyDeliverables: (Array.isArray(match.keyDeliverables) && match.keyDeliverables.length > 0) ? match.keyDeliverables : def.keyDeliverables,
+              whyChoose: (Array.isArray(match.whyChoose) && match.whyChoose.length > 0) ? match.whyChoose : def.whyChoose,
+              workProcess: (Array.isArray(match.workProcess) && match.workProcess.length > 0) ? match.workProcess : def.workProcess,
+              tools: (Array.isArray(match.tools) && match.tools.length > 0) ? match.tools : def.tools,
+              faqs: (Array.isArray(match.faqs) && match.faqs.length > 0) ? match.faqs : def.faqs,
+              reviews: (Array.isArray(match.reviews) && match.reviews.length > 0) ? match.reviews : def.reviews,
+              addons: (Array.isArray(match.addons) && match.addons.length > 0) ? match.addons : def.addons
+            };
+          }),
+          ...cloudServices.filter(c => c && !defaults.some(def =>
+            c.id === def.id ||
+            (c.slug && def.slug && c.slug.toLowerCase() === def.slug.toLowerCase()) ||
+            (c.name && def.name && c.name.toLowerCase() === def.name.toLowerCase())
+          ))
+        ]
+      : cloudServices;
+
+    safeSetLocalJson('ruddranil_services', mergedServices);
+    window.dispatchEvent(new CustomEvent('ruddranil_services_updated', { detail: mergedServices }));
+    window.dispatchEvent(new CustomEvent('ruddranil_packages_updated', { detail: mergedServices }));
+    return mergedServices;
   }
 
   const local = JSON.parse(localStorage.getItem('ruddranil_services') || '[]');
@@ -3526,7 +3591,13 @@ async function saveServiceToCloud(serviceData) {
         reviews: Array.isArray(serviceData.reviews) ? serviceData.reviews : [],
         rating: serviceData.rating || 5.0,
         reviewsCount: serviceData.reviewsCount || 0,
-        ordersInQueue: serviceData.ordersInQueue || 0
+        ordersInQueue: serviceData.ordersInQueue || 0,
+        ...(serviceData.metaTitle ? { metaTitle: serviceData.metaTitle } : {}),
+        ...(serviceData.metaDescription ? { metaDescription: serviceData.metaDescription } : {}),
+        ...(Array.isArray(serviceData.tags) && serviceData.tags.length > 0 ? { tags: serviceData.tags } : {}),
+        ...(serviceData.packages?.basic?.deliveryLabel ? { basicDeliveryLabel: serviceData.packages.basic.deliveryLabel } : {}),
+        ...(serviceData.packages?.standard?.deliveryLabel ? { standardDeliveryLabel: serviceData.packages.standard.deliveryLabel } : {}),
+        ...(serviceData.packages?.premium?.deliveryLabel ? { premiumDeliveryLabel: serviceData.packages.premium.deliveryLabel } : {})
       };
 
       const sPayload = {
@@ -3562,8 +3633,8 @@ async function saveServiceToCloud(serviceData) {
       if (!sErr && sData && sData[0]) {
         const assignedServiceId = sData[0].id;
         const b = serviceData.packages?.basic || {};
-        const std = serviceData.packages?.standard || {};
-        const prem = serviceData.packages?.premium || {};
+        const std = serviceData.packages?.standard;
+        const prem = serviceData.packages?.premium;
 
         const pkgRows = [
           {
@@ -3573,36 +3644,42 @@ async function saveServiceToCloud(serviceData) {
             description: b.desc || `${serviceData.name} Basic Tier`,
             price: Number(b.price) || 30,
             delivery_days: Number(b.deliveryDays) || 3,
-            express_fee: Number(b.expressFee) || 15,
-            express_delivery_days: Number(b.expressDays) || 1,
+            express_fee: typeof b.expressFee === 'number' ? b.expressFee : 0,
+            express_delivery_days: typeof b.expressDays === 'number' ? b.expressDays : 1,
             features: b.features || [],
             is_active: true
-          },
-          {
+          }
+        ];
+
+        if (std && Number(std.price) > 0) {
+          pkgRows.push({
             service_id: assignedServiceId,
             tier: 'standard',
             name: std.name || 'Standard Growth',
             description: std.desc || `${serviceData.name} Standard Tier`,
-            price: Number(std.price) || 60,
+            price: Number(std.price),
             delivery_days: Number(std.deliveryDays) || 5,
-            express_fee: Number(std.expressFee) || 25,
-            express_delivery_days: Number(std.expressDays) || 2,
+            express_fee: typeof std.expressFee === 'number' ? std.expressFee : 0,
+            express_delivery_days: typeof std.expressDays === 'number' ? std.expressDays : 2,
             features: std.features || [],
             is_active: true
-          },
-          {
+          });
+        }
+
+        if (prem && Number(prem.price) > 0) {
+          pkgRows.push({
             service_id: assignedServiceId,
             tier: 'premium',
             name: prem.name || 'VIP Scale',
             description: prem.desc || `${serviceData.name} Premium Tier`,
-            price: Number(prem.price) || 120,
+            price: Number(prem.price),
             delivery_days: Number(prem.deliveryDays) || 7,
-            express_fee: Number(prem.expressFee) || 40,
-            express_delivery_days: Number(prem.expressDays) || 3,
+            express_fee: typeof prem.expressFee === 'number' ? prem.expressFee : 0,
+            express_delivery_days: typeof prem.expressDays === 'number' ? prem.expressDays : 3,
             features: prem.features || [],
             is_active: true
-          }
-        ];
+          });
+        }
 
         await sbClient.from('packages').upsert(pkgRows, { onConflict: 'service_id,tier' });
       }
