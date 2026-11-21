@@ -11,7 +11,8 @@
     { "source": "/customer-dashboard", "destination": "/customer-dashboard.html" },
     { "source": "/work-tracking", "destination": "/work-tracking.html" },
     { "source": "/portfolio", "destination": "/portfolio.html" },
-    { "source": "/reviews", "destination": "/reviews.html" }
+    { "source": "/reviews", "destination": "/reviews.html" },
+    { "source": "/services", "destination": "/services.html" }
   ],
   "headers": [
     {

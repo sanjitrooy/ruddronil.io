@@ -11,9 +11,10 @@ const HOST = 'ruddranil-io.vercel.app';
 const API_KEY = 'fa8bed3033164f2ba7f102767042724d';
 const KEY_LOCATION = `https://${HOST}/${API_KEY}.txt`;
 
-// Strictly ONLY the 3 canonical public indexable URLs (never private/noindex routes)
+// Strictly ONLY the 4 canonical public indexable URLs (never private/noindex routes)
 const URL_LIST = Object.freeze([
   'https://ruddranil-io.vercel.app/',
+  'https://ruddranil-io.vercel.app/services',
   'https://ruddranil-io.vercel.app/portfolio',
   'https://ruddranil-io.vercel.app/reviews',
 ]);

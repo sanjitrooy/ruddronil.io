@@ -25,6 +25,7 @@ export default defineConfig(() => {
           workTracking: path.resolve(__dirname, 'work-tracking.html'),
           portfolio: path.resolve(__dirname, 'portfolio.html'),
           reviews: path.resolve(__dirname, 'reviews.html'),
+          services: path.resolve(__dirname, 'services.html'),
         },
       },
     },

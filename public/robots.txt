@@ -3,6 +3,7 @@
 
 User-agent: *
 Allow: /
+Allow: /services
 Allow: /portfolio
 Allow: /reviews
 Allow: /assets/

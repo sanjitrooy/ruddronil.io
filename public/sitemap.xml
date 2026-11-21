@@ -16,6 +16,16 @@
     </image:image>
   </url>
   <url>
+    <loc>https://ruddranil-io.vercel.app/services</loc>
+    <lastmod>2026-11-21</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.95</priority>
+    <image:image>
+      <image:loc>https://ruddranil-io.vercel.app/assets/og-ruddranil-io.jpg</image:loc>
+      <image:title>Ruddranil.io Professional Digital Services — Web Development, YouTube SEO, Digital Marketing &amp; Graphic Design</image:title>
+    </image:image>
+  </url>
+  <url>
     <loc>https://ruddranil-io.vercel.app/portfolio</loc>
     <lastmod>2026-11-20</lastmod>
     <changefreq>weekly</changefreq>
